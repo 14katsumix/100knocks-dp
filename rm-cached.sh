@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e  # エラーが発生したらスクリプトを終了する
 
+# pub
 git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
 git remote -v
 \cp -f .gitignore-pub .gitignore
