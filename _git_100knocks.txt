@@ -63,7 +63,6 @@ git status
 
 git add -A
 git commit -m "commit"
-git switch main
 git push -u origin main
 
 git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
