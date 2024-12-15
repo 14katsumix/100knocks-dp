@@ -39,7 +39,13 @@ cp -f .gitignore-dev .gitignore
 
 git init
 
+git config --local user.name "14katsumix"
+git config --local user.email "14katsumix@gmail.com"
+git config --local url."github.com-14katsumix:".insteadOf "git@github.com:"
+
 git add -A
+git status
+
 git commit -m "Initial commit"
 
 git remote add origin git@github.com:14katsumix/100knocks-dp-dev.git
@@ -47,6 +53,8 @@ git remote -v
 
 git branch -M main
 git push -u origin main
+
+Web側で確認する.
 
 3. 2回目以降の push
 
