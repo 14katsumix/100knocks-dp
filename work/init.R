@@ -96,7 +96,7 @@ ct = function(..., s = "", f, fill = T, labels = NULL, num.nc = 1) {
 
 # is.not_null ------------
 # not NULL か否か (logical)
-is.not.null = function(x) { return(!is.null(x)) }
+is.not.null = function(x) { !is.null(x) }
 
 # tbl.print ------------
 # tbl_df形式で標準出力
