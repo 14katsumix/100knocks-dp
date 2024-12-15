@@ -26,13 +26,20 @@ cd /Users/kk/ds/
 
 ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
 
+#-------------------------------------------------------------------------------
 * .gitignore が効かない場合
-Gitの追跡対象から全てのファイルとディレクトリを一時的に解除する: 
 
+Gitの追跡対象から全てのファイルとディレクトリを一時的に解除する
+
+git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
+git remote -v
+\cp -f .gitignore-dev .gitignore
 git rm -r --cached .
+git status
 ./push.sh dev
 
 git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
+git remote -v
 \cp -f .gitignore-pub .gitignore
 git rm -r --cached .
 git status
