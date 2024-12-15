@@ -18,8 +18,8 @@
 .gitignore-pub
 
 pushスクリプト:
-push.sh dev
-push.sh pub
+./push.sh dev
+./push.sh pub
 
 テスト環境: 
 cd /Users/kk/ds/

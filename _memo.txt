@@ -494,5 +494,7 @@ githubで
 100knocks-dp にはローカルリポジトリの一部のファイルのみをpushして公開したいです。
 どのように git を管理すればよい？
 
+以下のローカルリポジトリをクリーンしたい.
 
+origin git@github.com:14katsumix/100knocks-dp.git
 
