@@ -2,9 +2,22 @@
 # R起動後のセットアップ
 #===============================================================================
 
+# pacman のロード ------------
+if (!require("pacman")) {
+  install.packages("pacman")
+  library("pacman")
+}
+# rstudioapi のロード ------------
+if (!require("rstudioapi")) {
+  install.packages("rstudioapi")
+  library("rstudioapi")
+}
+
 # 作業ディレクトリの設定
-# setwd("work")
-getwd() |> print() #> "your_root_path/work"
+# work_dir_path をローカル環境に合わせて書き換えてください: 
+work_dir_path = rstudioapi::getSourceEditorContext()$path |> dirname()
+work_dir_path |> setwd()
+getwd() |> print() #> "your_directory_path/work"
 cat("\n")
 
 # tibbleの標準出力向けの設定 ------------
@@ -16,14 +29,6 @@ list(
   "pillar.max_dec_width" = 13 # 10進数表記の最大許容幅
 ) |> 
   options()
-
-# pacman のロード ------------
-# (無ければインストールする)
-if (!require("pacman")) {
-  install.packages("pacman")
-  library("pacman")
-}
-cat("\n")
 
 # 全てのパッケージを一括アンロードする場合: 
 # pacman::p_unload("all")

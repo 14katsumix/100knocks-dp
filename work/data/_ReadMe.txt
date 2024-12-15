@@ -1,4 +1,4 @@
-data_setup.R の処理により, 下記リポジトリ上の 6個の .csvファイルがここにダウンロードされる. 
+data_setup.R の処理により, 下記リポジトリ上の .csvファイルなどがここにダウンロードされる. 
 
 https://github.com/The-Japan-DataScientist-Society/100knocks-preprocess/tree/master/docker/work/data
 
@@ -8,3 +8,5 @@ product.csv
 category.csv
 store.csv
 geocode.csv
+
+100knocks_ER.png
