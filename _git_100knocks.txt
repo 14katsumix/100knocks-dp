@@ -2,34 +2,38 @@
 100knocks-dp 公開向けの管理
 #===============================================================================
 
-ローカルリポジトリ: 
+* ローカルリポジトリ: 
 /Users/kk/Home/_work/Analysis/100knocks-dp-dev
 
-リモートリポジトリ: 
+* リモートリポジトリ: 
 100knocks-dp-dev: 開発用 (Private)
 100knocks-dp: 公開用 (Public)
 
-事前に上記リモートリポジトリWeb側で作成しておく.
+事前に上記リモートリポジトリ Web側で作成しておく.
 
 100knocks-dp (pub) にはローカルリポジトリの公開ファイルのみを push する。
 
-.gitignore ファイルの切り替え: 
+* .gitignore ファイルの切り替え: 
 .gitignore-dev
 .gitignore-pub
 
-pushスクリプト:
+(*) 通常、dev については VSCode GUI を利用する。
+
+* pushスクリプト:
 ./push.sh dev
 ./push.sh pub
 
-テスト環境: 
+* テスト環境: 
 cd /Users/kk/ds/
-
 ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
 
 #-------------------------------------------------------------------------------
 * リモートリポジトリの全ファイルを確認
-
+git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
+git ls-tree -r HEAD
 git ls-tree -r origin/main
+git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
+
 
 ファイルツリー見れるオススメのmacbook 対応のアプリは？
 
