@@ -18,6 +18,8 @@ elif [ "$1" == "pub" ]; then
     cp -f .gitignore-pub .gitignore
     echo "Switched to public .gitignore"
     # 
+    git add -A
+    git commit -m "commit"
     git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
     git remote -v
     git switch main

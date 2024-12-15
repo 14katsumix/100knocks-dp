@@ -33,7 +33,7 @@ cd /Users/kk/ds/
 
 cd /Users/kk/Home/_work/Analysis/100knocks-dp-dev
 
-cp -f .gitignore-dev .gitignore
+\cp -f .gitignore-dev .gitignore
 
 2. 初回の push: 
 
@@ -69,13 +69,16 @@ push.sh dev
 
 cd /Users/kk/Home/_work/Analysis/100knocks-dp-dev
 
-cp -f ./.gitignore-pub ./.gitignore
+\cp -f ./.gitignore-pub ./.gitignore
 
 git remote add origin git@github.com:14katsumix/100knocks-dp-pub.git
+git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
 git remote -v
 
 git branch -M main
 git push -u origin main
+
+\cp -f .gitignore-dev .gitignore
 
 - 必要に応じて説明文や README を追加すると、ブログ読者にとって親切。
 

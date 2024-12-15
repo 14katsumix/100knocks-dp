@@ -495,14 +495,4 @@ githubで
 どのように git を管理すればよい？
 
 
-#!/bin/bash
 
-if [ "$1" == "dev" ]; then
-    cp -f .gitignore.dev .gitignore
-    echo "Switched to development .gitignore"
-elif [ "$1" == "pub" ]; then
-    cp -f .gitignore.pub .gitignore
-    echo "Switched to public .gitignore"
-else
-    echo "Usage: $0 [dev|pub]"
-fi
