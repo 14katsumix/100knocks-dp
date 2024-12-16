@@ -25,10 +25,10 @@ elif [ "$1" == "pub" ]; then
     git switch main
     git push -u origin main
     # 
-    git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
-    git remote -v
     \cp -pf .gitignore-dev .gitignore
     echo "Switched to development .gitignore"
+    git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
+    git remote -v
     # 
 else
     echo "Usage: $0 [dev|pub]"
