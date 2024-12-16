@@ -1,0 +1,27 @@
+# .gitignore (pub)
+# ===============================================================================
+
+/*
+/**/*
+
+# !.gitignore
+
+!doc/
+!doc/_ReadMe.txt
+# !doc/.gitkeep
+
+!work/
+
+!work/init.R
+!work/functions.R
+!work/data_setup.R
+
+!work/DB/
+!work/DB/_ReadMe.txt
+# !work/DB/.gitkeep
+
+!work/data/
+!work/data/_ReadMe.txt
+# !work/data/.gitkeep
+
+# -------------------------------------------------------------------------------
