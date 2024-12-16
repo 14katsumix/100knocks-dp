@@ -3,7 +3,7 @@ set -e  # エラーが発生したらスクリプトを終了する
 
 if [ "$1" == "dev" ]; then
     # 
-    cp -pf .gitignore-dev .gitignore
+    \cp -pf .gitignore-dev .gitignore
     echo "Switched to development .gitignore"
     # 
     git add -A
@@ -15,7 +15,7 @@ if [ "$1" == "dev" ]; then
     #
 elif [ "$1" == "pub" ]; then
     # 
-    cp -pf .gitignore-pub .gitignore
+    \cp -pf .gitignore-pub .gitignore
     echo "Switched to public .gitignore"
     # 
     git add -A
@@ -27,7 +27,7 @@ elif [ "$1" == "pub" ]; then
     # 
     git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
     git remote -v
-    cp -pf .gitignore-dev .gitignore
+    \cp -pf .gitignore-dev .gitignore
     echo "Switched to development .gitignore"
     # 
 else
