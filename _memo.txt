@@ -504,7 +504,3 @@ origin git@github.com:14katsumix/100knocks-dp.git
 
 VScodeで、Gitリポジトリのファイルツリーを視覚的に確認するGit拡張機能は？
 
-Rで実行する .Rファイルがあるディレクトリを作業ディレクトリにするには？
-
-rstudioapi::getActiveDocumentContext()$path
-は VSCode などのIDEでも使える？
