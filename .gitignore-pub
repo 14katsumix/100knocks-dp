@@ -6,10 +6,6 @@
 
 # !.gitignore
 
-!doc/
-!doc/_ReadMe.txt
-# !doc/.gitkeep
-
 !work/
 
 !work/init.R
