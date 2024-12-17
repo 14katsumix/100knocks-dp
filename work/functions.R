@@ -76,7 +76,8 @@ my_tbl = function(
     con, df, 
     name = deparse(substitute(df)), 
     rm_pattern = "^df_", 
-    print_list = TRUE, 
+    print_list = FALSE, 
+    print_tbl = TRUE, 
     row_names = FALSE, overwrite = TRUE, append = FALSE
   ) {
   # name からマッチしたパターンを削除する
@@ -91,6 +92,7 @@ my_tbl = function(
   t = con %>% dplyr::tbl(name)
   # テーブルリストを表示する
   if (print_list) DBI::dbListTables(con) %>% print(); cat("\n")
+  if (print_tbl) t %>% glimpse()
   t
 }
 
