@@ -6,11 +6,11 @@ if [ "$1" == "dev" ]; then
     \cp -pf .gitignore-dev .gitignore
     echo "Switched to development .gitignore"
     # 
-    git add -A
-    git commit -m "commit"
     git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
     git remote -v
     git switch main
+    git add -A
+    git commit -m "commit"
     git push -u origin main
     #
 elif [ "$1" == "pub" ]; then
@@ -18,11 +18,11 @@ elif [ "$1" == "pub" ]; then
     \cp -pf .gitignore-pub .gitignore
     echo "Switched to public .gitignore"
     # 
-    git add -A
-    git commit -m "commit"
     git remote set-url origin git@github.com:14katsumix/100knocks-dp.git
     git remote -v
     git switch main
+    git add -A
+    git commit -m "commit"
     git push -u origin main
     # 
     \cp -pf .gitignore-dev .gitignore
