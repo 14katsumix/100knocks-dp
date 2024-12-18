@@ -32,11 +32,26 @@ tbl_receipt %>%
   # count(across(!!vars), wt = amount, name = "sum") %>% 
   inner_join(tbl_store, by = "store_cd") %>% 
   arrange(across(!!vars)) %>% 
-  my_show_query(sql_op = opts)
-
-opts = dbplyr::sql_options(
-    cte = F, qualify_all_columns = FALSE, use_star = T
-  )
+  my_show_query(F)
 
 #-------------------------------------------------------------------------------
+
+# tbl_lazy()
+d1 = df_receipt |> tbl_lazy(con = simulate_mysql(), name = "receipt")
+d2 = df_store |> tbl_lazy(con = simulate_mysql(), name = "store")
+d1 = df_receipt |> tbl_lazy(con = simulate_postgres(), name = "receipt")
+d1 = df_receipt |> tbl_lazy(con = simulate_duckdb(), name = "receipt")
+
+d1 = df_receipt |> tbl_lazy(con = simulate_mysql(), name = "receipt")
+d2 = df_store |> tbl_lazy(con = simulate_mysql(), name = "store")
+vars = c("store_cd", "product_cd")
+d1 %>% 
+  count(pick(!!vars), wt = amount, name = "sum") %>% 
+  # count(across(!!vars), wt = amount, name = "sum") %>% 
+  # inner_join(tbl_store, by = "store_cd") %>% 
+  inner_join(d2, by = "store_cd") %>% 
+  arrange(across(!!vars)) %>% 
+  remote_query()
+  # my_show_query()
+
 

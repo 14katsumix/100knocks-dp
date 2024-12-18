@@ -31,6 +31,27 @@ my_show_query = function(
   }
 }
 
+# my_sql_render ------------
+# dbplyr::sql_render のラッパー
+# デフォルトでは, バッククォート(`)を削除する. 
+my_sql_render = function(
+    query, con = NULL, 
+    cte = T, qualify_all_columns = T, use_star = T, 
+    op = sql_options(
+          cte = cte, use_star = use_star, qualify_all_columns = qualify_all_columns
+        ), 
+    subquery = FALSE, lvl = 0, 
+    pattern = "`", replacement = ""
+  ) {
+  s = query %>% dbplyr::sql_render(
+      con = con, sql_options = op, subquery = subquery, lvl = lvl
+    )
+  if (!is.null(pattern)) {
+    s %<>% gsub(pattern, replacement, .)
+  }
+  s
+}
+
 # my_select ------------
 # dbx::dbxSelect のラッパー
 my_select = function(statement, conn, convert_tibble = TRUE, params = NULL) {
@@ -76,8 +97,7 @@ my_tbl = function(
     con, df, 
     name = deparse(substitute(df)), 
     rm_pattern = "^df_", 
-    print_list = FALSE, 
-    print_tbl = TRUE, 
+    print_list = TRUE, 
     row_names = FALSE, overwrite = TRUE, append = FALSE
   ) {
   # name からマッチしたパターンを削除する
@@ -90,86 +110,11 @@ my_tbl = function(
   )
   # テーブル参照を取得する
   t = con %>% dplyr::tbl(name)
-  # テーブルリストを表示する
-  if (print_list) DBI::dbListTables(con) %>% print(); cat("\n")
-  if (print_tbl) t %>% glimpse()
+  if (print_list) {
+    # テーブルリストを表示する
+    DBI::dbListTables(con) %>% print()
+    cat("\n")
+  }
   t
 }
-
-#-------------------------------------------------------------------------------
-
-#===============================================================================
-# sc ------------
-# paste (str_c)
-sc = function(..., s = "", c = NULL) {
-  return(stringr::str_c(..., sep = s, collapse = c))
-}
-# ex)
-# sc(1.23, "aaa", "bbb", s="+") # => "1.23+aaa+bbb"
-# sc(c(1.23, "aaa", "bbb"), c=":") # => "1.23:aaa:bbb"
-# sc("AAA", 1:5, s="-") # => [1] "AAA-1" "AAA-2" "AAA-3" "AAA-4" "AAA-5"
-
-# sp ------------
-# paste (str_c), sprintf
-sp = function(..., s = "", f) {
-  if (missing(f))
-    f = sc(rep("%s", length(c(...))), s = "", c = s)
-  return(sprintf(..., fmt = f))
-}
-# ex)
-# sp(1.23) # => "1.23"
-# sp(1.23, "aaa", "bbb", s = "+") # => "1.23+aaa+bbb"
-# sp(1.23456, 8.88888, f = "X1 = %0.2f, X2 = %0.4f") # => "X1 = 1.23, X2 = 8.8889"
-
-# ct ------------
-# cat
-ct = function(..., s = "", f, fill = T, labels = NULL, num.nc = 1) {
-  cat( sp(..., s = s, f = f), fill = fill, labels = labels )
-  if (num.nc > 1) {
-    rep("\n", num.nc) %>% cat()
-  }
-}
-# ex)
-# ct(1.23, "aaa", "bbb", s="+") # => 1.23+aaa+bbb
-# ct(1.23456, 8.88888, f = "X1 = %0.2f, X2 = %0.4f") # => X1 = 1.23, X2 = 8.8889
-# ct(f = "X1 = %0.2f, X2 = %0.4f", 1.23456, 8.88888) # => X1 = 1.23, X2 = 8.8889
-# ct(1.23, "aaa", s="+", num.nc = 2)
-# ct("aaa", "bbb" , "ccc", s = ", ", fill = T, labels = "{*}") #> {*} aaa, bbb, ccc
-
-# is.not_null ------------
-# not NULL か否か (logical)
-is.not.null = function(x) { return(!is.null(x)) }
-
-# tbl.print ------------
-# tbl_df形式で標準出力
-tbl_print = function(
-  df, n = 5, n.tail = NULL, all.print = F, 
-  width = NULL, max_extra_cols = NULL, max_footer_lines = NULL, 
-  sigfig = 5, max_dec_width = 13, min_title_chars = 15, min_chars = 3
-  ) {
-  old.options = options(
-    pillar.sigfig = sigfig, pillar.max_dec_width = max_dec_width, 
-    pillar.min_title_chars = min_title_chars, pillar.min_chars = min_chars
-  )
-  on.exit(options(old.options))
-  dim(df) %>%  
-    purrr::map_chr(format, big.mark = ",") %>%  sc(c = " x ") %>%  
-    sp(f = "dim: %s") %>%  ct(f = "# %s")
-  if (all.print) {
-    n = nrow(df); n.tail = NULL
-  }
-  df %>%  head(n) %>%  tibble::as_tibble() %>% 
-    print(
-      width = width, max_extra_cols = max_extra_cols, 
-      max_footer_lines = max_footer_lines
-    )
-  if (is.not.null(n.tail))
-    df %>%  tail(n.tail) %>%  tibble::as_tibble() %>% 
-      print(
-        width = width, max_extra_cols = max_extra_cols, 
-        max_footer_lines = max_footer_lines
-      )
-  ct(num.nc = 1)
-}
-
 #-------------------------------------------------------------------------------

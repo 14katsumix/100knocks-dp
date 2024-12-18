@@ -21,18 +21,16 @@ https://14katsumix.com/
 
 # 公式編, 発展編
 # 標準編, 発展編
-# 標準編, ベース編, 基本編, ベーシック編, 練習編
+# 標準編, スタンダード編, 基本編, ベーシック編, 練習編
 # 応用編, アドバンス編, オリジナル編, 実践編, 挑戦編, チャレンジ編
 # R初心者から中級者へ：100本ノック＋αでスキルアップ
 # データサイエンス100本ノックから学ぶ実践テクニック
 
 # SQLite には Date型やDatetime型が無い.
 
-* テスト環境: 
-cd /Users/kk/ds/
-ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
-
-# /Users/kk/ds に 100knocks を clone する.
+# * テスト環境: 
+# cd /Users/kk/ds/
+# ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
 
 # sql-sqlite.R を DuckDBに対応させる -> sql-duckdb.R
 
@@ -58,6 +56,8 @@ cd /Users/kk/ds/
 
 * 書籍で使われていないメソッドなど
 
+# tbl_sqlクラス
+
 # all_of, any_of, one_of
 # vars = c("customer_name", "postal_cd")
 # across
@@ -65,6 +65,9 @@ cd /Users/kk/ds/
 # select の列名変更、一般化した順序
 # .before, .after
 # relocate
+# rename
+# rename_with(.data, .fn, .cols = everything(), ...)
+# 
 # reframe
 # group_by(across(vars))
 # {{ vars }}: 処理の共通化など
@@ -82,14 +85,33 @@ cd /Users/kk/ds/
 # slice_sample
 # dense_rank, ntile
 # dense_rank, percent_rank
+# 
+# window_frame, window_order
+# 
+# replace_na
 # pivot_longer, pivot_wider の複雑系
 # 
-# nesting()
+# intersect
+# union
+# union_all
+# setdiff
+# 
+# complete()
 # expand()
+# nesting()
 # expand.grid()
 # 
-# group_map
-# update, insert, upsert
+# fill
+# 
+# rows_insert
+# rows_append
+# rows_update
+# rows_patch
+# rows_upsert
+# (rows_delete)
+# 
+# uncount
+
 # RFM分析, # デシル分析, ABC分析
 
 # count(wt, sort) を使用する設問
@@ -102,6 +124,96 @@ cd /Users/kk/ds/
 
 
 次のコードはもっとエレガントに書けない？
+
+#-------------------------------------------------------------------------------
+* 自動生成されたSQLクエリを show_query() で確認するメリットは？
+
+`show_query()`で自動生成されたSQLクエリを確認することには、以下のようなメリットがあります：
+
+---
+
+### 1. **SQLの内容を可視化できる**
+`dplyr`で記述した操作がどのようなSQLクエリに変換されたかを確認できるため、意図した通りのクエリが生成されているかを確かめることができます。特に複雑なデータ操作を行った場合、生成されたSQLクエリを確認することで、ロジックが正しいかをチェックできます。
+
+---
+
+### 2. **デバッグが容易**
+意図しない結果が出力された場合、`show_query()`を使えばクエリの内容を確認して問題の箇所を特定しやすくなります。たとえば：
+
+- 不要なカラムが選択されている  
+- フィルタ条件が期待通りでない  
+- グループ化や結合が正しく行われていない  
+
+などのエラーや不具合に気づくことができます。
+
+---
+
+### 3. **SQLに馴染みのある人が内容をレビューしやすい**
+チーム開発やコードレビューの場面で、SQLの内容が分かるメンバーがクエリを直接確認できます。これにより、データベース側でのパフォーマンスや設計についても意見をもらいやすくなります。
+
+---
+
+### 4. **パフォーマンスの最適化に役立つ**
+SQLクエリの効率性を確認することで、データベース側での負荷を減らす工夫ができます。  
+たとえば、`show_query()`で以下を確認できます：
+
+- 不要な`SELECT *`が発生していないか  
+- 適切にインデックスが使われる形になっているか  
+- ジョインやサブクエリが非効率な形になっていないか  
+
+問題があれば、`dplyr`の記述を修正して、SQLのパフォーマンスを改善できます。
+
+---
+
+### 5. **SQLクエリの学習に活用できる**
+SQLに詳しくない場合でも、`dplyr`のコードを記述し、それがどのようなSQLに変換されるのかを`show_query()`で確認することで、SQLの構文やロジックを学ぶ機会になります。
+
+---
+
+### 6. **コードとクエリの一貫性を保証**
+`dplyr`のコードと実際にデータベースで実行されるSQLクエリが一致しているかを確認できます。これにより、`dplyr`の記述が適切であることを信頼できます。
+
+---
+
+### 7. **生成されたSQLの手動実行や再利用が可能**
+生成されたSQLを確認し、必要に応じてデータベース管理ツール（例：pgAdmin、MySQL Workbench）で直接実行できます。また、SQLをコピーして他の用途に再利用することも可能です。
+
+---
+
+### 具体例
+以下のようなコードで、SQLの中身を確認できます：
+
+```R
+library(dplyr)
+
+# データベース接続
+con <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+my_table <- tbl(con, "table_name")
+
+# dplyrでの操作
+result <- my_table %>%
+  filter(column1 > 100) %>%
+  select(column2, column3) %>%
+  arrange(desc(column3))
+
+# 自動生成されたSQLクエリを表示
+result %>% show_query()
+```
+
+**出力例**:
+```sql
+SELECT column2, column3
+FROM table_name
+WHERE column1 > 100
+ORDER BY column3 DESC
+```
+
+この出力に基づき、意図通りのクエリになっているかを確認できます。
+
+---
+
+**まとめ**:  
+`show_query()`を使うことで、クエリの意図を確認し、エラーを防ぐだけでなく、パフォーマンス改善やSQLの学習、再利用の機会を得ることができます。これにより、RとSQLを使ったデータ分析がさらに効率的かつ効果的になります。
 
 #-------------------------------------------------------------------------------
 * githubのアカウントxxxとアカウントyyy でプログラムを開発してます。

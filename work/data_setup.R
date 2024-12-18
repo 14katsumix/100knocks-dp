@@ -77,12 +77,12 @@ cat("\n")
 # データフレームのDBへの書き込みとテーブル参照の取得 ------------
 
 # テーブルが既に存在する場合は上書きする
-tbl_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-tbl_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-tbl_product = con %>% my_tbl(df = df_product, overwrite = T)
-tbl_category = con %>% my_tbl(df = df_category, overwrite = T)
-tbl_store = con %>% my_tbl(df = df_store, overwrite = T)
-tbl_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+tsql_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+tsql_customer = con %>% my_tbl(df = df_customer, overwrite = T)
+tsql_product = con %>% my_tbl(df = df_product, overwrite = T)
+tsql_category = con %>% my_tbl(df = df_category, overwrite = T)
+tsql_store = con %>% my_tbl(df = df_store, overwrite = T)
+tsql_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
 
 # DB上に作成したテーブルのリスト
 con %>% DBI::dbListTables() %>% print()

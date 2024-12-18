@@ -8,7 +8,7 @@ df_receipt %>%
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10)
 
-tbl_receipt %>% 
+tsql_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10) -> 
   query
