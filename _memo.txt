@@ -62,22 +62,30 @@ https://14katsumix.com/
 # vars = c("customer_name", "postal_cd")
 # across
 # pick
+# 
 # select の列名変更、一般化した順序
 # .before, .after
 # relocate
 # rename
 # rename_with(.data, .fn, .cols = everything(), ...)
 # 
+# mutate: .keep, .after, .before
+# 
 # reframe
-# group_by(across(vars))
+# group_by: across(vars), .add
+# 
 # {{ vars }}: 処理の共通化など
-# %in% (+ subquery)
+# %in% (+ subquery): d1 %>% filter(sql("class IN (SELECT DISTINCT(class) FROM tab2)"))
 # if_all, if_any (filter)
 # arrange : .by_group = T
 # count(wt, sort) を使用する設問
 # add_count
 # tally
-# summarise(across(starts_with("Sepal"), list(mean = mean, sd = sd)))
+# 
+# summarise: 
+# .groups
+# across(starts_with("Sepal"), list(mean = mean, sd = sd))
+# 
 # complete.cases()
 # slice_min
 # slice_max は 042 のみ
@@ -98,8 +106,10 @@ https://14katsumix.com/
 # 
 # complete()
 # expand()
-# nesting()
-# expand.grid()
+# nesting(), crossing()
+# expand_grid(), expand.grid()
+# 
+# クロス集計
 # 
 # fill
 # 

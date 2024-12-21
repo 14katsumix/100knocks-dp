@@ -63,8 +63,8 @@ dbdir %>% path_dir() %>% fs::dir_create()
 drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
 
 duckdb::dbConnect(
-  drv = drv, 
-  timezone_out = Sys.timezone() # ローカルのタイムゾーンで日時の値を表示する
+  drv = drv
+  # timezone_out = Sys.timezone() # ローカルのタイムゾーンで日時の値を表示する
 ) -> con
 
 con %>% dbGetInfo() %>% glimpse() # db.version, dbname などを表示する

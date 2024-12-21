@@ -17,7 +17,8 @@ pacman::p_load(
   rsample, recipes, themis, 
   # for DB: 
   DBI, duckdb, dbx, dbplyr, 
-  httr, xfun,  # for download
+  # for download: 
+  httr, xfun, 
   withr, vroom, jsonlite, 
   install = T, # 存在しないパッケージをインストールする
   update = F   # 古いパッケージを更新しない

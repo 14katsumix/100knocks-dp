@@ -54,17 +54,10 @@ my_sql_render = function(
 
 # my_select ------------
 # dbx::dbxSelect のラッパー
-my_select = function(statement, conn, convert_tibble = TRUE, params = NULL) {
-  d = dbx::dbxSelect(conn = conn, statement = statement, params = params)
+my_select = function(statement, con, convert_tibble = TRUE, params = NULL) {
+  d = dbx::dbxSelect(conn = con, statement = statement, params = params)
   if (convert_tibble) d %<>% tibble::as_tibble()
   d
-}
-
-# my_collect ------------
-# dplyr::collect のラッパー
-# e: FALSE の場合は x をそのまま返す
-my_collect = function(x, e = TRUE, ...) {
-  if (e) dplyr::collect(x = x, ...) else x
 }
 
 # my_with_seed ------------
@@ -97,8 +90,8 @@ my_tbl = function(
     con, df, 
     name = deparse(substitute(df)), 
     rm_pattern = "^df_", 
-    print_list = TRUE, 
-    row_names = FALSE, overwrite = TRUE, append = FALSE
+    overwrite = FALSE, append = FALSE, row_names = FALSE, 
+    field_types = NULL, temporary = FALSE
   ) {
   # name からマッチしたパターンを削除する
   if (!is.null(rm_pattern))
@@ -106,15 +99,19 @@ my_tbl = function(
   # データフレームをDBに書き込む
   DBI::dbWriteTable(
     conn = con, name = name, value = df, 
-    row_names = row_names, overwrite = overwrite, append = append
+    overwrite = overwrite, append = append, row.names = row_names, 
+    field.types = field_types, temporary = temporary
   )
+  sprintf("table name = %s\n", name) %>% cat()
   # テーブル参照を取得する
-  t = con %>% dplyr::tbl(name)
-  if (print_list) {
-    # テーブルリストを表示する
-    DBI::dbListTables(con) %>% print()
-    cat("\n")
-  }
-  t
+  con %>% dplyr::tbl(name)
 }
 #-------------------------------------------------------------------------------
+
+
+# my_collect ------------
+# dplyr::collect のラッパー
+# e: FALSE の場合は x をそのまま返す
+my_collect = function(x, e = TRUE, ...) {
+  if (e) dplyr::collect(x = x, ...) else x
+}

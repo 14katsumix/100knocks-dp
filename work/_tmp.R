@@ -54,4 +54,18 @@ d1 %>%
   remote_query()
   # my_show_query()
 
+df_receipt$sales_epoch[1:10]/(24*60*60.0)
+df_receipt %>% mutate(dt = as.POSIXct(sales_epoch, tz = "UTC")) %>% select(sales_ymd, dt)
+tsql_receipt %>% mutate(dt = as.POSIXct(sales_epoch)) %>% select(sales_ymd, dt)
+tsql_receipt %>% mutate(dt = as.POSIXlt(sales_epoch)) %>% select(sales_ymd, dt)
+df_receipt %>% mutate(dt = as_datetime(sales_epoch)) %>% select(sales_ymd, dt)
+tsql_receipt %>% mutate(dt = as_datetime(sales_epoch)) %>% select(sales_ymd, dt)
 
+tsql_receipt %>% mutate(dt = sql("to_timestamp(sales_epoch)")) %>% select(sales_ymd, dt)
+
+q = sql("
+select sales_ymd, to_timestamp(sales_epoch)
+from receipt
+"
+)
+q %>% my_select(con)
