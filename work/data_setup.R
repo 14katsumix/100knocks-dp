@@ -35,6 +35,7 @@ my_vroom = function(fname, col_types, .subdir = "data") {
     my_path_join(.subdir = .subdir) %>% 
     { print(.); flush.console(); . } %>% 
     vroom::vroom(col_types = col_types) %>% 
+    janitor::clean_names() %>% 
     glimpse() %T>% 
     { cat("\n") } ->
     d
@@ -77,23 +78,14 @@ cat("\n")
 # データフレームのDBへの書き込みとテーブル参照の取得 ------------
 
 # テーブルが既に存在する場合は上書きする
-tsql_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-tsql_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-tsql_product = con %>% my_tbl(df = df_product, overwrite = T)
-tsql_category = con %>% my_tbl(df = df_category, overwrite = T)
-tsql_store = con %>% my_tbl(df = df_store, overwrite = T)
-tsql_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
+db_product = con %>% my_tbl(df = df_product, overwrite = T)
+db_category = con %>% my_tbl(df = df_category, overwrite = T)
+db_store = con %>% my_tbl(df = df_store, overwrite = T)
+db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
 
 # DB上に作成したテーブルのリスト
 con %>% DBI::dbListTables() %>% print()
 
 #-------------------------------------------------------------------------------
-
-# DBコネクションの作成 (SQLite)
-# dbname = my_path_join("100knocks.sqlite", .subdir = "DB")
-# dbname = ":memory:" # DBを in-memory で一時的に作成する場合
-# drv = RSQLite::SQLite() # SQLiteDriverオブジェクト
-# con = DBI::dbConnect(drv = drv, dbname = dbname, synchronous = "off")
-#> synchronous = "off" にすると SQLite への書き込みがかなり速くなる模様.
-# DBコネクションを切断する場合: 
-# con %>% DBI::dbDisconnect()

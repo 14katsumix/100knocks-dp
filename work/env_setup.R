@@ -19,7 +19,7 @@ pacman::p_load(
   DBI, duckdb, dbx, dbplyr, 
   # for download: 
   httr, xfun, 
-  withr, vroom, jsonlite, 
+  withr, vroom, janitor, jsonlite, 
   install = T, # 存在しないパッケージをインストールする
   update = F   # 古いパッケージを更新しない
 )

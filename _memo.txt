@@ -68,16 +68,19 @@ https://14katsumix.com/
 # relocate
 # rename
 # rename_with(.data, .fn, .cols = everything(), ...)
+# group_cols(): group_by(grp, class) %>% select(group_cols())
+# 
+# group_by: across(vars), .add
 # 
 # mutate: .keep, .after, .before
 # 
 # reframe
-# group_by: across(vars), .add
 # 
 # {{ vars }}: 処理の共通化など
 # %in% (+ subquery): d1 %>% filter(sql("class IN (SELECT DISTINCT(class) FROM tab2)"))
 # if_all, if_any (filter)
 # arrange : .by_group = T
+# 
 # count(wt, sort) を使用する設問
 # add_count
 # tally
@@ -96,6 +99,9 @@ https://14katsumix.com/
 # 
 # window_frame, window_order
 # 
+# order_by
+# cumsum, cumall, cumany, cummean
+# 
 # replace_na
 # pivot_longer, pivot_wider の複雑系
 # 
@@ -103,6 +109,9 @@ https://14katsumix.com/
 # union
 # union_all
 # setdiff
+# symdiff
+# 
+# semi_join, anti_join
 # 
 # complete()
 # expand()
@@ -132,8 +141,136 @@ https://14katsumix.com/
 # tbl_receipt %>% 
 #   count(store_cd, product_cd, wt = amount, name = "sum")
 
+#-------------------------------------------------------------------------------
 
-次のコードはもっとエレガントに書けない？
+* 次のコードはもっとエレガントに書けない？
+
+#-------------------------------------------------------------------------------
+
+* 問題作成
+
+-- customer
+DROP TABLE IF EXISTS customer;
+CREATE TABLE customer(
+  customer_id            VARCHAR(14),
+  customer_name          VARCHAR(20),
+  gender_cd              VARCHAR(1),
+  gender                 VARCHAR(2),
+  birth_day              DATE,
+  age                    INTEGER,
+  postal_cd              VARCHAR(8),
+  address                VARCHAR(128),
+  application_store_cd   VARCHAR(6),
+  application_date       VARCHAR(8),
+  status_cd              VARCHAR(12),
+  PRIMARY KEY (customer_id)
+);
+
+-- category
+DROP TABLE IF EXISTS category;
+CREATE TABLE category(
+  category_major_cd     VARCHAR(2),
+  category_major_name   VARCHAR(32),
+  category_medium_cd    VARCHAR(4),
+  category_medium_name  VARCHAR(32),
+  category_small_cd     VARCHAR(6),
+  category_small_name   VARCHAR(32),
+  PRIMARY KEY (category_small_cd)
+);
+
+
+-- product
+DROP TABLE IF EXISTS product;
+CREATE TABLE product(
+  product_cd            VARCHAR(10),
+  category_major_cd     VARCHAR(2),
+  category_medium_cd    VARCHAR(4),
+  category_small_cd     VARCHAR(6),
+  unit_price            INTEGER,
+  unit_cost             INTEGER,
+  PRIMARY KEY (product_cd)
+);
+
+-- store
+DROP TABLE IF EXISTS store;
+CREATE TABLE store(
+  store_cd      VARCHAR(6),
+  store_name    VARCHAR(128),
+  prefecture_cd VARCHAR(2),
+  prefecture    VARCHAR(5),
+  address       VARCHAR(128),
+  address_kana  VARCHAR(128),
+  tel_no        VARCHAR(20),
+  longitude     NUMERIC,
+  latitude      NUMERIC,
+  floor_area    NUMERIC,
+  PRIMARY KEY (store_cd)
+);
+
+-- receipt
+DROP TABLE IF EXISTS receipt;
+CREATE TABLE receipt(
+  sales_ymd       INTEGER,
+  sales_epoch     INTEGER,
+  store_cd        VARCHAR(6),
+  receipt_no      SMALLINT,
+  receipt_sub_no  SMALLINT,
+  customer_id     VARCHAR(14),
+  product_cd      VARCHAR(10),
+  quantity        INTEGER,
+  amount          INTEGER,
+  PRIMARY KEY (sales_ymd, store_cd, receipt_no, receipt_sub_no)
+);
+
+-- geocode
+DROP TABLE IF EXISTS geocode;
+CREATE TABLE geocode(
+  postal_cd       VARCHAR(8),
+  prefecture      VARCHAR(4),
+  city            VARCHAR(30),
+  town            VARCHAR(30),
+  street          VARCHAR(30),
+  address         VARCHAR(30),
+  full_address    VARCHAR(80),
+  longitude       NUMERIC,
+  latitude        NUMERIC
+);
+
+上記6個のテーブルがDuckDB上にあります。
+また、以下のように、これらのテーブル参照であるtsql_receiptなどがあります。
+
+my_tbl = function(
+    con, df, 
+    name = deparse(substitute(df)), 
+    rm_pattern = "^df_", 
+    overwrite = FALSE, append = FALSE, row_names = FALSE, 
+    field_types = NULL, temporary = FALSE
+  ) {
+  # name からマッチしたパターンを削除する
+  if (!is.null(rm_pattern))
+    name %<>% stringr::str_remove(pattern = rm_pattern)
+  # データフレームをDBに書き込む
+  DBI::dbWriteTable(
+    conn = con, name = name, value = df, 
+    overwrite = overwrite, append = append, row.names = row_names, 
+    field.types = field_types, temporary = temporary
+  )
+  sprintf("table name = %s\n", name) %>% cat()
+  # テーブル参照を取得する
+  con %>% dplyr::tbl(name)
+}
+
+db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
+db_product = con %>% my_tbl(df = df_product, overwrite = T)
+db_category = con %>% my_tbl(df = df_category, overwrite = T)
+db_store = con %>% my_tbl(df = df_store, overwrite = T)
+db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+
+これら6個のテーブル参照をいくつか用いて、次の条件を満たすデータ処理向けの問題を考えてください。
+
+条件: 
+semi_join, を使用すること。
 
 #-------------------------------------------------------------------------------
 * 自動生成されたSQLクエリを show_query() で確認するメリットは？

@@ -36,24 +36,6 @@ tbl_receipt %>%
 
 #-------------------------------------------------------------------------------
 
-# tbl_lazy()
-d1 = df_receipt |> tbl_lazy(con = simulate_mysql(), name = "receipt")
-d2 = df_store |> tbl_lazy(con = simulate_mysql(), name = "store")
-d1 = df_receipt |> tbl_lazy(con = simulate_postgres(), name = "receipt")
-d1 = df_receipt |> tbl_lazy(con = simulate_duckdb(), name = "receipt")
-
-d1 = df_receipt |> tbl_lazy(con = simulate_mysql(), name = "receipt")
-d2 = df_store |> tbl_lazy(con = simulate_mysql(), name = "store")
-vars = c("store_cd", "product_cd")
-d1 %>% 
-  count(pick(!!vars), wt = amount, name = "sum") %>% 
-  # count(across(!!vars), wt = amount, name = "sum") %>% 
-  # inner_join(tbl_store, by = "store_cd") %>% 
-  inner_join(d2, by = "store_cd") %>% 
-  arrange(across(!!vars)) %>% 
-  remote_query()
-  # my_show_query()
-
 df_receipt$sales_epoch[1:10]/(24*60*60.0)
 df_receipt %>% mutate(dt = as.POSIXct(sales_epoch, tz = "UTC")) %>% select(sales_ymd, dt)
 tsql_receipt %>% mutate(dt = as.POSIXct(sales_epoch)) %>% select(sales_ymd, dt)
@@ -69,3 +51,6 @@ from receipt
 "
 )
 q %>% my_select(con)
+
+#-------------------------------------------------------------------------------
+
