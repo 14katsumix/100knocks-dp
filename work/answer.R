@@ -1,4 +1,36 @@
 #-------------------------------------------------------------------------------
+# テーブル参照の標準出力のカスタマイズ
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
+
+# カスタムメソッドを定義
+custom_db_get_info = function(dbObj, ...) {
+  ll = attr(dbObj, "driver") |> dbGetInfo()
+  s = ll$dbname
+  dbname = paste0(
+    stringr::str_sub(s, 1, 7), 
+    "...", 
+    stringr::str_sub(s, stringr::str_length(s) - 24)
+  )
+  list(
+    # dbname = ll$dbname, 
+    # dbname = stringr::str_trunc(ll$dbname, 28, "left"), 
+    dbname = dbname, 
+    db.version = ll$driver.version
+  )
+}
+
+# dbGetInfo メソッドを duckdb_connection 用にオーバーライド
+methods::setMethod("dbGetInfo", "duckdb_connection", custom_db_get_info)
+
+DBI::dbGetInfo(con)
+db_result
+# Source:   SQL [10 x 4]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
+#    sales_date customer_id    product_cd amount
+#         <int> <chr>          <chr>       <dbl>
+#  1   20181103 CS006214000001 P070305012    158
+
+#-------------------------------------------------------------------------------
 # R-003
 # レシート明細データ（df_receipt）から売上年月日（sales_ymd）、顧客ID（customer_id）、
 # 商品コード（product_cd）、売上金額（amount）の順に列を指定し、10件表示せよ。
@@ -14,8 +46,22 @@ db_receipt %>%
   db_result
 
 db_result
+# Source:   SQL [10 x 4]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/kk/ds/100knocks-dp/work/DB/100knocks.duckdb]
+   sales_date customer_id    product_cd amount
+        <int> <chr>          <chr>       <dbl>
+ 1   20181103 CS006214000001 P070305012    158
+ 2   20181118 CS008415000097 P070701017     81
+ 3   20170712 CS028414000014 P060101005    170
+ 4   20190205 ZZ000000000000 P050301001     25
+ 5   20180821 CS025415000050 P060102007     90
+ 6   20190605 CS003515000195 P050102002    138
+ 7   20181205 CS024514000042 P080101005     30
+ 8   20190922 CS040415000178 P070501004    128
+ 9   20170504 ZZ000000000000 P071302010    770
+10   20191010 CS027514000015 P071101003    680
 
-# class(query)
+# class(db_result)
 # [1] "tbl_duckdb_connection" "tbl_dbi"               "tbl_sql"              
 # [4] "tbl_lazy"              "tbl"
 
