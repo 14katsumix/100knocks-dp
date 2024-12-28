@@ -8,11 +8,11 @@ df_receipt %>%
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10)
 
-tsql_receipt %>% 
+db_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10) -> 
   query
-query %>% my_collect()
+query %>% collect()
 
 # class(query)
 # [1] "tbl_duckdb_connection" "tbl_dbi"               "tbl_sql"              
@@ -28,20 +28,6 @@ query %>% my_show_query()
 # R-029 ------------
 # レシート明細データ（receipt）に対し、店舗コード（store_cd）ごとに商品コード（product_cd）の最頻値を求めよ.
 
-df_receipt %>% 
-  count(store_cd, product_cd, wt = amount) %>% 
-  filter(n == max(n), .by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10)
-
-tbl_receipt %>% 
-  count(store_cd, product_cd, wt = amount) %>% 
-  filter(n == max(n), .by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10) %>% 
-  my_collect()
-  # my_show_query()
-
 # sample.1 ------------
 
 # データフレーム
@@ -55,49 +41,45 @@ df_receipt %>%
 # 確実にソートしたい場合はarrange()を使うべきです。
 
 # tbl
-tbl_receipt %>% 
+db_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
   arrange(store_cd) %>% 
-  head(10) %>% 
-  my_collect()
+  head(10) -> 
+  db_result
 
-# dim: 55 x 3
-# A tibble: 5 × 3
-#   store_cd product_cd     n
-#   <chr>    <chr>      <int>
-# 1 S12007   P060303001    72
-# 2 S12013   P060303001   107
-# 3 S12014   P060303001    65
-# 4 S12029   P060303001    92
-# 5 S12030   P060303001   115
-# # A tibble: 2 × 3
-#   store_cd product_cd     n
-#   <chr>    <chr>      <int>
-# 1 S14049   P060303001    55
-# 2 S14050   P060303001     9
+db_result
+# Ordered by: store_cd
+#    store_cd product_cd     n
+#    <chr>    <chr>      <dbl>
+#  1 S12007   P060303001    72
+#  2 S12013   P060303001   107
+#  3 S12014   P060303001    65
+#  4 S12029   P060303001    92
+#  5 S12030   P060303001   115
+#  6 S13001   P060303001    67
+#  7 S13002   P060303001    78
+#  8 S13003   P071401001    65
+#  9 S13004   P060303001    88
+# 10 S13005   P040503001    36
 
 # SQL
-tbl_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  filter(n == max(n), .by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10) %>% 
-  my_show_query()
+query %>% my_show_query()
 
-# WITH q01 AS (
-#   SELECT store_cd, product_cd, COUNT(*) AS n
-#   FROM receipt
-#   GROUP BY store_cd, product_cd
-# ),
-# q02 AS (
-#   SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col01
-#   FROM q01
-# )
-# SELECT store_cd, product_cd, n
-# FROM q02 q01
-# WHERE (n = col01)
-# ORDER BY store_cd
+WITH q01 AS (
+  SELECT store_cd, product_cd, COUNT(*) AS n
+  FROM receipt
+  GROUP BY store_cd, product_cd
+),
+q02 AS (
+  SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col02
+  FROM q01
+)
+SELECT store_cd, product_cd, n
+FROM q02 q01
+WHERE (n = col02)
+ORDER BY store_cd
+LIMIT 10
 
 # col01, q01, q02 は dbplyrパッケージで自動生成されるエイリアス名.
 # col01: 中間列名
