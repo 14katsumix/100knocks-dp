@@ -1,4 +1,8 @@
 #-------------------------------------------------------------------------------
+setwd("/Users/kk/ds/100knocks-dp/work")
+getwd()
+
+#-------------------------------------------------------------------------------
 # R-003
 # レシート明細データ（df_receipt）から売上年月日（sales_ymd）、顧客ID（customer_id）、
 # 商品コード（product_cd）、売上金額（amount）の順に列を指定し、10件表示せよ。
@@ -11,14 +15,15 @@ df_receipt %>%
 db_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10) -> 
-  query
-query %>% collect()
+  db_result
+
+db_result
 
 # class(query)
 # [1] "tbl_duckdb_connection" "tbl_dbi"               "tbl_sql"              
 # [4] "tbl_lazy"              "tbl"
 
-query %>% my_show_query()
+db_result %>% my_show_query()
 
 # SELECT sales_ymd AS sales_date, customer_id, product_cd, amount
 # FROM receipt
