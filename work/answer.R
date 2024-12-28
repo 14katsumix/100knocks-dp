@@ -42,18 +42,18 @@ df_receipt %>%
   head(10)
 
 # A tibble: 10 × 4
-   sales_date customer_id    product_cd amount
-        <int> <chr>          <chr>       <dbl>
- 1   20181103 CS006214000001 P070305012    158
- 2   20181118 CS008415000097 P070701017     81
- 3   20170712 CS028414000014 P060101005    170
- 4   20190205 ZZ000000000000 P050301001     25
- 5   20180821 CS025415000050 P060102007     90
- 6   20190605 CS003515000195 P050102002    138
- 7   20181205 CS024514000042 P080101005     30
- 8   20190922 CS040415000178 P070501004    128
- 9   20170504 ZZ000000000000 P071302010    770
-10   20191010 CS027514000015 P071101003    680
+#    sales_date customer_id    product_cd amount
+#         <int> <chr>          <chr>       <dbl>
+#  1   20181103 CS006214000001 P070305012    158
+#  2   20181118 CS008415000097 P070701017     81
+#  3   20170712 CS028414000014 P060101005    170
+#  4   20190205 ZZ000000000000 P050301001     25
+#  5   20180821 CS025415000050 P060102007     90
+#  6   20190605 CS003515000195 P050102002    138
+#  7   20181205 CS024514000042 P080101005     30
+#  8   20190922 CS040415000178 P070501004    128
+#  9   20170504 ZZ000000000000 P071302010    770
+# 10   20191010 CS027514000015 P071101003    680
 
 #...............................................................................
 # [R] データベース・バックエンドでの処理
@@ -65,18 +65,18 @@ db_receipt %>%
 db_result
 # Source:   SQL [10 x 4]
 # Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
-   sales_date customer_id    product_cd amount
-        <int> <chr>          <chr>       <dbl>
- 1   20181103 CS006214000001 P070305012    158
- 2   20181118 CS008415000097 P070701017     81
- 3   20170712 CS028414000014 P060101005    170
- 4   20190205 ZZ000000000000 P050301001     25
- 5   20180821 CS025415000050 P060102007     90
- 6   20190605 CS003515000195 P050102002    138
- 7   20181205 CS024514000042 P080101005     30
- 8   20190922 CS040415000178 P070501004    128
- 9   20170504 ZZ000000000000 P071302010    770
-10   20191010 CS027514000015 P071101003    680
+#    sales_date customer_id    product_cd amount
+#         <int> <chr>          <chr>       <dbl>
+#  1   20181103 CS006214000001 P070305012    158
+#  2   20181118 CS008415000097 P070701017     81
+#  3   20170712 CS028414000014 P060101005    170
+#  4   20190205 ZZ000000000000 P050301001     25
+#  5   20180821 CS025415000050 P060102007     90
+#  6   20190605 CS003515000195 P050102002    138
+#  7   20181205 CS024514000042 P080101005     30
+#  8   20190922 CS040415000178 P070501004    128
+#  9   20170504 ZZ000000000000 P071302010    770
+# 10   20191010 CS027514000015 P071101003    680
 
 # class(db_result)
 # [1] "tbl_duckdb_connection" "tbl_dbi"               "tbl_sql"              
@@ -86,20 +86,20 @@ db_result
 # SQLクエリ
 db_result %>% my_show_query()
 
-<SQL>
-SELECT sales_ymd AS sales_date, customer_id, product_cd, amount
-FROM receipt
-LIMIT 10
+# <SQL>
+# SELECT sales_ymd AS sales_date, customer_id, product_cd, amount
+# FROM receipt
+# LIMIT 10
 
 # リライト
-SELECT 
-  sales_ymd AS sales_date,
-  customer_id,
-  product_cd,
-  amount
-FROM 
-  receipt
-LIMIT 10
+# SELECT 
+#   sales_ymd AS sales_date,
+#   customer_id,
+#   product_cd,
+#   amount
+# FROM 
+#   receipt
+# LIMIT 10
 
 #-------------------------------------------------------------------------------
 # R-029 ------------
@@ -115,18 +115,18 @@ df_receipt %>%
   head(10)
 
 # A tibble: 10 × 3
-   store_cd product_cd     n
-   <chr>    <chr>      <int>
- 1 S12007   P060303001    72
- 2 S12013   P060303001   107
- 3 S12014   P060303001    65
- 4 S12029   P060303001    92
- 5 S12030   P060303001   115
- 6 S13001   P060303001    67
- 7 S13002   P060303001    78
- 8 S13003   P071401001    65
- 9 S13004   P060303001    88
-10 S13005   P040503001    36
+#    store_cd product_cd     n
+#    <chr>    <chr>      <int>
+#  1 S12007   P060303001    72
+#  2 S12013   P060303001   107
+#  3 S12014   P060303001    65
+#  4 S12029   P060303001    92
+#  5 S12030   P060303001   115
+#  6 S13001   P060303001    67
+#  7 S13002   P060303001    78
+#  8 S13003   P071401001    65
+#  9 S13004   P060303001    88
+# 10 S13005   P040503001    36
 
 # 結果がたまたま store_cdで ソートされる場合もありますが、順序は保証されないため、
 # 確実にソートしたい場合は arrange()を使うべきです。
@@ -159,21 +159,21 @@ db_result
 # SQLクエリ
 db_result %>% my_show_query()
 
-<SQL>
-WITH q01 AS (
-  SELECT store_cd, product_cd, COUNT(*) AS n
-  FROM receipt
-  GROUP BY store_cd, product_cd
-),
-q02 AS (
-  SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col01
-  FROM q01
-)
-SELECT store_cd, product_cd, n
-FROM q02 q01
-WHERE (n = col01)
-ORDER BY store_cd
-LIMIT 10
+# <SQL>
+# WITH q01 AS (
+#   SELECT store_cd, product_cd, COUNT(*) AS n
+#   FROM receipt
+#   GROUP BY store_cd, product_cd
+# ),
+# q02 AS (
+#   SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col01
+#   FROM q01
+# )
+# SELECT store_cd, product_cd, n
+# FROM q02 q01
+# WHERE (n = col01)
+# ORDER BY store_cd
+# LIMIT 10
 
 # col01, q01, q02 は dbplyrパッケージで自動生成されるエイリアス名.
 # col01: 中間列名
