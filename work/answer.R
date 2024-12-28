@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# テーブル参照の標準出力のカスタマイズ
+# テーブル参照の標準出力のカスタマイズ ------------
 # Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
 
 # カスタムメソッドを定義
@@ -31,15 +31,32 @@ db_result
 #  1   20181103 CS006214000001 P070305012    158
 
 #-------------------------------------------------------------------------------
-# R-003
+# R-003 ------------
 # レシート明細データ（df_receipt）から売上年月日（sales_ymd）、顧客ID（customer_id）、
 # 商品コード（product_cd）、売上金額（amount）の順に列を指定し、10件表示せよ。
 # ただし、sales_ymdをsales_dateに項目名を変更しながら抽出すること。
 
+# [R] データフレームでの処理
 df_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10)
 
+# A tibble: 10 × 4
+   sales_date customer_id    product_cd amount
+        <int> <chr>          <chr>       <dbl>
+ 1   20181103 CS006214000001 P070305012    158
+ 2   20181118 CS008415000097 P070701017     81
+ 3   20170712 CS028414000014 P060101005    170
+ 4   20190205 ZZ000000000000 P050301001     25
+ 5   20180821 CS025415000050 P060102007     90
+ 6   20190605 CS003515000195 P050102002    138
+ 7   20181205 CS024514000042 P080101005     30
+ 8   20190922 CS040415000178 P070501004    128
+ 9   20170504 ZZ000000000000 P071302010    770
+10   20191010 CS027514000015 P071101003    680
+
+#...............................................................................
+# [R] データベース・バックエンドでの処理
 db_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10) -> 
@@ -47,7 +64,7 @@ db_receipt %>%
 
 db_result
 # Source:   SQL [10 x 4]
-# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/kk/ds/100knocks-dp/work/DB/100knocks.duckdb]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
    sales_date customer_id    product_cd amount
         <int> <chr>          <chr>       <dbl>
  1   20181103 CS006214000001 P070305012    158
@@ -65,29 +82,57 @@ db_result
 # [1] "tbl_duckdb_connection" "tbl_dbi"               "tbl_sql"              
 # [4] "tbl_lazy"              "tbl"
 
+#...............................................................................
+# SQLクエリ
 db_result %>% my_show_query()
 
-# SELECT sales_ymd AS sales_date, customer_id, product_cd, amount
-# FROM receipt
-# LIMIT 10
+<SQL>
+SELECT sales_ymd AS sales_date, customer_id, product_cd, amount
+FROM receipt
+LIMIT 10
+
+# リライト
+SELECT 
+  sales_ymd AS sales_date,
+  customer_id,
+  product_cd,
+  amount
+FROM 
+  receipt
+LIMIT 10
 
 #-------------------------------------------------------------------------------
 # R-029 ------------
-# レシート明細データ（receipt）に対し、店舗コード（store_cd）ごとに商品コード（product_cd）の最頻値を求めよ.
+# レシート明細データ（df_receipt）に対し、店舗コード（store_cd）ごとに商品コード（product_cd）の最頻値を求め、10件表示させよ。
 
 # sample.1 ------------
 
-# データフレーム
+# [R] データフレームでの処理
 df_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
   arrange(store_cd) %>% 
   head(10)
 
-# 結果がたまたま store_cdで ソートされる場合もありますが、順序は保証されないため、
-# 確実にソートしたい場合はarrange()を使うべきです。
+# A tibble: 10 × 3
+   store_cd product_cd     n
+   <chr>    <chr>      <int>
+ 1 S12007   P060303001    72
+ 2 S12013   P060303001   107
+ 3 S12014   P060303001    65
+ 4 S12029   P060303001    92
+ 5 S12030   P060303001   115
+ 6 S13001   P060303001    67
+ 7 S13002   P060303001    78
+ 8 S13003   P071401001    65
+ 9 S13004   P060303001    88
+10 S13005   P040503001    36
 
-# tbl
+# 結果がたまたま store_cdで ソートされる場合もありますが、順序は保証されないため、
+# 確実にソートしたい場合は arrange()を使うべきです。
+
+#...............................................................................
+# [R] データベース・バックエンドでの処理
 db_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
@@ -110,21 +155,23 @@ db_result
 #  9 S13004   P060303001    88
 # 10 S13005   P040503001    36
 
-# SQL
-query %>% my_show_query()
+#...............................................................................
+# SQLクエリ
+db_result %>% my_show_query()
 
+<SQL>
 WITH q01 AS (
   SELECT store_cd, product_cd, COUNT(*) AS n
   FROM receipt
   GROUP BY store_cd, product_cd
 ),
 q02 AS (
-  SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col02
+  SELECT q01.*, MAX(n) OVER (PARTITION BY store_cd) AS col01
   FROM q01
 )
 SELECT store_cd, product_cd, n
 FROM q02 q01
-WHERE (n = col02)
+WHERE (n = col01)
 ORDER BY store_cd
 LIMIT 10
 
@@ -141,6 +188,7 @@ LIMIT 10
 #  4 S12029   P060303001    92
 # ...
 
+#...............................................................................
 # sample.2 ------------
 
 # データフレーム
