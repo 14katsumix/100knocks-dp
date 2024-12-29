@@ -29,10 +29,8 @@ https://14katsumix.com/
 # SQLite には Date型やDatetime型が無い.
 
 # * テスト環境: 
-# cd /Users/kk/ds/
+# cd /Users/kk/ds/test
 # ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
-
-# sql-sqlite.R を DuckDBに対応させる -> sql-duckdb.R
 
 # Hugo 導入
 # Theme : PaperMod
@@ -41,8 +39,8 @@ https://14katsumix.com/
 # コードブロック: カラー, ハイライト
 # カスタムドメイン, https
 
-# ソース公開向けGithubリポジトリ
-# 14katsumix, 14jcjc (?)
+# ソース公開向けGithubリポジトリ: 
+# git@github.com:14katsumix/100knocks-dp.git
 
 # アフィリエイト: Amazon, Yahoo, 楽天、Google AdSense
 
@@ -54,9 +52,25 @@ https://14katsumix.com/
 # 変数と関数名をスネークケースにする
 # 列名を修正する
 
-* 書籍で使われていないメソッドなど
+# R-029 ------------
+# [R] データフレームでの処理
+# [R] データベース・バックエンドでの処理
+# SQLクエリ
+# リライト
 
-# tbl_sqlクラス
+# group_by(.data, ..., .add = FALSE, .drop = group_by_drop_default(.data))
+# d1 %>% group_by(grp, class) %>% mutate(m = mean(x)) %>% select(group_cols(), m)
+# d1 %>% relocate(1:2, .after = last_col())
+# mutate(.data, ..., .by = NULL, .keep = c("all", "used", "unused", "none"),
+#   .before = NULL, .after = NULL)
+# filter(.data, ..., .by = NULL, .preserve = FALSE)
+# summarize(.data, ..., .by = NULL, .groups = NULL)
+# arrange(.data, ..., .by_group = FALSE)
+# count(x, ..., wt = NULL, sort = FALSE, name = NULL)
+# add_count(x, ..., wt = NULL, sort = FALSE, name = NULL)
+# distinct(.data, ..., .keep_all = FALSE)
+
+* 書籍で使われていないメソッドなど
 
 # all_of, any_of, one_of
 # vars = c("customer_name", "postal_cd")

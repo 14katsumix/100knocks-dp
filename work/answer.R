@@ -5,16 +5,16 @@
 # カスタムメソッドを定義
 custom_db_get_info = function(dbObj, ...) {
   ll = attr(dbObj, "driver") |> dbGetInfo()
-  s = ll$dbname
-  dbname = paste0(
-    stringr::str_sub(s, 1, 7), 
-    "...", 
-    stringr::str_sub(s, stringr::str_length(s) - 24)
-  )
+  # s = ll$dbname
+  # dbname = paste0(
+  #   stringr::str_sub(s, 1, 7), 
+  #   "...", 
+  #   stringr::str_sub(s, stringr::str_length(s) - 24)
+  # )
   list(
     # dbname = ll$dbname, 
-    # dbname = stringr::str_trunc(ll$dbname, 28, "left"), 
-    dbname = dbname, 
+    dbname = stringr::str_trunc(ll$dbname, 23, "left"), 
+    # dbname = dbname, 
     db.version = ll$driver.version
   )
 }
@@ -23,12 +23,12 @@ custom_db_get_info = function(dbObj, ...) {
 methods::setMethod("dbGetInfo", "duckdb_connection", custom_db_get_info)
 
 DBI::dbGetInfo(con)
-db_result
-# Source:   SQL [10 x 4]
-# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
-#    sales_date customer_id    product_cd amount
-#         <int> <chr>          <chr>       <dbl>
-#  1   20181103 CS006214000001 P070305012    158
+db_receipt
+# Source:   table<receipt> [?? x 9]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
+#    sales_ymd sales_epoch store_cd receipt_no receipt_sub_no customer_id   
+#        <int>       <int> <chr>         <int>          <int> <chr>         
+#  1  20181103  1541203200 S14006          112              1 CS006214000001
 
 #-------------------------------------------------------------------------------
 # R-003 ------------
@@ -64,7 +64,7 @@ db_receipt %>%
 
 db_result
 # Source:   SQL [10 x 4]
-# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2//Users/.../work/DB/100knocks.duckdb]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
 #    sales_date customer_id    product_cd amount
 #         <int> <chr>          <chr>       <dbl>
 #  1   20181103 CS006214000001 P070305012    158
@@ -141,6 +141,8 @@ db_receipt %>%
   db_result
 
 db_result
+# Source:     SQL [10 x 3]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: store_cd
 #    store_cd product_cd     n
 #    <chr>    <chr>      <dbl>
@@ -191,65 +193,108 @@ db_result %>% my_show_query()
 #...............................................................................
 # sample.2 ------------
 
-# データフレーム
+# [R] データフレームでの処理
 df_receipt %>% 
   count(store_cd, product_cd) %>% 
-  slice_max(n, n = 3, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd, n)
-
-# tbl
-tbl_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 3, with_ties = T, by = store_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
   arrange(store_cd, n) %>% 
-  my_collect()
+  head(10)
 
-# SQL
-tbl_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 3, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd, n) %>% 
-  my_show_query()
-
-# A tibble: 171 × 3
+# A tibble: 10 × 3
 #    store_cd product_cd     n
 #    <chr>    <chr>      <int>
-#  1 S12007   P050102001    28
-#  2 S12007   P050601001    25
-#  3 S12007   P060303001    72
-#  4 S12013   P060101001    40
-#  5 S12013   P060303001   107
-#  6 S12013   P071401001    63
+#  1 S12007   P060303001    72
+#  2 S12013   P060303001   107
+#  3 S12014   P060303001    65
+#  4 S12029   P060303001    92
+#  5 S12030   P060303001   115
+#  6 S13001   P060303001    67
+#  7 S13002   P060303001    78
+#  8 S13003   P071401001    65
+#  9 S13004   P060303001    88
+# 10 S13005   P040503001    36
 
+#...............................................................................
+# [R] データベース・バックエンドでの処理
+db_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  arrange(store_cd) %>% 
+  head(10) -> 
+  db_result
+
+db_result
+# Source:     SQL [10 x 3]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Ordered by: store_cd
+#    store_cd product_cd     n
+#    <chr>    <chr>      <dbl>
+#  1 S12007   P060303001    72
+#  2 S12013   P060303001   107
+#  3 S12014   P060303001    65
+#  4 S12029   P060303001    92
+#  5 S12030   P060303001   115
+#  6 S13001   P060303001    67
+#  7 S13002   P060303001    78
+#  8 S13003   P071401001    65
+#  9 S13004   P060303001    88
+# 10 S13005   P040503001    36
+
+#...............................................................................
+# SQLクエリ
+
+db_result %>% my_show_query()
+
+# <SQL>
+# WITH q01 AS (
+#   SELECT store_cd, product_cd, COUNT(*) AS n
+#   FROM receipt
+#   GROUP BY store_cd, product_cd
+# ),
+# q02 AS (
+#   SELECT q01.*, RANK() OVER (PARTITION BY store_cd ORDER BY n DESC) AS col01
+#   FROM q01
+# )
+# SELECT store_cd, product_cd, n
+# FROM q02 q01
+# WHERE (col01 <= 1)
+# ORDER BY store_cd
+# LIMIT 10
+
+# リライト
 q = sql("
-with product_num as (
-  select
-    store_cd, 
-    product_cd, 
-    count(*) as n_product
-  from 
+WITH product_num AS (
+  SELECT 
+    store_cd,
+    product_cd,
+    COUNT(*) AS n
+  FROM 
     receipt
-  group by 
+  GROUP BY 
     store_cd, product_cd
-), 
-product_rank as (
-  select 
-    *, 
-    RANK() OVER (partition by store_cd order by n_product DESC) as rank
-  from  
+),
+product_rank AS (
+  SELECT 
+    *,
+    RANK() OVER (
+      PARTITION BY store_cd
+      ORDER BY n DESC
+    ) AS rank
+  FROM 
     product_num
-  -- order by store_cd, rank
 )
-select 
-  store_cd, 
-  product_cd, 
-  n_product as mode 
-from 
-  product_rank 
-where 
-  rank <= 3
-order by 
-  store_cd, n_product
+SELECT 
+  store_cd,
+  product_cd,
+  n
+FROM 
+  product_rank
+WHERE
+  rank = 1
+ORDER BY 
+  store_cd
+LIMIT 10
+;
 "
 )
 q %>% my_select(con)

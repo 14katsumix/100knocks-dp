@@ -1,15 +1,17 @@
 #-------------------------------------------------------------------------------
 
+# slice_max ------------
 各店舗ごとに最も売上金額 (amount) が高い3つの商品の情報を抽出してください。
 ただし、売上金額が同じ商品が複数ある場合は、全てを抽出してください。
 
-tsql_receipt %>% 
+db_receipt %>% 
   group_by(store_cd, product_cd) %>% 
   summarise(total_amount = sum(amount), .groups = "drop_last") %>% 
   slice_max(total_amount, n = 3, with_ties = TRUE) %>% 
-  ungroup() %>% 
-  arrange(store_cd, product_cd) %>% 
-  my_show_query()
+  # ungroup() %>% 
+  # arrange(store_cd, desc(total_amount)) %>% 
+  arrange(desc(total_amount), .by_group = T) %>% 
+  my_show_query(F)
 
 # complete ------------
 都道府県ごとの売上集計を行い、売上がない都道府県を含めて表示せよ
