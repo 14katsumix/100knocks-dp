@@ -105,6 +105,8 @@ db_result %>% my_show_query()
 # R-029 ------------
 # レシート明細データ（df_receipt）に対し、店舗コード（store_cd）ごとに商品コード（product_cd）の最頻値を求め、10件表示させよ。
 
+# 以下は、最頻値が複数ある場合は全てを表示する解答例です。
+
 # sample.1 ------------
 
 # [R] データフレームでの処理
@@ -197,7 +199,7 @@ db_result %>% my_show_query()
 df_receipt %>% 
   count(store_cd, product_cd) %>% 
   slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd, n) %>% 
+  arrange(store_cd) %>% 
   head(10)
 
 # A tibble: 10 × 3
