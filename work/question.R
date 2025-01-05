@@ -95,6 +95,19 @@ receipt テーブルに基づいて、購入履歴がある customer_id を特�
 customer テーブルを基に、購入履歴がある顧客の詳細情報（customer_id, customer_name, gender, age）を取得すること。
 semi_join を使用すること。
 
+# complete, ranking関数, join ------------
+以下の条件に基づいて、各店舗の月ごとの売上金額合計を算出し、すべての店舗・月の組み合わせが表示されるようにデータを補完してください。さらに、各店舗ごとに売上金額の累積順位を付けてください。
+
+条件
+1. receipt テーブルを基に、店舗ごとの月ごとの売上金額合計を計算する。
+- 売上金額は amount 列の合計値。
+- 売上日 (sales_ymd) から月を取得し、集計単位とする。
+2. 集計後、すべての店舗とすべての月（データ中の最小月から最大月まで）の組み合わせが表示されるようにデータを補完する。
+- 欠損する店舗・月の組み合わせは amount = 0 として補完する。
+3. 補完されたデータに対して、各店舗ごとに売上金額の累積順位を付ける。
+- 累積順位は売上金額が高い順に付ける（降順）。
+4. store テーブルを用いて店舗名を追加し、最終結果を見やすくする。
+
 # RFM分析 ------------
 RFM分析の指標を計算せよ
 顧客ごとに以下のRFM指標を計算してください:
@@ -118,8 +131,9 @@ Lost: スコアが下位20%の顧客
 平均購買金額
 平均購買頻度
 
-
 #-------------------------------------------------------------------------------
+* 問題作成
+
 -- customer
 DROP TABLE IF EXISTS customer;
 CREATE TABLE customer(
@@ -208,7 +222,7 @@ CREATE TABLE geocode(
 );
 
 上記6個のテーブルがDuckDB上にあります。
-また、以下のように、これらのテーブル参照であるtsql_receiptなどがあります。
+また、以下のように、これらのテーブル参照である db_receipt などがあります。
 
 my_tbl = function(
     con, df, 
@@ -231,16 +245,14 @@ my_tbl = function(
   con %>% dplyr::tbl(name)
 }
 
-tsql_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-tsql_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-tsql_product = con %>% my_tbl(df = df_product, overwrite = T)
-tsql_category = con %>% my_tbl(df = df_category, overwrite = T)
-tsql_store = con %>% my_tbl(df = df_store, overwrite = T)
-tsql_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
+db_product = con %>% my_tbl(df = df_product, overwrite = T)
+db_category = con %>% my_tbl(df = df_category, overwrite = T)
+db_store = con %>% my_tbl(df = df_store, overwrite = T)
+db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
 
 これら6個のテーブル参照をいくつか用いて、次の条件を満たすデータ処理向けの問題を考えてください。
 
 条件: 
-group_by, complete を使用すること。
-
-#-------------------------------------------------------------------------------
+group_by, complete, join, ranking関数 を使用すること。

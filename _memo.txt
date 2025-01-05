@@ -1,62 +1,100 @@
 #-------------------------------------------------------------------------------
-# データサイエンス100本ノック（構造化データ加工編）
-# https://github.com/The-Japan-DataScientist-Society/100knocks-preprocess
+データサイエンス100本ノック（構造化データ加工編）
+https://github.com/The-Japan-DataScientist-Society/100knocks-preprocess
+
+データサイエンス100本ノック～構造化データ加工編ガイドブック
+https://amzn.to/3Pmq47H
 
 #-------------------------------------------------------------------------------
 
-# github を2つのアカウントで運用する. 
+* github を2つのアカウントで運用する. 
 
 14katsumix
 @14katsumix
 14katsumix@gmail.com
 https://14katsumix.com/
 
-[R+SQL] データサイエンス100本ノック＋αでスキルアップ - 公式編
-[R+SQL] データサイエンス100本ノック＋αでスキルアップ - 発展編
+* ブログタイトル
 
-[R+SQL] データサイエンス100本ノック＋α - 公式編
-[R+SQL] データサイエンス100本ノック＋α - 発展編
-[R+SQL] データサイエンス100本ノック＋α - 公式編 R-028
-[R+SQL] データサイエンス100本ノック＋α - 発展編 A-001
+【R+SQL】データサイエンス100本ノック＋αでスキルアップ - 標準編
+【R+SQL】データサイエンス100本ノック＋αでスキルアップ - 発展編
+
+【R+SQL】データサイエンス100本ノック＋α - 標準編
+【R+SQL】データサイエンス100本ノック＋α - 発展編
+【R+SQL】データサイエンス100本ノック＋α - 標準編 R-028
+【R+SQL】データサイエンス100本ノック＋α - 発展編 A-001
+
+標準編: Standard Edition
+発展編: Advanced Edition
 
 # 公式編, 発展編
-# 標準編, 発展編
 # 標準編, スタンダード編, 基本編, ベーシック編, 練習編
 # 応用編, アドバンス編, オリジナル編, 実践編, 挑戦編, チャレンジ編
 # R初心者から中級者へ：100本ノック＋αでスキルアップ
 # データサイエンス100本ノックから学ぶ実践テクニック
 
-# SQLite には Date型やDatetime型が無い.
+概要: overview
+要旨: abstract
+要約: summary
+説明: Description.
+setup: 設定、準備、セットアップ
+開始: init
+Tips: (ヒント)
+「小技」「豆知識」「ハウツー」などのニュアンスが近いです。
+ちょっとしたコツや役に立つ情報、知識の断片を指す英単語です。特定の作業や問題解決を効率よく行うための実用的なアドバイスや知識を簡潔に伝える場面で使われます。
 
-# * テスト環境: 
-# cd /Users/kk/ds/test
-# ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
+* オススメのテーマ
+Geekdoc は、デフォルトでコードブロック内の指定行をハイライトする機能がある。
+LoveIt, Coder, Docsy
 
-# Hugo 導入
-# Theme : PaperMod
-# URL: slug にランダム文字列を設定 (UniqueID)
-# Google Analytics, Google Search Console 導入
-# コードブロック: カラー, ハイライト
-# カスタムドメイン, https
+* tags:
+R
+SQL
+slice_max などR関数
+join
+縦横変換
+四捨五入演算
+正規化
+非正規化
+ファイル入出力
 
-# ソース公開向けGithubリポジトリ: 
-# git@github.com:14katsumix/100knocks-dp.git
+* アフィリエイトリンク: 
 
-# アフィリエイト: Amazon, Yahoo, 楽天、Google AdSense
+アフィリエイト: Amazon, Yahoo, 楽天、Google AdSense
 
-# コーディング,リライト
-# なるべくエレガントで拡張性の高いコード
-# -> で代入する！
-# duckdb を使用.
-# receipt.sales_ymd を integer に変更する
-# 変数と関数名をスネークケースにする
-# 列名を修正する
+PaperMod には、サイドバーにカスタム内容を表示するための widgets 機能があります。これを利用してリンク付きバナーを設置できます。
+
+* SQLite
+Date型やDatetime型が無い.
+
+* テスト環境: 
+cd /Users/kk/ds/test
+ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
+
+* Hugo 導入
+Theme : PaperMod
+Google Analytics, Google Search Console 導入
+コードブロック: カラー, ハイライト
+カスタムドメイン, https
+
+* ソース公開向けGithubリポジトリ: 
+git@github.com:14katsumix/100knocks-dp.git
+
+* コーディング,リライト
+なるべくエレガントで拡張性の高いコード
+-> で代入する！
+duckdb を使用.
+receipt.sales_ymd を integer に変更する
+変数と関数名をスネークケースにする
+列名を修正する
 
 # R-029 ------------
 # [R] データフレームでの処理
 # [R] データベース・バックエンドでの処理
 # SQLクエリ
 # リライト
+
+* メソッド一覧
 
 # group_by(.data, ..., .add = FALSE, .drop = group_by_drop_default(.data))
 # d1 %>% group_by(grp, class) %>% mutate(m = mean(x)) %>% select(group_cols(), m)
@@ -69,8 +107,6 @@ https://14katsumix.com/
 # count(x, ..., wt = NULL, sort = FALSE, name = NULL)
 # add_count(x, ..., wt = NULL, sort = FALSE, name = NULL)
 # distinct(.data, ..., .keep_all = FALSE)
-
-* 書籍で使われていないメソッドなど
 
 # all_of, any_of, one_of
 # vars = c("customer_name", "postal_cd")
@@ -158,133 +194,6 @@ https://14katsumix.com/
 #-------------------------------------------------------------------------------
 
 * 次のコードはもっとエレガントに書けない？
-
-#-------------------------------------------------------------------------------
-
-* 問題作成
-
--- customer
-DROP TABLE IF EXISTS customer;
-CREATE TABLE customer(
-  customer_id            VARCHAR(14),
-  customer_name          VARCHAR(20),
-  gender_cd              VARCHAR(1),
-  gender                 VARCHAR(2),
-  birth_day              DATE,
-  age                    INTEGER,
-  postal_cd              VARCHAR(8),
-  address                VARCHAR(128),
-  application_store_cd   VARCHAR(6),
-  application_date       VARCHAR(8),
-  status_cd              VARCHAR(12),
-  PRIMARY KEY (customer_id)
-);
-
--- category
-DROP TABLE IF EXISTS category;
-CREATE TABLE category(
-  category_major_cd     VARCHAR(2),
-  category_major_name   VARCHAR(32),
-  category_medium_cd    VARCHAR(4),
-  category_medium_name  VARCHAR(32),
-  category_small_cd     VARCHAR(6),
-  category_small_name   VARCHAR(32),
-  PRIMARY KEY (category_small_cd)
-);
-
-
--- product
-DROP TABLE IF EXISTS product;
-CREATE TABLE product(
-  product_cd            VARCHAR(10),
-  category_major_cd     VARCHAR(2),
-  category_medium_cd    VARCHAR(4),
-  category_small_cd     VARCHAR(6),
-  unit_price            INTEGER,
-  unit_cost             INTEGER,
-  PRIMARY KEY (product_cd)
-);
-
--- store
-DROP TABLE IF EXISTS store;
-CREATE TABLE store(
-  store_cd      VARCHAR(6),
-  store_name    VARCHAR(128),
-  prefecture_cd VARCHAR(2),
-  prefecture    VARCHAR(5),
-  address       VARCHAR(128),
-  address_kana  VARCHAR(128),
-  tel_no        VARCHAR(20),
-  longitude     NUMERIC,
-  latitude      NUMERIC,
-  floor_area    NUMERIC,
-  PRIMARY KEY (store_cd)
-);
-
--- receipt
-DROP TABLE IF EXISTS receipt;
-CREATE TABLE receipt(
-  sales_ymd       INTEGER,
-  sales_epoch     INTEGER,
-  store_cd        VARCHAR(6),
-  receipt_no      SMALLINT,
-  receipt_sub_no  SMALLINT,
-  customer_id     VARCHAR(14),
-  product_cd      VARCHAR(10),
-  quantity        INTEGER,
-  amount          INTEGER,
-  PRIMARY KEY (sales_ymd, store_cd, receipt_no, receipt_sub_no)
-);
-
--- geocode
-DROP TABLE IF EXISTS geocode;
-CREATE TABLE geocode(
-  postal_cd       VARCHAR(8),
-  prefecture      VARCHAR(4),
-  city            VARCHAR(30),
-  town            VARCHAR(30),
-  street          VARCHAR(30),
-  address         VARCHAR(30),
-  full_address    VARCHAR(80),
-  longitude       NUMERIC,
-  latitude        NUMERIC
-);
-
-上記6個のテーブルがDuckDB上にあります。
-また、以下のように、これらのテーブル参照であるtsql_receiptなどがあります。
-
-my_tbl = function(
-    con, df, 
-    name = deparse(substitute(df)), 
-    rm_pattern = "^df_", 
-    overwrite = FALSE, append = FALSE, row_names = FALSE, 
-    field_types = NULL, temporary = FALSE
-  ) {
-  # name からマッチしたパターンを削除する
-  if (!is.null(rm_pattern))
-    name %<>% stringr::str_remove(pattern = rm_pattern)
-  # データフレームをDBに書き込む
-  DBI::dbWriteTable(
-    conn = con, name = name, value = df, 
-    overwrite = overwrite, append = append, row.names = row_names, 
-    field.types = field_types, temporary = temporary
-  )
-  sprintf("table name = %s\n", name) %>% cat()
-  # テーブル参照を取得する
-  con %>% dplyr::tbl(name)
-}
-
-db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-db_product = con %>% my_tbl(df = df_product, overwrite = T)
-db_category = con %>% my_tbl(df = df_category, overwrite = T)
-db_store = con %>% my_tbl(df = df_store, overwrite = T)
-db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
-
-これら6個のテーブル参照をいくつか用いて、次の条件を満たすデータ処理向けの問題を考えてください。
-
-条件: 
-semi_join, を使用すること。
 
 #-------------------------------------------------------------------------------
 * 自動生成されたSQLクエリを show_query() で確認するメリットは？
@@ -863,4 +772,26 @@ githubで
 origin git@github.com:14katsumix/100knocks-dp.git
 
 #-------------------------------------------------------------------------------
+
+
+githubで
+
+ローカルリポジトリ: 
+/home/100knocks-dp
+
+リモートリポジトリ: 
+100knocks-dp-dev: 開発用 (Private)
+100knocks-dp: ブログ公開用 (Public)
+
+という環境で、
+100knocks-dp にはローカルリポジトリの一部のファイルのみをpushして公開したいです。
+
+git push -u origin main
+
+で .gitignoreファイルを指定する方法はある？
+
+
+この方法だと、
+100knocks-dp-dev: 開発用 (Private)
+にも .gitignore のフィルターが適用されない？
 

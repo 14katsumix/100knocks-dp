@@ -27,7 +27,7 @@
 cd /Users/kk/ds/test
 ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
 
-* answer.R の開発環境
+* answer.R の開発環境 (-> 無し)
 
 ssh -T git@github.com-14katsumix
 cd /Users/kk/ds/100knocks-dp
