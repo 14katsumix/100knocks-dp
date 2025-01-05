@@ -41,6 +41,8 @@ hugo server
 hugo server -D
 # 最後に修正したページにブラウザから自動的にリダイレクトさせたい場合
 hugo server --navigateToChanged
+# キャッシュをクリア
+hugo --ignoreCache
 
 hugo server --disableFastRender --cleanDestinationDir --navigateToChanged -D
 
@@ -229,20 +231,20 @@ https://14katsumix.github.io/tech-blog/ds-100knocks-dp/100knocks-dp-guidebook/
 
 をツイートして Twitter Card を確認する！
 
-content/
-└── xxx/
-└── 100k/
-    ├── _index.md
-    ├── standard/ - _index.md
-    └── advanced/ - _index.md
+content
+└── test
+| |--xxx
+| | |--_index.md
+| | |--yyy
+| | | |--_index.md
+| | | |--yyy1.md
+| | | |--yyy2.md
+
 という構成です。
+
 テーマはPaperModを利用してます。
 
-Hugoの記事ファイル.mdで、
-description: "This is description."
-を設定すると、
-検索エンジンがサーチ結果で表示するスニペットには、
-This is description.
-しか表示されなくなる？
-
+<a href="{{ .Site.Home.RelPermalink }}">
+Return to the home page
+</a>
 

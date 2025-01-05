@@ -64,6 +64,10 @@ join
 
 PaperMod には、サイドバーにカスタム内容を表示するための widgets 機能があります。これを利用してリンク付きバナーを設置できます。
 
+* Google Analytics
+
+* Google Search Console
+
 * SQLite
 Date型やDatetime型が無い.
 
