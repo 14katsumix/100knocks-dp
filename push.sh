@@ -4,7 +4,7 @@ set -e  # エラーが発生したらスクリプトを終了する
 if [ "$1" == "dev" ]; then
     # 
     \cp -pf .gitignore-dev .gitignore
-    sleep 3s
+    sleep 10s
     echo "Switched to development .gitignore"
     # 
     git remote set-url origin git@github.com:14katsumix/100knocks-dp-dev.git
