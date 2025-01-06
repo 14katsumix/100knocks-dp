@@ -19,6 +19,11 @@ urls = data_url %>%
   jsonlite::fromJSON() %>% 
   pull(download_url)
 
+# dataディレクトリの作成
+data_dir = my_path_join()
+if (!fs::dir_exists(data_dir))
+  fs::dir_create(data_dir)
+
 for (url in urls) {
   # ダウンロード先のファイルパス
   path = url %>% xfun::url_filename() %>% my_path_join()

@@ -36,17 +36,20 @@ rm -rf public/
 hugo
 
 * ローカル環境でサイトを確認
+
 hugo server
 # to include draft content
 hugo server -D
 # 最後に修正したページにブラウザから自動的にリダイレクトさせたい場合
 hugo server --navigateToChanged
 # キャッシュをクリア
-hugo --ignoreCache
+hugo server --ignoreCache
+# Fast Render（高速レンダリング）を無効化する場合
+hugo server --disableFastRender
 
-hugo server --disableFastRender --cleanDestinationDir --navigateToChanged -D
+hugo server --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged -D
 
-hugo server --disableFastRender --cleanDestinationDir --navigateToChanged --environment production -D
+hugo server --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged --environment production -D
 
 # 以下にアクセスしてサイトを確認する
 http://localhost:1313/tech-blog/
@@ -172,7 +175,10 @@ keywords: ["aaa", "bbb"]
 のみが適用される。
 
 * partial template
+https://gohugo.io/templates/embedded/
 ショートコードはテンプレートファイルでは動作しないことに注意してください。ショートコードが提供するようなドロップイン機能が必要な場合、代わりに部分テンプレートが必要です。
+
+Hugo には、静的および動的 Web サイトの両方で人気のコメント システムであるDisqusの埋め込みテンプレートが含まれています。Disqus を効果的に使用するには、無料サービスにサインアップして Disqus の「短縮名」を取得してください。
 
 * Cascade
 https://gohugo.io/content-management/front-matter/#cascade
@@ -247,4 +253,23 @@ content
 <a href="{{ .Site.Home.RelPermalink }}">
 Return to the home page
 </a>
+
+
+Hugo + GitHub Actions で作成した公開サイトを作成しました。
+テーマはPaperModを利用してます。
+サイトのリンク構成は全てうまくデプロイされてます。
+メニューは全てブラウザで開ます。
+macbookでは問題はありません。
+しかし、iPhone で Home や メニューを何度かクリックすると、
+メニューの tags, categories, Archives などが読み込めなくなる現象が発生してます。
+原因は？
+
+iPhoneだと、メニューが開けるときもありますが、
+クリック後、いつまで経ってもページが開かない、という現象が起きます。
+Chromeのシークレットウィンドウで開いたらきちんと動作した。
+
+
+[params]
+cacheBusting = true
+disableLazyLoading = true
 
