@@ -35,6 +35,14 @@ hugo --cleanDestinationDir
 rm -rf public/
 hugo
 
+* Display site configuration
+
+hugo config
+
+* 将来の公開日が設定されているコンテンツをリストアップ
+
+hugo list future
+
 * ローカル環境でサイトを確認
 
 hugo server
@@ -117,6 +125,63 @@ https://14katsumix.github.io/tech-blog/
 (config.yml の baseURL)
 
 #-------------------------------------------------------------------------------
+* ブログのリポジトリを 14rfrf に移行する！
+
+* コンテンツファイルに記述する問題文を data/k100/questions.yaml からゲットする.
+
+* 問題文の一覧ページを作る. 
+
+* 定型文のテンプレートをコンテンツに挿入する仕組みを作る.
+
+- ショートコードを含む Markdown ファイルを作成: 
+content/base.md:
+```
+## 定型文
+このテキストは定型文です。
+{{< example_shortcode param="外部データ" >}}
+```
+
+- 部分テンプレートで readFile と renderString を使う: 
+readFile で外部ファイルを読み込み、RenderString を使ってショートコードをレンダリングします。
+layouts/partials/base.html: 
+```
+{{ $content := readFile "content/base.md" }}
+{{ $rendered := $content | .Page.RenderString }}
+{{ $rendered | safeHTML }}
+```
+
+param引数を受け取る場合は分岐処理で "content/base.md" を動的に定義できる。
+
+- ショートコードを作成して部分テンプレートを呼び出す
+layouts/shortcodes/base.html を作成し、その中で layouts/partials/base.html を呼び出します。
+layouts/shortcodes/base.html: 
+```
+{{ partial "base.html" . }}
+```
+param引数を与えたい場合: 
+```
+{{ partial "base.html" (dict "context" . "param" (.Get "param")) }}
+```
+param という引数をショートコードから受け取ります。
+context は現在のページ（.Page）や渡されたスコープです。
+
+- コンテンツ内でショートコードを呼び出す
+content/posts/my-post.md: 
+
+```
+## 記事タイトル
+
+本文の前に定型文を挿入します。
+
+{{< base >}}
+or
+{{< base param="..." >}}
+
+ここに記事の続きを記述します。
+```
+
+この方法により、layouts/partials/base.html の内容が記事内に挿入されます。
+
 * robots.txt
 
 公開時は static/robots.txt を削除すること！
@@ -146,6 +211,8 @@ my-project/
     └── staging/
         ├── hugo.toml
         └── params.toml
+
+https://gohugo.io/getting-started/configuration/
 
 ex) 
 params に merge: deep の設定が適用されると、keywords の値は深くマージされます。
@@ -178,7 +245,11 @@ keywords: ["aaa", "bbb"]
 https://gohugo.io/templates/embedded/
 ショートコードはテンプレートファイルでは動作しないことに注意してください。ショートコードが提供するようなドロップイン機能が必要な場合、代わりに部分テンプレートが必要です。
 
+* comments 機能
 Hugo には、静的および動的 Web サイトの両方で人気のコメント システムであるDisqusの埋め込みテンプレートが含まれています。Disqus を効果的に使用するには、無料サービスにサインアップして Disqus の「短縮名」を取得してください。
+
+埋め込みテンプレートを含めるには:
+{{ template "_internal/disqus.html" . }}
 
 * Cascade
 https://gohugo.io/content-management/front-matter/#cascade
@@ -208,8 +279,6 @@ A global resource is a file within the assets directory, or within any directory
 assets/
 └── images/
     └── sunset.jpg    <-- global resource
-
-* comments 機能
 
 * ref, relref
 To link to another language version of a document, use this syntax:
@@ -268,8 +337,23 @@ iPhoneだと、メニューが開けるときもありますが、
 クリック後、いつまで経ってもページが開かない、という現象が起きます。
 Chromeのシークレットウィンドウで開いたらきちんと動作した。
 
-
 [params]
 cacheBusting = true
 disableLazyLoading = true
+
+
+タイトル: 「ブログ記事タイトル」
+説明文: 「記事の説明」
+画像: 記事のサムネイル
+アカウント: @YourTwitterHandle（あなたのアカウント）
+
+の全てがサイトのmetaデータに含まれてるのに、
+ツイッターで投稿をシェアしても、タイトルしか表示されない。
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@YourTwitterHandle">
+<meta name="twitter:title" content="ブログ記事タイトル">
+<meta name="twitter:description" content="記事の説明">
+<meta name="twitter:image" content="記事のサムネイルURL">
+は全て記述されてます。
 

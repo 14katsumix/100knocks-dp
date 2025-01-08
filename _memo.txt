@@ -58,11 +58,13 @@ join
 非正規化
 ファイル入出力
 
+カスタムドメイン, https, 14katsumix.com
+
 * アフィリエイトリンク: 
 
 アフィリエイト: Amazon, Yahoo, 楽天、Google AdSense
 
-PaperMod には、サイドバーにカスタム内容を表示するための widgets 機能があります。これを利用してリンク付きバナーを設置できます。
+PaperMod には、サイドバーにカスタム内容を表示するための widgets 機能があります。これを利用してリンク付きバナーを設置できます (?)
 
 * Google Analytics
 
@@ -74,12 +76,6 @@ Date型やDatetime型が無い.
 * テスト環境: 
 cd /Users/kk/ds/test
 ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
-
-* Hugo 導入
-Theme : PaperMod
-Google Analytics, Google Search Console 導入
-コードブロック: カラー, ハイライト
-カスタムドメイン, https
 
 * ソース公開向けGithubリポジトリ: 
 git@github.com:14katsumix/100knocks-dp.git
