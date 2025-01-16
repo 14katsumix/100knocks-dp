@@ -255,4 +255,6 @@ db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
 これら6個のテーブル参照をいくつか用いて、次の条件を満たすデータ処理向けの問題を考えてください。
 
 条件: 
-group_by, complete, join, ranking関数 を使用すること。
+- Rの解答例付き
+- 難易度: 上級
+- group_by, complete, join, ranking関数 を使用すること。

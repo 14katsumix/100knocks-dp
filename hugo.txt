@@ -19,7 +19,8 @@ git submodule update --remote --merge
 https://adityatelange.github.io/hugo-PaperMod/posts/papermod/papermod-installation/
 の内容を参考に.
 
-baseURL: "https://14katsumix.github.io/tech-blog/"
+# baseURL: "https://14katsumix.github.io/tech-blog/"
+baseURL: "https://14jcjc.github.io/tech-blog/"
 languageCode: jp
 title: katsuのブログ
 paginate: 5
@@ -71,23 +72,38 @@ https://github.com/adityatelange/hugo-PaperMod/blob/exampleSite/.gitignore
 * GitHub でリモートリポジトリを作成する: 
 tech-blog (Public)
 
+* GitHub Pages の設定
+「Settings」→「Pages」で、Build and deployment「Source」を
+"Github Actions" に変更する。
+
 cd /Users/kk/Home/_work/blog/tech-blog
 
 # check
-ssh -T git@github.com-14katsumix
+# ssh -T git@github.com-14katsumix
+ssh -T git@github.com-14jcjc
 
 # リポジトリをローカルに接続する
-git remote add origin git@github.com-14katsumix:14katsumix/tech-blog.git
-git remote set-url origin git@github.com-14katsumix:14katsumix/tech-blog.git
+
+# git remote add origin git@github.com-14katsumix:14katsumix/tech-blog.git
+# git remote set-url origin git@github.com-14katsumix:14katsumix/tech-blog.git
+# git remote -v
+
+# git remote add origin git@github.com-14jcjc:14jcjc/tech-blog.git
+git remote set-url origin git@github.com-14jcjc:14jcjc/tech-blog.git
 git remote -v
 
 # push
-git config --local user.name "14katsumix"
-git config --local user.email "14katsumix@gmail.com"
-git config --local url."github.com-14katsumix:".insteadOf "git@github.com:"
 
-git add -A
-git commit -m "Initial commit"
+# git config --local user.name "14katsumix"
+# git config --local user.email "14katsumix@gmail.com"
+# git config --local url."github.com-14katsumix:".insteadOf "git@github.com:"
+
+git config --local user.name "14jcjc"
+git config --local user.email "14jcjc@gmail.com"
+git config --local url."github.com-14jcjc:".insteadOf "git@github.com:"
+
+# git add -A
+# git commit -m "Initial commit"
 git branch -M main
 git push -u origin main
 
@@ -121,77 +137,112 @@ When GitHub has finished building and deploying your site, the color of the stat
 エラー発生時のログ: commit -> 左メニュー[Usage]
 
 数分待つと以下にブログが公開される: 
-https://14katsumix.github.io/tech-blog/
+https://14jcjc.github.io/tech-blog/
 (config.yml の baseURL)
 
-#-------------------------------------------------------------------------------
-* ブログのリポジトリを 14rfrf に移行する！
+-------------------------------------------------------------------------------
+
+* データサイエンス100本ノック＋α の環境構築
+
+データサイエンス100本ノック（構造化データ加工編）を導入済みのユーザー向けについて。
+
+* Google Analytics
+
+G-GLB0HGKER4
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GLB0HGKER4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-GLB0HGKER4');
+</script>
+
+* Google Search Console
+
+以下の TXT レコードを 14jcjc.github.io の DNS 設定にコピーします: 
+
+* 各 platforms のアフィリエイトリンクを出力する shortcodes を作る
+  参考: product-link.html
 
 * コンテンツファイルに記述する問題文を data/k100/questions.yaml からゲットする.
 
-* 問題文の一覧ページを作る. 
+* 演習問題一覧ページを「番号順」にする。「難易度順」を作る. 
 
-* 定型文のテンプレートをコンテンツに挿入する仕組みを作る.
-
-- ショートコードを含む Markdown ファイルを作成: 
-content/base.md:
-```
-## 定型文
-このテキストは定型文です。
-{{< example_shortcode param="外部データ" >}}
-```
-
-- 部分テンプレートで readFile と renderString を使う: 
-readFile で外部ファイルを読み込み、RenderString を使ってショートコードをレンダリングします。
-layouts/partials/base.html: 
-```
-{{ $content := readFile "content/base.md" }}
-{{ $rendered := $content | .Page.RenderString }}
-{{ $rendered | safeHTML }}
-```
-
-param引数を受け取る場合は分岐処理で "content/base.md" を動的に定義できる。
-
-- ショートコードを作成して部分テンプレートを呼び出す
-layouts/shortcodes/base.html を作成し、その中で layouts/partials/base.html を呼び出します。
-layouts/shortcodes/base.html: 
-```
-{{ partial "base.html" . }}
-```
-param引数を与えたい場合: 
-```
-{{ partial "base.html" (dict "context" . "param" (.Get "param")) }}
-```
-param という引数をショートコードから受け取ります。
-context は現在のページ（.Page）や渡されたスコープです。
-
-- コンテンツ内でショートコードを呼び出す
-content/posts/my-post.md: 
-
-```
-## 記事タイトル
-
-本文の前に定型文を挿入します。
-
-{{< base >}}
-or
-{{< base param="..." >}}
-
-ここに記事の続きを記述します。
-```
-
-この方法により、layouts/partials/base.html の内容が記事内に挿入されます。
+* 各演習問題のページを作る. 
 
 * robots.txt
 
 公開時は static/robots.txt を削除すること！
 
+* {{< shortcode >}} と {{% shortcode %}} の違い
+https://gohugo.io/methods/page/rendershortcodes/
+PAGE.RenderShortcodes は、コンテンツファイル内のショートコードをレンダリングするが、
+Markdown は保持されることに注意。
+
+* partial template
+https://gohugo.io/templates/embedded/
+ショートコードはテンプレートファイルでは動作しないことに注意してください。ショートコードが提供するようなドロップイン機能が必要な場合、代わりに部分テンプレートが必要です。
+
+* comments 機能
+Hugo には、静的および動的 Web サイトの両方で人気のコメント システムであるDisqusの埋め込みテンプレートが含まれています。Disqus を効果的に使用するには、無料サービスにサインアップして Disqus の「短縮名」を取得してください。
+
+埋め込みテンプレートを含めるには:
+{{ template "_internal/disqus.html" . }}
+
+* 関連記事の設定 (hugo.yaml, related)
+
+* Cascade
+https://gohugo.io/content-management/front-matter/#cascade
+どのノードもその子孫にフロントマターの値のセットを渡すことができる。
+
+* Related content (See also)
+
+* Single template, Template selection
+https://gohugo.io/content-management/sections/
+Hugo has a defined lookup order to determine which template to use when rendering a page. 
+content/products/product-1/benefits -> 
+  - layouts/products/list.html
+  - layouts/products/single.html
+If you need to use a different template for a subsection, specify type and/or layout in front matter.
+
+* Build options
+https://gohugo.io/content-management/build-options/
+headless page など。
+
+* Image processing
+https://gohugo.io/content-management/image-processing/
+Global resource 
+A global resource is a file within the assets directory, or within any directory mounted to the assets directory.
+
+assets/
+└── images/
+    └── sunset.jpg    <-- global resource
+
+* ref, relref
+To link to another language version of a document, use this syntax:
+{{< relref path="document.md" lang="ja" >}}
+
+* Shortcodes
+{{< href-target-blank url="" text="">}}
+{{% comment %}} TODO: rewrite the paragraph below. {{% /comment %}}
+
+-------------------------------------------------------------------------------
+section: ディレクトリ単位での分類。
+taxonomy: コンテンツ全体に適用できる分類方法(tagsなど).
+term: タクソノミーの具体的な分類値。
+
+-------------------------------------------------------------------------------
 * Archetypes
 https://gohugo.io/content-management/archetypes/
 To create an article using the articles archetype: 
 hugo new content articles/something.md
 チュートリアル アーキタイプを使用して記事を作成するには:
 hugo new content --kind tutorials articles/something.md
+
+hugo new test/r-028
 
 * environment 
 (string) Build environment. Default is 
@@ -241,69 +292,10 @@ _merge: none はマージを行わない設定。
 keywords: ["aaa", "bbb"]
 のみが適用される。
 
-* partial template
-https://gohugo.io/templates/embedded/
-ショートコードはテンプレートファイルでは動作しないことに注意してください。ショートコードが提供するようなドロップイン機能が必要な場合、代わりに部分テンプレートが必要です。
-
-* comments 機能
-Hugo には、静的および動的 Web サイトの両方で人気のコメント システムであるDisqusの埋め込みテンプレートが含まれています。Disqus を効果的に使用するには、無料サービスにサインアップして Disqus の「短縮名」を取得してください。
-
-埋め込みテンプレートを含めるには:
-{{ template "_internal/disqus.html" . }}
-
-* Cascade
-https://gohugo.io/content-management/front-matter/#cascade
-どのノードもその子孫にフロントマターの値のセットを渡すことができる。
-
-* Related content (See also)
-
-* Comments
-
-* Single template, Template selection
-https://gohugo.io/content-management/sections/
-Hugo has a defined lookup order to determine which template to use when rendering a page. 
-content/products/product-1/benefits -> 
-  - layouts/products/list.html
-  - layouts/products/single.html
-If you need to use a different template for a subsection, specify type and/or layout in front matter.
-
-* Build options
-https://gohugo.io/content-management/build-options/
-headless page など。
-
-* Image processing
-https://gohugo.io/content-management/image-processing/
-Global resource 
-A global resource is a file within the assets directory, or within any directory mounted to the assets directory.
-
-assets/
-└── images/
-    └── sunset.jpg    <-- global resource
-
-* ref, relref
-To link to another language version of a document, use this syntax:
-{{< relref path="document.md" lang="ja" >}}
-
-* Shortcodes
-{{< href-target-blank url="" text="">}}
-{{% comment %}} TODO: rewrite the paragraph below. {{% /comment %}}
-
-#-------------------------------------------------------------------------------
-前回の記事は [こちら]({{< ref "previous-article.md" >}})
-前回の記事は [こちら]({{< relref "../path/to/previous-article.md" >}})
-
-ref: コンテンツディレクトリ（通常content/）のルートからの相対パスを指定。
-relref: 現在のページからの相対パスを指定。
-
-#-------------------------------------------------------------------------------
-section: ディレクトリ単位での分類。
-taxonomy: コンテンツ全体に適用できる分類方法(tagsなど).
-term: タクソノミーの具体的な分類値。
-
-#-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+* Twitter Card を確認する！
 
 https://14katsumix.github.io/tech-blog/ds-100knocks-dp/100knocks-dp-guidebook/
-
 をツイートして Twitter Card を確認する！
 
 content
@@ -317,12 +309,81 @@ content
 
 という構成です。
 
-テーマはPaperModを利用してます。
+-------------------------------------------------------------------------------
+* 定型文のテンプレートをコンテンツに挿入する仕組みを作る.
+  -> shortcodes: include を使う。
+  参考 (定型文.md はビルド・公開しない): 
+  * Build options
+  https://gohugo.io/content-management/build-options/
+  ---
+  cascade:
+  - _target:
+      environment: production
+    build:
+      list: never
+      render: never
+  title: Internal
+  ---
 
-<a href="{{ .Site.Home.RelPermalink }}">
-Return to the home page
-</a>
+以下を参考に: 
+https://gohugo.io/methods/page/rendershortcodes/
 
+content/about.md
+{{% include "/snippets/services" %}}
+{{% include "/snippets/values" %}}
+{{% include "/snippets/leadership" %}}
+
+- ショートコードを含む Markdown ファイルを作成: 
+content/base.md:
+```
+## 定型文
+このテキストは定型文です。
+{{< example_shortcode param="外部データ" >}}
+```
+
+- 部分テンプレートで readFile と renderString を使う: 
+readFile で外部ファイルを読み込み、RenderString を使ってショートコードをレンダリングします。
+layouts/partials/base.html: 
+```
+{{ $content := readFile "content/base.md" }}
+{{ $rendered := $content | .Page.RenderString }}
+{{ $rendered | safeHTML }}
+```
+
+param引数を受け取る場合は分岐処理で "content/base.md" を動的に定義できる。
+
+- ショートコードを作成して部分テンプレートを呼び出す
+layouts/shortcodes/base.html を作成し、その中で layouts/partials/base.html を呼び出します。
+layouts/shortcodes/base.html: 
+```
+{{ partial "base.html" . }}
+```
+param引数を与えたい場合: 
+```
+{{ partial "base.html" (dict "context" . "param" (.Get "param")) }}
+```
+param という引数をショートコードから受け取ります。
+context は現在のページ（.Page）や渡されたスコープです。
+
+- コンテンツ内でショートコードを呼び出す
+
+content/posts/my-post.md: 
+```
+## 記事タイトル
+
+本文の前に定型文を挿入します。
+
+{{< base >}}
+or
+{{< base param="..." >}}
+
+ここに記事の続きを記述します。
+```
+
+この方法により、layouts/partials/base.html の内容が記事内に挿入されます。
+
+-------------------------------------------------------------------------------
+* iPhone でのメニューの問題
 
 Hugo + GitHub Actions で作成した公開サイトを作成しました。
 テーマはPaperModを利用してます。
@@ -333,14 +394,16 @@ macbookでは問題はありません。
 メニューの tags, categories, Archives などが読み込めなくなる現象が発生してます。
 原因は？
 
-iPhoneだと、メニューが開けるときもありますが、
+iPhone だと、メニューが開けるときもありますが、
 クリック後、いつまで経ってもページが開かない、という現象が起きます。
 Chromeのシークレットウィンドウで開いたらきちんと動作した。
+
+-------------------------------------------------------------------------------
+* twitter で投稿をシェアしても、タイトルしか表示されない
 
 [params]
 cacheBusting = true
 disableLazyLoading = true
-
 
 タイトル: 「ブログ記事タイトル」
 説明文: 「記事の説明」
@@ -357,3 +420,4 @@ disableLazyLoading = true
 <meta name="twitter:image" content="記事のサムネイルURL">
 は全て記述されてます。
 
+-------------------------------------------------------------------------------
