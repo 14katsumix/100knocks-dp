@@ -5,6 +5,7 @@
 .DS_Store
 
 *-bak.*
+*-bak
 
 *.duckdb
 *.csv

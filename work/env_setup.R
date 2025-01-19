@@ -18,7 +18,7 @@ pacman::p_load(
   update = F   # 古いパッケージを更新しない
 )
 
-# ロード済みのパッケージの確認
+# ロード済みのパッケージの出力
 pacman::p_loaded() %>% writeLines()
 cat("\n")
 

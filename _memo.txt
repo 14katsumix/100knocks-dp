@@ -477,53 +477,29 @@ GitHubリポジトリのREADMEに記載されている内容を見る限り、�
 
 #-------------------------------------------------------------------------------
 
-my_tbl = function(
-  con, df, 
-  name = deparse(substitute(df)), 
-  rm_pattern = "^df_", 
-  overwrite = FALSE, append = FALSE, row_names = FALSE, 
-  field_types = NULL, temporary = FALSE
-) {
-# name からマッチしたパターンを削除する
-if (!is.null(rm_pattern))
-  name %<>% stringr::str_remove(pattern = rm_pattern)
-# データフレームをDBに書き込む
-DBI::dbWriteTable(
-  conn = con, name = name, value = df, 
-  overwrite = overwrite, append = append, row.names = row_names, 
-  field.types = field_types, temporary = temporary
-)
-sprintf("table name = %s\n", name) %>% cat()
-# テーブル参照を取得する
-con %>% dplyr::tbl(name)
-}
+以下のRのコードを、エラーハンドラーを用いてブラッシュアップして。
+条件：
+- エラーが発生したら処理を中断する。
+- 最後に　tictoc::toc() が必ず実行されるようにする。
 
-db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+tictoc::tic("init") # タイマーの開始
 
-上記のような定義で、以下の2つの処理があります。
+# 作業ディレクトリの設定 ------------
+# work_dir_path をローカル環境に合わせて適宜書き換えてください: 
+work_dir_path = 
+  rstudioapi::getSourceEditorContext()$path |> dirname()
 
-(1)
-df_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10)
+work_dir_path |> setwd()
+getwd() |> print() #> "your_directory_path/work"
+cat("\n")
 
-(2)
-db_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10)
+# env_setup.R の実行 ------------
+source("env_setup.R", encoding = 'UTF-8')
 
-(1), (2)の処理の概要として、どのような言葉が適切？
+# functions.R の実行 ------------
+source("functions.R", encoding = 'UTF-8')
 
-(1) ローカルのデータフレーム操作
-(2) データベースクエリ操作（遅延評価）
-(1) メモリ内処理
-(2) データベース処理
+# data_setup.R の実行 ------------
+source("data_setup.R", encoding = 'UTF-8')
 
-以下の言葉はいかが？
-
-(1) [R] データフレームでの処理
-(2) [R] データベース・バックエンドでの処理
+tictoc::toc() # 経過時間の出力

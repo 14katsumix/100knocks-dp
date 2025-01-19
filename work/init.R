@@ -9,6 +9,7 @@ if (!require("pacman")) {
 }
 
 # rstudioapi, tictoc のロード ------------
+# 無い場合は自動でインストールした後にロードする.
 pacman::p_load(
   rstudioapi,  # ローカルファイルパスの取得向け
   tictoc,      # 処理時間の計測向け
