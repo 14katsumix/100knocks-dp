@@ -8,7 +8,9 @@ safe_source = function(file) {
     source(file, encoding = 'UTF-8')
     message(file, " の実行が完了しました. \n\n")
   }, error = function(e) {
-    stop(file, " の実行中にエラーが発生しました: \n", e$message)
+    # message(file, " の実行中にエラーが発生しました: \n", e$message, "\n")
+    # stop("処理を中断します.\n", call. = FALSE)
+    stop(file, " の実行中にエラーが発生しました: \n", e$message, "\n", call. = FALSE)
   })
 }
 
@@ -27,13 +29,15 @@ pacman::p_load(
   update = F   # 古いパッケージを更新しない
 )
 
+# tictoc::tic.clear() # tic/toc スタックのクリア
 tictoc::tic("init") # タイマーの開始
 
 tryCatch({
+  # 実行ファイル(init.R)のフルパス
+  init_path = rstudioapi::getSourceEditorContext()$path
   # 作業ディレクトリの設定 ------------
   # work_dir_path をローカル環境に合わせて適宜書き換えてください: 
-  work_dir_path = 
-    rstudioapi::getSourceEditorContext()$path |> dirname()
+  work_dir_path = init_path |> dirname()
   work_dir_path |> setwd()
   getwd() |> print() #> "your_directory_path/work"
   cat("\n")
@@ -41,16 +45,13 @@ tryCatch({
   safe_source("env_setup.R")
   safe_source("functions.R")
   safe_source("data_setup.R")
-
 }, error = function(e) {
   # message("エラーが発生しました: ", e$message)
   message(e$message)
-  stop("処理を中断します.")
+  message("処理を中断します.")
 }, finally = {
-  tictoc::toc()
+  tictoc::toc() # 経過時間の出力
 })
-
-# tictoc::tic.clear() # tic/toc スタックのクリア
 
 #-------------------------------------------------------------------------------
 # 作業ディレクトリの設定 ------------

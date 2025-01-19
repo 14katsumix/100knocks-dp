@@ -482,24 +482,8 @@ GitHubリポジトリのREADMEに記載されている内容を見る限り、�
 - エラーが発生したら処理を中断する。
 - 最後に　tictoc::toc() が必ず実行されるようにする。
 
-tictoc::tic("init") # タイマーの開始
 
-# 作業ディレクトリの設定 ------------
-# work_dir_path をローカル環境に合わせて適宜書き換えてください: 
-work_dir_path = 
-  rstudioapi::getSourceEditorContext()$path |> dirname()
+stop("処理を中断します.")
+の出力は、以下のように "value[[3L]](cond) でエラー: " が出てしまいます。
 
-work_dir_path |> setwd()
-getwd() |> print() #> "your_directory_path/work"
-cat("\n")
-
-# env_setup.R の実行 ------------
-source("env_setup.R", encoding = 'UTF-8')
-
-# functions.R の実行 ------------
-source("functions.R", encoding = 'UTF-8')
-
-# data_setup.R の実行 ------------
-source("data_setup.R", encoding = 'UTF-8')
-
-tictoc::toc() # 経過時間の出力
+value[[3L]](cond) でエラー: 処理を中断します.
