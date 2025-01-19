@@ -56,6 +56,7 @@ LoveIt, Coder, Docsy
 
 * tags:
 
+書籍レビュー
 R
 SQL
 型変換
@@ -67,7 +68,7 @@ SQL
 縦横変換
 グループ化
 サブクエリ
-集計関数
+集約関数
 ウィンドウ関数
 ランキング関数
 データのシフト
@@ -87,6 +88,8 @@ CASE式 (条件付き集計)
 四捨五入演算
 CTE（共通テーブル式）
 ファイル入出力
+
+* 環境構築に tictoc パッケージを利用する。
 
 * カスタムドメイン, https, 14katsumix.com
 
@@ -473,3 +476,54 @@ GitHubリポジトリのREADMEに記載されている内容を見る限り、�
 個人利用も自由に利用可能と解釈できますが、**出典の明示は必須**です。また、アフィリエイトブログなど商用利用に該当するケースでは、リポジトリ管理者に事前に確認を取るのが安全です。問題文をそのまま転載するのではなく、自分の解説や考察をメインにすることでトラブルを避けるとともに、よりオリジナルなコンテンツを提供できます。
 
 #-------------------------------------------------------------------------------
+
+my_tbl = function(
+  con, df, 
+  name = deparse(substitute(df)), 
+  rm_pattern = "^df_", 
+  overwrite = FALSE, append = FALSE, row_names = FALSE, 
+  field_types = NULL, temporary = FALSE
+) {
+# name からマッチしたパターンを削除する
+if (!is.null(rm_pattern))
+  name %<>% stringr::str_remove(pattern = rm_pattern)
+# データフレームをDBに書き込む
+DBI::dbWriteTable(
+  conn = con, name = name, value = df, 
+  overwrite = overwrite, append = append, row.names = row_names, 
+  field.types = field_types, temporary = temporary
+)
+sprintf("table name = %s\n", name) %>% cat()
+# テーブル参照を取得する
+con %>% dplyr::tbl(name)
+}
+
+db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
+
+上記のような定義で、以下の2つの処理があります。
+
+(1)
+df_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  arrange(store_cd) %>% 
+  head(10)
+
+(2)
+db_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  arrange(store_cd) %>% 
+  head(10)
+
+(1), (2)の処理の概要として、どのような言葉が適切？
+
+(1) ローカルのデータフレーム操作
+(2) データベースクエリ操作（遅延評価）
+(1) メモリ内処理
+(2) データベース処理
+
+以下の言葉はいかが？
+
+(1) [R] データフレームでの処理
+(2) [R] データベース・バックエンドでの処理

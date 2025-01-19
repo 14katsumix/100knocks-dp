@@ -329,9 +329,9 @@ receipt %>%
 
 #...............................................................................
 # dbplyr
-tbl_receipt %>% glimpse()
+db_receipt %>% glimpse()
 
-tbl_receipt %>% 
+db_receipt %>% 
   filter(not(customer_id %like% "Z%")) %>% 
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   # mutate(.mean = mean(sum_amount)) %>% 
@@ -403,8 +403,8 @@ q %>% my_select(con)
 # ただし、売上実績がない顧客については売上金額を0として表示させること。
 # また、顧客は性別コード（gender_cd）が女性（1）であるものを対象とし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
 
-customer %>% 
-  left_join(receipt, by = "customer_id") %>% 
+df_customer %>% 
+  left_join(df_receipt, by = "customer_id") %>% 
   filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
   summarise(sum_aomunt = sum(amount, na.rm = T), .by = "customer_id") %>% 
   arrange(customer_id)

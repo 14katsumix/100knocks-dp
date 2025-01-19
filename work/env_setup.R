@@ -2,24 +2,18 @@
 # パッケージのロード, オプション設定
 #===============================================================================
 
-# pacman のロード ------------
-if (!require("pacman")) {
-  install.packages("pacman")
-  library("pacman")
-}
-
 # 各パッケージのロード ------------
 # 無い場合は自動でインストールした後にロードする.
 pacman::p_load(
   # tidyverse: 
-  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, # purrr, forcats, 
-  # tidymodels: 
-  rsample, recipes, themis, 
+  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, # forcats, 
   # for DB: 
   DBI, duckdb, dbx, dbplyr, 
   # for download: 
   httr, xfun, 
   withr, vroom, janitor, jsonlite, 
+  # tidymodels: 
+  rsample, recipes, themis, 
   install = T, # 存在しないパッケージをインストールする
   update = F   # 古いパッケージを更新しない
 )
