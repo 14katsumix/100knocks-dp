@@ -55,23 +55,3 @@ finally = {
 })
 
 #-------------------------------------------------------------------------------
-# 作業ディレクトリの設定 ------------
-# work_dir_path をローカル環境に合わせて適宜書き換えてください: 
-# work_dir_path = 
-#   rstudioapi::getSourceEditorContext()$path |> dirname()
-
-# work_dir_path |> setwd()
-# getwd() |> print() #> "your_directory_path/work"
-# cat("\n")
-
-# # env_setup.R の実行 ------------
-# safe_source("env_setup.R")
-# # functions.R の実行 ------------
-# safe_source("functions.R")
-# # data_setup.R の実行 ------------
-# safe_source("data_setup.R")
-
-# tictoc::toc() # 経過時間の出力
-# tictoc::tic.clear() # tic/toc スタックのクリア
-
-#-------------------------------------------------------------------------------
