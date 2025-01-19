@@ -20,7 +20,6 @@ pacman::p_load(
 
 # ロード済みのパッケージの出力
 pacman::p_loaded() %>% writeLines()
-cat("\n")
 
 # 全てのパッケージを一括アンロードする場合: 
 # pacman::p_unload("all")

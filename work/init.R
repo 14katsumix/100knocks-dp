@@ -5,11 +5,11 @@
 # .R ファイルの実行関数
 safe_source = function(file) {
   tryCatch({
+    message(file, " の実行を開始します. \n\n")
     source(file, encoding = 'UTF-8')
-    message(file, " の実行が完了しました. \n\n")
-  }, error = function(e) {
-    # message(file, " の実行中にエラーが発生しました: \n", e$message, "\n")
-    # stop("処理を中断します.\n", call. = FALSE)
+    message("\n", file, " の実行が完了しました. \n\n")
+  }, 
+  error = function(e) {
     stop(file, " の実行中にエラーが発生しました: \n", e$message, "\n", call. = FALSE)
   })
 }
@@ -45,11 +45,12 @@ tryCatch({
   safe_source("env_setup.R")
   safe_source("functions.R")
   safe_source("data_setup.R")
-}, error = function(e) {
-  # message("エラーが発生しました: ", e$message)
+}, 
+error = function(e) {
   message(e$message)
   message("処理を中断します.")
-}, finally = {
+}, 
+finally = {
   tictoc::toc() # 経過時間の出力
 })
 
