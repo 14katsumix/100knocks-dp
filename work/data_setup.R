@@ -3,6 +3,7 @@
 # 1. 各CSVファイル等をダウンロードする.
 # 2. DBコネクションを作成する.
 # 3. 各CSVファイルをDBに書き込み, テーブル参照を取得する.
+# 4. データフレームを取得する
 #===============================================================================
 
 # 各CSVファイル等のダウンロード ------------
@@ -139,11 +140,16 @@ for (table_name in names(col_types_list)) {
       con, table_name, files = path, col.types = col_types
     )
   }
-  # テーブル参照を取得する
-  db_table = paste0("db_", table_name)
-  assign(db_table, tbl(con, table_name))
+  # テーブル参照を取得する (db_*)
+  db_obj_name = paste0("db_", table_name)
+  assign(db_obj_name, tbl(con, table_name))
   # テーブルの内容を表示する
-  get(db_table) %>% dplyr::glimpse()
+  get(db_obj_name) %>% dplyr::glimpse()
+  cat("\n")
+  # データフレームを取得する (df_*)
+  df_obj_name = paste0("df_", table_name)
+  # assign(df_obj_name, get(db_obj_name) %>% collect())
+  assign(df_obj_name, get(db_obj_name) %>% collect(), envir = globalenv())
   cat("\n")
 }
 
@@ -151,8 +157,3 @@ for (table_name in names(col_types_list)) {
 con %>% DBI::dbListTables() %>% print()
 
 #-------------------------------------------------------------------------------
-
-
-db_store %>% summarise(n = n())
-db_receipt %>% summarise(n = n())
-ls()

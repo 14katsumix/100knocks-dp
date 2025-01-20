@@ -71,3 +71,6 @@ mf %>%
 
 db_product %>% select(product_cd, unit_cost) %>% 
   mutate(u = cut(unit_cost, breaks = c(-Inf, 200, 400, Inf), labels = c("a", "b", "c")))
+
+ls()
+
