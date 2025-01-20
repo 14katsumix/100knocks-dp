@@ -1,4 +1,30 @@
 #-------------------------------------------------------------------------------
+
+df_customer %>% 
+  summarise(
+    n1 = sum(ifelse(gender_cd == "1", 1L, 0L))
+  )
+
+db_customer %>% 
+  summarise(
+    n1 = sum(ifelse(gender_cd == "1", 1L, 0L))
+  )
+
+db_customer %>% 
+  summarise(
+    n1 = sum(ifelse(gender_cd == "1", 1L, 0L)), 
+    n = n()
+  ) -> 
+  db_result
+db_result %>% my_show_query()
+
+<SQL>
+SELECT
+  SUM(CASE WHEN (gender_cd = '1') THEN 1 WHEN NOT (gender_cd = '1') THEN 0 END) AS n1,
+  COUNT(*) AS n
+FROM customer
+
+#-------------------------------------------------------------------------------
 db_receipt %>% 
   filter(sales_ymd >= 20180101L ) %>%  
   group_by(product_cd) %>% 
@@ -129,6 +155,23 @@ SELECT "product_cd", SUM("amount") AS "total_sales"
 FROM "q01"
 GROUP BY "product_cd"
 ORDER BY "total_sales" DESC
+
+
+db_product %>% 
+  group_by(category_major_cd) %>% 
+  summarise(
+    n = n(), 
+    mean = mean(unit_price), 
+    q1 = quantile(unit_price, probs = 0.25), # 第一四分位点
+    sd = sd(unit_price) # 標準偏差
+  ) %>% 
+  arrange(category_major_cd) -> 
+  db_result
+
+db_result %>% my_show_query()
+db_result %>% my_sql_render(con = simulate_mysql())
+db_result %>% my_sql_render(con = simulate_postgres())
+db_result %>% my_sql_render(con = simulate_snowflake())
 
 #-------------------------------------------------------------------------------
 # tbl()

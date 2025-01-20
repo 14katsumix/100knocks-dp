@@ -2,18 +2,6 @@
 # R 起動後のセットアップ
 #===============================================================================
 
-# .R ファイルの実行関数
-safe_source = function(file) {
-  tryCatch({
-    message(file, " の実行を開始します. \n\n")
-    source(file, encoding = 'UTF-8')
-    message("\n", file, " の実行が完了しました. \n\n")
-  }, 
-  error = function(e) {
-    stop(file, " の実行中にエラーが発生しました: \n", e$message, "\n", call. = FALSE)
-  })
-}
-
 # pacman のロード ------------
 if (!require("pacman")) {
   install.packages("pacman")
@@ -29,6 +17,23 @@ pacman::p_load(
   update = F   # 古いパッケージを更新しない
 )
 
+# .R ファイルの実行関数
+safe_source = function(file) {
+  tictoc::tic(file)
+  tryCatch({
+    message(file, " を実行します. \n\n")
+    source(file, encoding = 'UTF-8')
+    message("\n", file, " の実行が完了しました.")
+  }, 
+  error = function(e) {
+    stop(file, " の実行中にエラーが発生しました: \n", e$message, "\n", call. = FALSE)
+  }, 
+  finally = {
+    tictoc::toc()
+    cat("\n")
+  })
+}
+
 # tictoc::tic.clear() # tic/toc スタックのクリア
 tictoc::tic("init") # タイマーの開始
 
@@ -39,9 +44,9 @@ tryCatch({
   # work_dir_path をローカル環境に合わせて適宜書き換えてください: 
   work_dir_path = init_path |> dirname()
   work_dir_path |> setwd()
-  getwd() |> print() #> "your_directory_path/work"
-  cat("\n")
-  # 各スクリプトの実行
+  sprintf("Working directory: \n%s\n\n", getwd()) |> cat()
+  #> "your_directory_path/work"
+  # 各スクリプトの実行 ------------
   safe_source("env_setup.R")
   safe_source("functions.R")
   safe_source("data_setup.R")

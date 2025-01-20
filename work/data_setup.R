@@ -17,7 +17,7 @@ urls = data_url %>%
   httr::GET() %>% 
   httr::content(as = "text") %>% 
   jsonlite::fromJSON() %>% 
-  pull(download_url)
+  dplyr::pull(download_url)
 
 # dataディレクトリの作成
 data_dir = my_path_join()
@@ -28,7 +28,7 @@ for (url in urls) {
   # ダウンロード先のファイルパス
   path = url %>% xfun::url_filename() %>% my_path_join()
   # ダウンロード (上書きはしない)
-  if (!file_exists(path))
+  if (!fs::file_exists(path))
     xfun::download_file(url, output = path)
 }
 
@@ -36,12 +36,15 @@ for (url in urls) {
 # 各.csvファイルの読み込み ------------
 
 my_vroom = function(fname, col_types, .subdir = "data") {
+  tictoc::tic(fname)
+  on.exit(tictoc::toc())
+  on.exit(cat("\n"), add = TRUE)
   fname %>% 
     my_path_join(.subdir = .subdir) %>% 
     { print(.); flush.console(); . } %>% 
     vroom::vroom(col_types = col_types) %>% 
     janitor::clean_names() %>% 
-    glimpse() %T>% 
+    dplyr::glimpse() %T>% 
     { cat("\n") } ->
     d
   d
@@ -63,7 +66,7 @@ df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 dbdir = my_path_join("100knocks.duckdb", .subdir = "DB")
 
 # dbdir の親ディレクトリが無ければ作成する (あれば何もしない)
-dbdir %>% path_dir() %>% fs::dir_create()
+dbdir %>% fs::path_dir() %>% fs::dir_create()
 
 # dbdir = "" #< DBを in-memory で一時的に作成する場合
 drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
@@ -71,9 +74,11 @@ drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
 duckdb::dbConnect(
   drv = drv
   # timezone_out = Sys.timezone() # ローカルのタイムゾーンで日時の値を表示する
-) -> con
+) -> 
+con
 
-con %>% dbGetInfo() %>% glimpse() # db.version, dbname などを表示する
+# db.version, dbname などを表示する
+con %>% DBI::dbGetInfo() %>% dplyr::glimpse() 
 cat("\n")
 
 # DBコネクションを切断する場合: 

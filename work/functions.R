@@ -16,7 +16,9 @@ my_path_join = function(..., .dir = getwd(), .subdir = "data") {
 # e: FALSE の場合は query をそのまま返す
 my_show_query = function(
     query, e = TRUE, 
-    cte = TRUE, qualify_all_columns = FALSE, use_star = TRUE, 
+    cte = TRUE, 
+    qualify_all_columns = FALSE, 
+    use_star = TRUE, 
     sql_op = 
       dbplyr::sql_options(
         cte = cte, 
@@ -36,16 +38,21 @@ my_show_query = function(
 # デフォルトでは, バッククォート(`)を削除する. 
 my_sql_render = function(
     query, con = NULL, 
-    cte = T, qualify_all_columns = T, use_star = T, 
-    op = sql_options(
-          cte = cte, use_star = use_star, qualify_all_columns = qualify_all_columns
-        ), 
+    cte = T, 
+    qualify_all_columns = T, 
+    use_star = T, 
+    op = 
+      dbplyr::sql_options(
+        cte = cte, 
+        use_star = use_star, 
+        qualify_all_columns = qualify_all_columns
+      ), 
     subquery = FALSE, lvl = 0, 
     pattern = "`", replacement = ""
   ) {
   s = query %>% dbplyr::sql_render(
-      con = con, sql_options = op, subquery = subquery, lvl = lvl
-    )
+        con = con, sql_options = op, subquery = subquery, lvl = lvl
+      )
   if (!is.null(pattern)) {
     s %<>% gsub(pattern, replacement, .)
   }
@@ -54,26 +61,12 @@ my_sql_render = function(
 
 # my_select ------------
 # dbx::dbxSelect のラッパー
-my_select = function(statement, con, convert_tibble = TRUE, params = NULL) {
+my_select = function(
+    statement, con, convert_tibble = TRUE, params = NULL
+  ) {
   d = dbx::dbxSelect(conn = con, statement = statement, params = params)
   if (convert_tibble) d %<>% tibble::as_tibble()
   d
-}
-
-# my_with_seed ------------
-# withr::with_seed のラッパー
-my_with_seed = function(
-    code, seed, 
-    .rng_kind = NULL, 
-    .rng_normal_kind = NULL, 
-    .rng_sample_kind = NULL
-  ) {
-  withr::with_seed(
-    seed = seed, code = code, 
-    .rng_kind = .rng_kind, 
-    .rng_normal_kind = .rng_normal_kind, 
-    .rng_sample_kind = .rng_sample_kind
-  )
 }
 
 # my_tbl ------------
@@ -106,6 +99,23 @@ my_tbl = function(
   # テーブル参照を取得する
   con %>% dplyr::tbl(name)
 }
+
+# my_with_seed ------------
+# withr::with_seed のラッパー
+my_with_seed = function(
+    code, seed, 
+    .rng_kind = NULL, 
+    .rng_normal_kind = NULL, 
+    .rng_sample_kind = NULL
+  ) {
+  withr::with_seed(
+    seed = seed, code = code, 
+    .rng_kind = .rng_kind, 
+    .rng_normal_kind = .rng_normal_kind, 
+    .rng_sample_kind = .rng_sample_kind
+  )
+}
+
 #-------------------------------------------------------------------------------
 
 
