@@ -41,7 +41,7 @@ my_sql_render = function(
     cte = T, 
     qualify_all_columns = T, 
     use_star = T, 
-    op = 
+    sql_op = 
       dbplyr::sql_options(
         cte = cte, 
         use_star = use_star, 
@@ -50,9 +50,11 @@ my_sql_render = function(
     subquery = FALSE, lvl = 0, 
     pattern = "`", replacement = ""
   ) {
-  s = query %>% dbplyr::sql_render(
-        con = con, sql_options = op, subquery = subquery, lvl = lvl
-      )
+  s = 
+    query %>% 
+    dbplyr::sql_render(
+      con = con, sql_options = sql_op, subquery = subquery, lvl = lvl
+    )
   if (!is.null(pattern)) {
     s %<>% gsub(pattern, replacement, .)
   }
