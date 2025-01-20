@@ -6,14 +6,11 @@
 # 無い場合は自動でインストールした後にロードする.
 pacman::p_load(
   # tidyverse: 
-  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, # forcats, 
-  # for DB: 
-  DBI, dbplyr, dbx, 
-  # for download: 
-  httr, xfun, 
-  withr, vroom, janitor, jsonlite, 
-  # tidymodels: 
-  rsample, recipes, themis, 
+  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, 
+  DBI, dbplyr, dbx, duckdb, # for DB
+  httr, xfun, # for download
+  withr, janitor, jsonlite, 
+  rsample, recipes, themis, # tidymodels
   install = T, # 存在しないパッケージをインストールする
   update = F   # 古いパッケージを更新しない
 )

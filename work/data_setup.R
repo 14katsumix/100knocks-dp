@@ -1,12 +1,11 @@
 #===============================================================================
 # データの準備
-# 1. 各.csvファイル等をダウンロードする.
-# 2. 各.csvファイルを読み込む.
-# 3. DBコネクションを作成する.
-# 4. データフレームをDBに書き込み, テーブル参照を取得する.
+# 1. 各CSVファイル等をダウンロードする.
+# 2. DBコネクションを作成する.
+# 3. 各CSVファイルをDBに書き込み, テーブル参照を取得する.
 #===============================================================================
 
-# 各.csvファイル等のダウンロード ------------
+# 各CSVファイル等のダウンロード ------------
 
 # GitHub API URL of 100knocks data
 data_url = 
@@ -31,33 +30,6 @@ for (url in urls) {
   if (!fs::file_exists(path))
     xfun::download_file(url, output = path)
 }
-
-#-------------------------------------------------------------------------------
-# 各.csvファイルの読み込み ------------
-
-my_vroom = function(fname, col_types, .subdir = "data") {
-  tictoc::tic(fname)
-  on.exit(tictoc::toc())
-  on.exit(cat("\n"), add = TRUE)
-  fname %>% 
-    my_path_join(.subdir = .subdir) %>% 
-    { print(.); flush.console(); . } %>% 
-    vroom::vroom(col_types = col_types) %>% 
-    janitor::clean_names() %>% 
-    dplyr::glimpse() %T>% 
-    { cat("\n") } ->
-    d
-  d
-}
-
-# receipt.sales_ymd を integer として読み込む
-df_receipt = "receipt.csv" %>% my_vroom(col_types = "iiciiccnn")
-# customer.birth_day を Dateクラスとして読み込む
-df_customer = "customer.csv" %>% my_vroom(col_types = "ccicDiccccc")
-df_product = "product.csv" %>% my_vroom(col_types = "ccccnn")
-df_category = "category.csv" %>% my_vroom(col_types = "cccccc")
-df_store = "store.csv" %>% my_vroom(col_types = "cccccccddd")
-df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 
 #-------------------------------------------------------------------------------
 # DBコネクションの作成 ------------
@@ -85,17 +57,102 @@ cat("\n")
 # con %>% duckdb::dbDisconnect()
 
 #-------------------------------------------------------------------------------
-# データフレームのDBへの書き込みとテーブル参照の取得 ------------
+# CSVファイルのDBへの書き込みとテーブル参照の取得 ------------
 
-# テーブルが既に存在する場合は上書きする
-db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-db_product = con %>% my_tbl(df = df_product, overwrite = T)
-db_category = con %>% my_tbl(df = df_category, overwrite = T)
-db_store = con %>% my_tbl(df = df_store, overwrite = T)
-db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+# テーブル情報のリスト (DuckDBデータ型)
+col_types_list = tables = list(
+  customer = c(
+    customer_id = "VARCHAR(14)",
+    customer_name = "VARCHAR(20)",
+    gender_cd = "VARCHAR(1)",
+    gender = "VARCHAR(2)",
+    birth_day = "DATE",
+    age = "INTEGER",
+    postal_cd = "VARCHAR(8)",
+    address = "VARCHAR(128)",
+    application_store_cd = "VARCHAR(6)",
+    application_date = "VARCHAR(8)",
+    status_cd = "VARCHAR(12)"
+  ),
+  category = c(
+    category_major_cd = "VARCHAR(2)",
+    category_major_name = "VARCHAR(32)",
+    category_medium_cd = "VARCHAR(4)",
+    category_medium_name = "VARCHAR(32)",
+    category_small_cd = "VARCHAR(6)",
+    category_small_name = "VARCHAR(32)"
+  ),
+  product = c(
+    product_cd = "VARCHAR(10)",
+    category_major_cd = "VARCHAR(2)",
+    category_medium_cd = "VARCHAR(4)",
+    category_small_cd = "VARCHAR(6)",
+    unit_price = "INTEGER",
+    unit_cost = "INTEGER"
+  ),
+  store = c(
+    store_cd = "VARCHAR(6)",
+    store_name = "VARCHAR(128)",
+    prefecture_cd = "VARCHAR(2)",
+    prefecture = "VARCHAR(5)",
+    address = "VARCHAR(128)",
+    address_kana = "VARCHAR(128)",
+    tel_no = "VARCHAR(20)",
+    longitude = "DOUBLE",
+    latitude = "DOUBLE",
+    floor_area = "DOUBLE"
+  ),
+  receipt = c(
+    sales_ymd = "INTEGER",
+    sales_epoch = "INTEGER",
+    store_cd = "VARCHAR(6)",
+    receipt_no = "SMALLINT",
+    receipt_sub_no = "SMALLINT",
+    customer_id = "VARCHAR(14)",
+    product_cd = "VARCHAR(10)",
+    quantity = "INTEGER",
+    amount = "INTEGER"
+  ),
+  geocode = c(
+    postal_cd = "VARCHAR(8)",
+    prefecture = "VARCHAR(4)",
+    city = "VARCHAR(30)",
+    town = "VARCHAR(30)",
+    street = "VARCHAR(30)",
+    address = "VARCHAR(30)",
+    full_address = "VARCHAR(80)",
+    longitude = "DOUBLE",
+    latitude = "DOUBLE"
+  )
+)
 
-# DB上に作成したテーブルのリスト
+for (table_name in names(col_types_list)) {
+  # CSVファイルのフルパス
+  path = 
+    table_name %>% fs::path_ext_set("csv") %>% my_path_join()
+  cat("read: \n", path, "\n\n")
+  # 各カラムのデータ型
+  col_types = col_types_list[[table_name]]
+  # CSVファイルを DuckDB に直接書き込む (上書きはしない)
+  if (!dbExistsTable(con, table_name)) {
+    duckdb::duckdb_read_csv(
+      con, table_name, files = path, col.types = col_types
+    )
+  }
+  # テーブル参照を取得する
+  db_table = paste0("db_", table_name)
+  assign(db_table, tbl(con, table_name))
+  # テーブルの内容を表示する
+  get(db_table) %>% dplyr::glimpse()
+  cat("\n")
+}
+
+# DB上に作成したテーブルリストを表示する
 con %>% DBI::dbListTables() %>% print()
 
 #-------------------------------------------------------------------------------
+
+
+db_store %>% summarise(n = n())
+db_receipt %>% summarise(n = n())
+ls()
