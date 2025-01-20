@@ -8,7 +8,7 @@ pacman::p_load(
   # tidyverse: 
   magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, # forcats, 
   # for DB: 
-  DBI, duckdb, dbx, dbplyr, 
+  DBI, dbplyr, dbx, 
   # for download: 
   httr, xfun, 
   withr, vroom, janitor, jsonlite, 

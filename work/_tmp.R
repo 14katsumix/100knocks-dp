@@ -53,3 +53,21 @@ from receipt
 q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
+
+vignette("translation-function", package = "dbplyr")
+
+特別なフォーム
+SQL 関数は、R よりも構文の種類が豊富になる傾向があります。つまり、R コードから直接変換できない式が多数あります。これらを独自のクエリに挿入するには、次のようにリテラル SQL を使用しますsql()。
+
+translate_sql(sql("x!"), con = con)
+#> <SQL> x!
+
+mf %>% 
+  transmute(factorial = sql("x!")) %>% 
+  show_query()
+#> <SQL>
+#> SELECT x! AS `factorial`
+#> FROM `dbplyr_zAmugrm8vk`
+
+db_product %>% select(product_cd, unit_cost) %>% 
+  mutate(u = cut(unit_cost, breaks = c(-Inf, 200, 400, Inf), labels = c("a", "b", "c")))
