@@ -7,6 +7,23 @@ hugo version
 cd /Users/kk/Home/_work/blog
 hugo new site tech-blog --format yaml
 
+# theme: Stack
+
+cd /Users/kk/Home/_work/blog/tech-blog  # ブログのルートディレクトリへ移動
+# サブモジュールとして追加
+# git submodule add --depth=1 https://github.com/CaiJimmy/hugo-theme-stack/ themes/hugo-theme-stack  
+git submodule add https://github.com/CaiJimmy/hugo-theme-stack/ themes/hugo-theme-stack 
+
+git submodule update --init --recursive  # サブモジュールの初期化と取得
+git submodule update --remote --merge  # サブモジュールをリモートの最新バージョンに更新
+
+# リポジトリにサブモジュールを追加し、GitHub Actions の中でサブモジュールを初期化するように設定します。
+git submodule add https://github.com/CaiJimmy/hugo-theme-stack.git themes/hugo-theme-stack
+git submodule update --init --recursive
+git add .gitmodules themes/hugo-theme-stack
+git commit -m "Add hugo-theme-stack as a submodule"
+git push origin main
+
 # Installing/Updating PaperMod
 cd /Users/kk/Home/_work/blog/tech-blog
 git init
@@ -23,8 +40,8 @@ https://adityatelange.github.io/hugo-PaperMod/posts/papermod/papermod-installati
 baseURL: "https://14jcjc.github.io/tech-blog/"
 languageCode: jp
 title: katsuのブログ
-paginate: 5
-theme: PaperMod
+theme: hugo-theme-stack
+# theme: PaperMod
 
 * サンプル記事を作成
 hugo new content/100k/r-030.md
@@ -90,6 +107,7 @@ ssh -T git@github.com-14jcjc
 
 # git remote add origin git@github.com-14jcjc:14jcjc/tech-blog.git
 git remote set-url origin git@github.com-14jcjc:14jcjc/tech-blog.git
+# git remote set-url origin git@github.com-14jcjc:14jcjc/tech-blog-2.git
 git remote -v
 
 # push
@@ -140,9 +158,119 @@ When GitHub has finished building and deploying your site, the color of the stat
 https://14jcjc.github.io/tech-blog/
 (config.yml の baseURL)
 
--------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+* git init
 
-* tictoc パッケージを利用する。
+ssh -T git@github.com-14jcjc
+cd /Users/kk/Home/_work/blog/tech-blog
+git clone git@github.com-14jcjc:14jcjc/tech-blog.git .
+# git init
+# git remote add origin git@github.com-14jcjc:14jcjc/tech-blog.git
+# git remote -v
+# git pull origin main
+
+git remote set-url origin git@github.com-14jcjc:14jcjc/tech-blog.git
+git remote -v
+
+git config --local user.name "14jcjc"
+git config --local user.email "14jcjc@gmail.com"
+git config --local url."github.com-14jcjc:".insteadOf "git@github.com:"
+
+-------------------------------------------------------------------------------
+* grep
+
+rg -i "@media" ./themes/hugo-theme-stack/assets/scss -uu
+rg -i "関連するコンテンツ" ./themes/hugo-theme-stack -uu
+rg -i ".Draft" ./themes/hugo-theme-stack/ -uu
+rg -i "関連するコンテンツ" ./layouts -uu
+rg -i "share_icons" ./layouts -uu
+
+rg -i "-accent-color" ./themes/hugo-theme-stack/assets/scss -uu
+rg -i "related-content" ./themes/hugo-theme-stack/assets/scss -uu
+
+rg -i "ul" ../tech-blog-2/themes/PaperMod/assets/css -uu
+rg -i "share-buttons" ../tech-blog-2/themes/PaperMod/assets/css -uu
+
+#-------------------------------------------------------------------------------
+
+* ToDo
+
+
+
+About
+- このサイトについて
+  技術ネタ、勉強ネタ、近況などを記事にしております。
+- GitHub, Twitterへのリンク (https://notes.nakurei.com/about/)
+  About
+  個人的に運営しているブログです。
+  IT技術に関する記事を掲載しています。
+  問い合わせ
+  当ブログに対するお問い合わせは、以下の方法が提供されます。
+  X(Twitter): @team_eririn へのメンション
+  Mail: ruy@ainoniwa.net
+
+- privacy を robots.txt などから除外する
+
+- categories: "100本ノック＋α (⭐️5)" などの編集, 画像も(Quantico)
+  /content/categories/*
+
+- Twitter cards のチェック.
+
+- スマホでのフォントサイズ, リスト, ヘッダーアンカー, H2下線, etc
+
+- permalinks:
+- menus:
+- /config/
+
+- 本番環境で, sitemap.xml にdraftのページなどが含まれないようにする
+- robots.txt
+- コードブロックについて調べる: 
+  + ダークモードのハイライトカラーが悪い
+  + chroma を使用してるか？
+  + ファイル名を表示する: https://bit.ly/4aAqYan
+  + 行のハイライトが右端までいかない. スクロールで途切れる.
+- コードブロックの .chroma .hl の背景色が width: 100% にしても横幅いっぱいにならない
+- env:
+- ダークモードの設定
+- ナビゲーション: prev, next
+- 演習問題一覧のスタイル
+- <pre> のカラー
+- <hr>のスタイルを変更する
+- ヘッダーのアンカーのロゴを変更する, 右に出す
+- ヘッダーのスタイル、lineheight、h2に下線
+- フォントの設定: https://bit.ly/42vb3s5
+- リストのインデント幅を狭くする (ol, li, ul)
+- 目次のインデント幅を狭くする (.widget--toc)
+- ショートコードで表示したリンクのスタイルが異なる
+  -> href-target-blank.html を改修.
+- code, .chroma のフォントサイズ
+- コードブロックのスタイルをカスタマイズ: (ファイル名を付ける)
+- コードブロックの半角のフォントが読みずらい（特にスマホで）
+- Alerts
+- menu の iconイメージ (演習問題など): https://tabler.io/icons
+- product-link に 引数: class ("link") を追加する。
+- favicon
+- アバター画像と、その横に絵文字
+- 最終更新 2025-01-24 06:53 JST の確認
+- Share ボタン
+- tag が Titleケースになってしまう
+  -> capitalizeListTitles: false を設定
+- [Privacy Policy]({{< ref "privacy" >}})
+- ドラフトページにアイコンを出す
+
+* href-target-blank の名称を変更
+
+* widgets のタグ数の limit などを設定
+
+* Stack でページの表示が重くなったら検索機能を差し替える
+1000記事以上あっても、Algoliaなら瞬時に検索可能。
+Hugo の Lunr.js は 100記事を超えると遅くなる傾向があるので、記事数が多いならAlgoliaの方が圧倒的に有利。
+PaperModでも同様に使えるので、検索機能を追加したいならAlgoliaが最適解です。
+
+* リンクの前に FontAwesomeのアイコンを表示する
+https://chatgpt.com/c/678ef794-3970-8005-8183-b5f17ca3a0ce
+
+* Abountメニューを作る。
 
 * データサイエンス100本ノック＋α の環境構築
 
@@ -180,6 +308,22 @@ G-GLB0HGKER4
 * robots.txt
 
 公開時は static/robots.txt を削除すること！
+
+* リスト表示とシングル表示の上部にタグを付ける: https://bit.ly/40h5xGs
+
+* 画像を追加した際の注意点
+
+question.svg と review.svg に @ マークが付いています。
+これは macOS の「拡張属性 (Extended Attributes)」を示しています。拡張属性が Hugo のビルドを妨げている可能性があるので、削除してみてください。
+
+ls -l assets/icons/
+
+-rw-r--r--   1 kk  staff  418  1 21 21:11 link.svg
+-rw-r--r--   1 kk  staff  431  1 21 21:11 messages.svg
+-rw-r--r--@  1 kk  staff  537  1 23 05:40 question.svg
+-rw-r--r--@  1 kk  staff  454  1 23 05:42 review.svg
+
+xattr -c assets/icons/question.svg assets/icons/review.svg
 
 * {{< shortcode >}} と {{% shortcode %}} の違い
 https://gohugo.io/methods/page/rendershortcodes/
@@ -464,4 +608,25 @@ disableLazyLoading = true
 
 R によるデータベースクエリ操作について、以下の条件で、ブログ記事を書いてください。
 
-実際に動かせるサンプルコードを付ける。
+- 実際に動かせるサンプルコードを付ける。(DuckDBを使用。): 
+dbConnect(), tbl(), show_query() などを用いる。
+duckdb_register(), dbSendQuery(), dbFetch() は用いない。
+
+- dplyr と dbplyr について言及する。
+- データベースバックエンドについて言及する。
+- 遅延評価について言及する。
+- データフレームライクに操作でき旨を言及する。
+- 実際にSQLクエリが実行されるタイミングについて言及する。
+
+-------------------------------------------------------------------------------
+
+
+<article class="main-article share-buttons">
+  xxxxxxxxxxxxxxxxxxxxxxx
+</article>
+
+<article class="main-article share-buttons">
+    yyyyyyyyyyyyyyyyyyyyyyyy
+</article>
+
+
