@@ -75,3 +75,4 @@ db_product %>% select(product_cd, unit_cost) %>%
 ls()
 
 db_store %>% head(5)
+

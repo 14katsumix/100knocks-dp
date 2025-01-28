@@ -111,8 +111,6 @@ CASE式 (条件付き集計)
 CTE（共通テーブル式）
 ファイル入出力
 
-* duckdb_read_csv, duckdb_register_arrow を使用する。
-
 * カスタムドメイン, https, 14katsumix.com
 
 * アフィリエイトリンク: 
