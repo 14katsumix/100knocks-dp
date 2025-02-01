@@ -61,7 +61,7 @@ df_store = "store.csv" %>% my_vroom(col_types = "cccccccddd")
 df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 
 #-------------------------------------------------------------------------------
-# DBコネクションの作成 ------------
+# DBコネクションの作成 (ファイルベースモード) ------------
 
 # DBファイルのパス
 dbdir = my_path_join("100knocks.duckdb", .subdir = "DB")
@@ -69,8 +69,8 @@ dbdir = my_path_join("100knocks.duckdb", .subdir = "DB")
 # dbdir の親ディレクトリが無ければ作成する (あれば何もしない)
 dbdir %>% fs::path_dir() %>% fs::dir_create()
 
-# dbdir = "" #< DBを in-memory で一時的に作成する場合
 drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
+# dbdir = "" #< DBを インメモリモードで一時的に作成する場合
 
 con = duckdb::dbConnect(
     drv = drv

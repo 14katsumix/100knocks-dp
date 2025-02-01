@@ -62,11 +62,11 @@ my_sql_render = function(
 }
 
 # my_select ------------
-# DBI::dbGetQuery() のラッパー
+# dbx::dbxSelect のラッパー
 my_select = function(
-    statement, con, convert_tibble = TRUE, params = NULL, ...
+    statement, con, convert_tibble = TRUE, params = NULL
   ) {
-  d = DBI::dbGetQuery(conn = con, statement = statement, params = params, ...)
+  d = dbx::dbxSelect(conn = con, statement = statement, params = params)
   if (convert_tibble) d %<>% tibble::as_tibble()
   d
 }

@@ -7,7 +7,7 @@
 pacman::p_load(
   # tidyverse: 
   magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, 
-  DBI, dbplyr, dbx, duckdb, # for DB
+  DBI, dbplyr, dbx, # duckdb, # for DB
   httr, xfun, # for download
   vroom, withr, janitor, jsonlite, 
   rsample, recipes, themis, # tidymodels

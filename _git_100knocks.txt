@@ -24,8 +24,14 @@
 ./push.sh pub
 
 * テスト環境: 
-cd /Users/kk/ds/test
-ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
+
+cd /Users/kk/ds/
+git clone git@github.com-14katsumix:14katsumix/100knocks-dp.git
+git config --local user.name "14katsumix"
+git config --local user.email "14katsumix@gmail.com"
+git config --local url."github.com-14katsumix:".insteadOf "git@github.com:"
+cd 100knocks-dp
+git pull origin main
 
 * answer.R の開発環境 (-> 無し)
 

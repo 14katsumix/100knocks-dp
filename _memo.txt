@@ -127,8 +127,11 @@ PaperMod には、サイドバーにカスタム内容を表示するための w
 Date型やDatetime型が無い.
 
 * テスト環境: 
-cd /Users/kk/ds/test
-ここに 100knocks-dp (pub) を clone, pull して動作チェックする。
+
+cd /Users/kk/ds/
+git clone https://github.com/xxx/100knocks-dp.git
+cd 100knocks-dp
+git pull origin main
 
 * ソース公開向けGithubリポジトリ: 
 git@github.com:14katsumix/100knocks-dp.git
