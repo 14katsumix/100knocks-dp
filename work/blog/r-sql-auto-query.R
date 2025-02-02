@@ -9,12 +9,12 @@ con = DBI::dbConnect(duckdb::duckdb())
 
 # サンプルのデータフレームを作成
 data = tribble(
-  ~store_code, ~sales, ~profit,
-   "S001", 15000, 3000,
-   "S002", 18000, 3500,
-   "S003", 12000, 2500,
-   "S004", 20000, 4000,
-   "S005", 16000, 3200
+  ~store, ~sales, ~profit,
+  "S001", 15000, 3000,
+  "S002", 18000, 3500,
+  "S003", 12000, 2500,
+  "S004", 20000, 4000,
+  "S005", 16000, 3200
 )
 
 # テーブルとしてデータベースに登録
@@ -22,7 +22,7 @@ DBI::dbWriteTable(
   con, "store_sales", data, overwrite = TRUE
 )
 
-# データベースの store_sales テーブルを dplyr で参照
+# store_sales テーブルを dplyr で参照
 db_store_sales = tbl(con, "store_sales")
 
 # フィルタリングと並び替え
@@ -47,12 +47,12 @@ df_result = collect(db_result)
 # 以下、データフレームでの処理
 df_result %>% head(3)
 # => 
-# A tibble: 3 × 3
-#   store_code sales profit
-#   <chr>      <dbl>  <dbl>
-# 1 S004       20000   4000
-# 2 S002       18000   3500
-# 3 S005       16000   3200
+# # A tibble: 3 × 3
+#   store sales profit
+#   <chr> <dbl>  <dbl>
+# 1 S004  20000   4000
+# 2 S002  18000   3500
+# 3 S005  16000   3200
 
 #-------------------------------------------------------------------------------
 # カスタムメソッドを定義
