@@ -53,10 +53,14 @@ db_sales %>% show_query()
 db_sales = tbl(con, "store_sales")
 db_master = tbl(con, "store_master")
 
-## シングルテーブル動詞
+#...............................................................................
+
+### dplyr 操作全体の変換
+
+## 単一テーブル操作
 
 # select()
-# select(), mutate() は SELECT句を修正します。
+# select(), SELECT句を修正します。
 db_sales %>% 
   select(store, sales) %>% 
   show_query()
@@ -69,12 +73,12 @@ db_sales %>%
   relocate(profit, sales, .after = store) %>% 
   show_query()
 
-# mutate() は SELECT句を修正します。
+# mutate() は SELECT 句を修正します。
 db_sales %>% 
   mutate(margin = 100 * profit / sales, .keep = "unused") %>% 
   show_query()
 
-# filter() は WHERE句を生成します
+# filter() は WHERE 句を生成します
 db_sales %>% 
   filter(month == 7L, profit >= 3000) %>% 
   show_query()
@@ -90,14 +94,19 @@ db_sales %>%
   summarise(avg_profit = mean(profit)) %>% 
   show_query()
 
-# 集計後の filter() は HAVING句を生成します
+# 集計後の filter() は HAVING 句を生成します
 db_sales %>% 
   group_by(store) %>% 
   summarise(avg_profit = mean(profit)) %>% 
   filter(avg_profit > 3500) %>% 
   show_query()
 
-## デュアルテーブル動詞
+# head() は LIMIT 句を生成します
+db_sales %>% 
+  head(3) %>% 
+  show_query()
+
+## 2つのテーブル操作
 
 # left_join() LEFT JOIN 句を生成します
 db_sales %>% 
@@ -111,15 +120,62 @@ db_sales %>%
   full_join(db_master, by = "store") %>% 
   show_query()
 
-# semi_join() は WHERE句の EXISTS サブクエリ演算子を生成します
+# cross_join() は CROSS JOIN 句を生成します
+db_master %>% 
+  select(store) %>% 
+  cross_join(db_sales %>% select(month)) %>% 
+  show_query()
+
+# semi_join() は WHERE 句の EXISTS サブクエリ演算子を生成します
 db_master %>% 
   semi_join(db_sales, by = "store") %>% 
   show_query()
 
-# anti_join() は WHERE句の NOT EXISTS サブクエリ演算子を生成します
+# anti_join() は WHERE 句の NOT EXISTS サブクエリ演算子を生成します
 db_master %>% 
   anti_join(db_sales, by = "store") %>% 
   show_query()
+
+# intersect() は INTERSECT 演算子を生成します
+db_sales %>% 
+  select(store) %>% 
+  intersect(db_master %>% select(store)) %>% 
+  show_query()
+
+# union() は UNION 演算子を生成します
+db_sales %>% 
+  select(store) %>% 
+  union(db_master %>% select(store)) %>% 
+  show_query()
+
+# union_all() は UNION ALL 演算子を生成します
+db_sales %>% 
+  select(store) %>% 
+  union_all(db_master %>% select(store)) %>% 
+  show_query()
+
+# setdiff() は EXCEPT 演算子を生成します
+db_master %>% 
+  select(store) %>% 
+  setdiff(db_sales %>% select(store)) %>% 
+  show_query()
+
+## その他の操作
+
+# count(), slice_min(), slice_max(), replace_na(), pivot_longer() などのその他の操作については、
+# ここまでに挙げた SQLの句や演算子、SQL関数を組み合わせて変換されます。
+
+# 例えば、count() は次のように変換されます。
+db_sales %>% 
+  count(store, name = "n_month") %>% 
+  show_query()
+
+# pivot_longer() は次のように変換されます。
+db_sales %>% 
+  pivot_longer(-c(store, month), names_to = "name", values_to = "amount") %>% 
+  show_query()
+
+### dplyr 操作内の式の変換
 
 
 
