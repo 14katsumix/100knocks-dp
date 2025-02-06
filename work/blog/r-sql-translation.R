@@ -154,57 +154,62 @@ db_sales %>%
 # inner_join() LEFT JOIN 句を生成します
 db_sales %>% 
   inner_join(db_master, by = "store") %>% 
-  # show_query()
+  show_query()
   my_show_query(F)
 
 # left_join(), right_join() についても同様です。
 
-
-
-
 # full_join() は FULL JOIN 句を生成します
 db_sales %>% 
   full_join(db_master, by = "store") %>% 
+  # show_query()
   my_show_query(F)
 
 # cross_join() は CROSS JOIN 句を生成します
 db_master %>% 
   select(store) %>% 
   cross_join(db_sales %>% select(month)) %>% 
+  # show_query()
   my_show_query(F)
 
-# semi_join() は WHERE 句の EXISTS サブクエリ演算子を生成します
+# semi_join() は WHERE 句の EXISTS 演算子を生成します
 db_master %>% 
   semi_join(db_sales, by = "store") %>% 
+  # show_query()
   my_show_query(F)
 
-# anti_join() は WHERE 句の NOT EXISTS サブクエリ演算子を生成します
+# anti_join() は WHERE 句の NOT EXISTS 演算子を生成します。
 db_master %>% 
   anti_join(db_sales, by = "store") %>% 
+  # show_query()
   my_show_query(F)
 
-# intersect() は INTERSECT 演算子を生成します
+# intersect() は INTERSECT 演算子を生成します。
 db_sales %>% 
   select(store) %>% 
   intersect(db_master %>% select(store)) %>% 
+  # show_query()
   my_show_query(F)
 
-# union() は UNION 演算子を生成します
+# union() は UNION 演算子を生成します。
 db_sales %>% 
   select(store) %>% 
   union(db_master %>% select(store)) %>% 
+  # show_query()
   my_show_query(F)
 
-# union_all() は UNION ALL 演算子を生成します
+# union_all() は UNION ALL 演算子を生成します。
 db_sales %>% 
   select(store) %>% 
   union_all(db_master %>% select(store)) %>% 
+  # show_query()
   my_show_query(F)
 
-# setdiff() は EXCEPT 演算子を生成します
+# setdiff() は EXCEPT 演算子を生成します。
 db_master %>% 
   select(store) %>% 
   setdiff(db_sales %>% select(store)) %>% 
+  # show_query()
   my_show_query(F)
 
 ## その他の操作
@@ -215,30 +220,33 @@ db_master %>%
 # 例えば、count() は次のように変換されます。
 db_sales %>% 
   count(store, name = "n_month") %>% 
+  # show_query()
   my_show_query(F)
 
 # pivot_longer() は次のように変換されます。
 db_sales %>% 
-  pivot_longer(-c(store, month), names_to = "name", values_to = "amount") %>% 
+  pivot_longer(
+    -c(store, month), names_to = "name", values_to = "amount"
+  ) %>% 
+  # show_query()
   my_show_query(F)
 
 ### dplyr 操作内の式の変換
 
-# 1. dplyr が認識できる式・関数
-# 2. dplyr が認識できない式・関数
+# 1. dplyr が認識できる式
+# 2. dplyr が認識できない式
 
-## dplyr が認識できる式・関数
+## dplyr が認識できる式
 
 # 算術演算子
 db_sales %>% 
   mutate(
     v1 = sales + profit, 
-    v2 = sales - profit, 
-    v3 = profit / sales, 
-    v4 = profit * sales, 
-    v5 = profit ^ 2L, 
+    v2 = 100 * (sales - profit) / sales, 
+    v3 = profit ^ 2L, 
     .keep = "none"
   ) %>% 
+  show_query()
   my_show_query(F)
 
 # 比較演算子、ブール演算子(&, |)
@@ -397,7 +405,7 @@ db_sales %>%
   my_show_query(F)
 
 #...............................................................................
-## 2. dplyr が認識できない式・関数
+## 2. dplyr が認識できない式
 
 # Prefix functions
 
