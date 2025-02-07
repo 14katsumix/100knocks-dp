@@ -122,7 +122,7 @@ db_sales %>%
   arrange(month, desc(profit)) %>% 
   my_show_query(F)
 
-# summarise() は集計関数と合わせて SELECT 句を修正します
+# summarise() は要約関数と合わせて SELECT 句を修正します
 db_sales %>% 
   summarise(avg_profit = mean(profit)) %>% 
   # show_query()
@@ -135,7 +135,7 @@ db_sales %>%
   # show_query()
   my_show_query(F)
 
-# 集計後の filter() は HAVING 句を生成します
+# 要約後の filter() は HAVING 句を生成します
 db_sales %>% 
   group_by(store) %>% 
   summarise(avg_profit = mean(profit)) %>% 
@@ -246,10 +246,10 @@ db_sales %>%
     v3 = profit ^ 2L, 
     .keep = "none"
   ) %>% 
-  show_query()
+  # show_query()
   my_show_query(F)
 
-# 比較演算子、ブール演算子(&, |)
+# 比較演算子、論理演算子(&, |, !)
 db_sales %>% 
   mutate(
     v1 = (sales == 150), 
@@ -259,6 +259,7 @@ db_sales %>%
     v5 = (store %in% c("S001", "S003")), 
     .keep = "used"
   ) %>% 
+  # show_query()
   my_show_query(F)
 
 # 数学関数、数値の丸め
@@ -270,6 +271,7 @@ db_sales %>%
     v4 = floor(sales / profit), 
     .keep = "none"
   ) %>% 
+  # show_query()
   my_show_query(F)
 
 # 型変換
@@ -278,9 +280,10 @@ db_sales %>%
     m = as.character(month), 
     .keep = "used"
   ) %>% 
+  # show_query()
   my_show_query(F)
 
-# 文字列操作
+# 文字列関数
 db_master %>% 
   mutate(
     len = nchar(pref), 
@@ -289,9 +292,10 @@ db_master %>%
     p = paste(name, pref, sep = "-"), 
     .keep = "used"
   ) %>% 
+  # show_query()
   my_show_query(F)
 
-# 日付操作
+# 日付関数
 db_master %>% 
   mutate(
     ymd = lubridate::as_date("2025-04-01"), 
@@ -305,36 +309,36 @@ db_master %>%
     .keep = "used"
   ) %>% 
   show_query(cte = T)
+  my_show_query(F)
 
 # パターンマッチング
 db_master %>% 
   filter(
     stringr::str_detect(pref, "ka$")
   ) %>% 
+  # show_query()
   my_show_query(F)
 
 # is.na()
 db_sales %>% 
-  filter(is.na(profit)) %>% 
-  my_show_query(F)
-
-# distinct()
-db_sales %>% 
-  distinct(store) %>% 
+  filter(is.na(sales)) %>% 
+  show_query()
   my_show_query(F)
 
 # if_else()
 db_sales %>% 
   mutate(
-    s = if_else(profit > 30, "big", "small", "none"), 
+    profit_size = if_else(profit > 30, "big", "small", "none"), 
     .keep = "used"
   ) %>% 
+  # show_query()
   my_show_query(F)
 
-# summarise() + 集計関数
+# 要約関数 (`summarise`内)
 db_sales %>% 
   summarise(
     n = n(), 
+    n_store = n_distinct(store), 
     avg = mean(sales), 
     per50 = median(sales)
   ) %>% 
@@ -343,14 +347,15 @@ db_sales %>%
 
 # ウィンドウ関数への変換
 
-# mutate() + 集計関数
+# mutate() + 要約関数
 
 db_sales %>% 
   mutate(
     n = n(), 
     avg = mean(sales), 
-    sum = sum(sales)
+    max = max(sales)
   ) %>% 
+  # show_query()
   my_show_query(F)
 
 # group_by() を併用した場合
@@ -360,18 +365,31 @@ db_sales %>%
   mutate(
     n = n(), 
     avg = mean(sales), 
-    sum = sum(sales)
+    max = max(sales)
   ) %>% 
+  # show_query()
   my_show_query(F)
 
-# mutate + lag(), lead()
+# lag(), lead()
 
 db_sales %>% 
   group_by(store) %>% 
   mutate(
     lag_profit = lag(profit, 1L, order_by = month)
   ) %>% 
+  show_query()
   my_show_query(F)
+
+db_sales %>% 
+  group_by(store) %>% 
+  window_order(month) %>% 
+  mutate(
+    lag_p = lag(profit, 1L), 
+    lead_p = lead(profit, 1L)
+  ) %>% 
+  # show_query()
+  my_show_query(F)
+
 
 # lead() についても同様です。
 
@@ -380,28 +398,34 @@ db_sales %>%
 db_sales %>% 
   group_by(store) %>% 
   mutate(
-    rank = min_rank(desc(profit))
+    rank = min_rank(desc(sales)), 
+    .keep = "used"
   ) %>% 
+  # show_query()
   my_show_query(F)
+
 
 # mutate + 累積関数
 
 db_sales %>% 
   group_by(store) %>% 
+  window_order(month) %>% 
   mutate(
-    cum = order_by(month, cumsum(profit))
+    cum = cumsum(profit)
   ) %>% 
+  # show_query()
   my_show_query(F)
 
-# window_frame() + window_order()
+# window_frame()
 
 db_sales %>% 
   group_by(store) %>% 
-  window_frame(-1, 1) %>% 
   window_order(month) %>% 
+  window_frame(-1, 1) %>% 
   mutate(
-    cum = sum(profit)
+    avg = mean(profit)
   ) %>% 
+  show_query()
   my_show_query(F)
 
 #...............................................................................
@@ -435,3 +459,4 @@ db_sales %>%
 # これにより、必要な SQL を自由に生成できるようになります。
 
 #-------------------------------------------------------------------------------
+
