@@ -433,6 +433,13 @@ db_sales %>%
 
 # Prefix functions
 
+db_sales %>% 
+  mutate(
+    v1 = CEIL(profit / sales), 
+    v2 = EVEN(month)
+  ) %>% 
+  show_query()
+  my_show_query(F)
 
 # Infix functions
 # LIKE
@@ -440,7 +447,7 @@ db_master %>%
   filter(
     pref %LIKE% "%ka"
   ) %>% 
-  # show_query()
+  show_query()
   my_show_query(F)
 
 # Special forms
