@@ -18,15 +18,20 @@ custom_db_get_info = function(dbObj, ...) {
 # dbGetInfo メソッドを duckdb_connection 用にオーバーライド
 methods::setMethod("dbGetInfo", "duckdb_connection", custom_db_get_info)
 
-# tibble の標準出力向けの設定 ------------
+# 標準出力向けの設定 ------------
 list(
+  "digits" = 2,  
   "tibble.print_max" = 40, # 表示する最大行数.
   "tibble.print_min" = 15, # 表示する最小行数.
   "tibble.width" = NULL,   # 全体の出力幅. デフォルトは NULL.
-  "pillar.sigfig" = 3,     # 表示する有効桁数
+  "pillar.sigfig" = 4,     # 表示する有効桁数
   "pillar.max_dec_width" = 13 # 10進数表記の最大許容幅
 ) |> 
   options()
+
+# d = tibble(a = 0.123456, b = 123.123456, c = 123456700000, d = 100 * b)
+# d
+# d$a
 
 #-------------------------------------------------------------------------------
 # 必要なパッケージをロード
@@ -81,7 +86,16 @@ db_sales %>%
   filter(!is.na(sales)) %>% 
   show_query()
 
+q = sql("
+SELECT store_sales.*
+FROM store_sales
+WHERE sales IS NOT NULL
+"
+)
+q %>% my_select(con)
+
 # 
+db_sales %>% show_query()
 db_sales %>% my_show_query(F)
 
 ### dplyr 操作全体の変換
@@ -225,10 +239,10 @@ db_sales %>%
 
 # pivot_longer() は次のように変換されます。
 db_sales %>% 
-  pivot_longer(
+  tidyr::pivot_longer(
     -c(store, month), names_to = "name", values_to = "amount"
   ) %>% 
-  # show_query()
+  show_query()
   my_show_query(F)
 
 ### dplyr 操作内の式の変換
@@ -277,7 +291,11 @@ db_sales %>%
 # 型変換
 db_sales %>% 
   mutate(
-    m = as.character(month), 
+    v1 = as.integer(profit), 
+    v2 = as.numeric(month), 
+    v3 = as.double(month), 
+    v4 = as.character(month), 
+    v5 = as.Date("2025-04-01"), 
     .keep = "used"
   ) %>% 
   # show_query()
@@ -328,11 +346,27 @@ db_sales %>%
 # if_else()
 db_sales %>% 
   mutate(
-    profit_size = if_else(profit > 30, "big", "small", "none"), 
+    profit_size = 
+      if_else(sales > 150, "big", "small", "none"), 
     .keep = "used"
   ) %>% 
   # show_query()
   my_show_query(F)
+
+q = sql("
+SELECT
+  sales,
+  CASE 
+    WHEN (sales > 150.0) THEN 'big' 
+    WHEN NOT (sales > 150.0) THEN 'small' 
+    ELSE 'none'
+  END AS profit_size
+FROM store_sales
+"
+)
+q %>% my_select(con)
+
+
 
 # 要約関数 (`summarise`内)
 db_sales %>% 
@@ -370,6 +404,17 @@ db_sales %>%
   # show_query()
   my_show_query(F)
 
+# window_order(), window_frame()
+db_sales %>% 
+  group_by(store) %>% 
+  window_order(month) %>% 
+  window_frame(-1, 1) %>% 
+  mutate(
+    avg_win = mean(sales)
+  ) %>% 
+  # show_query()
+  my_show_query(F)
+
 # lag(), lead()
 
 db_sales %>% 
@@ -377,7 +422,7 @@ db_sales %>%
   mutate(
     lag_profit = lag(profit, 1L, order_by = month)
   ) %>% 
-  show_query()
+  # show_query()
   my_show_query(F)
 
 db_sales %>% 
@@ -416,18 +461,6 @@ db_sales %>%
   # show_query()
   my_show_query(F)
 
-# window_frame()
-
-db_sales %>% 
-  group_by(store) %>% 
-  window_order(month) %>% 
-  window_frame(-1, 1) %>% 
-  mutate(
-    avg = mean(profit)
-  ) %>% 
-  show_query()
-  my_show_query(F)
-
 #...............................................................................
 ## 2. dplyr が認識できない式
 
@@ -456,14 +489,17 @@ db_master %>%
 # SQL の式は、R よりも構文の種類が豊富になる傾向があるため、R コードから直接変換できない式もあります。
 # 次のように sql() によるリテラル SQL を用いると、変換を介さずに 直接 SQL の式を埋め込むことができます。
 
+d1 %>% mutate(m = sql("QUANTILE_CONT(x, 0.5) OVER ()"))
+
 db_sales %>% 
   mutate(
-    f_sales = sql("CAST(sales AS FLOAT)"), 
+    sales2 = sql("IFNULL(sales, 0.0)"), 
+    store_rev = sql("REVERSE(store)"), 
+    per25 = sql("QUANTILE_CONT(profit, 0.25) OVER ()")
   ) %>% 
-  show_query()
+  # show_query()
   my_show_query(F)
 
 # これにより、必要な SQL を自由に生成できるようになります。
 
 #-------------------------------------------------------------------------------
-
