@@ -142,12 +142,10 @@ db_sales %>%
   show_query()
   my_show_query(F)
 
-
 db_sales %>% 
   distinct(store) %>% 
   show_query()
   my_show_query(F)
-
 
 # summarise() は要約関数と合わせて SELECT 句を修正します
 db_sales %>% 
@@ -339,7 +337,7 @@ db_master %>%
     add = ymd + lubridate::days(7L), 
     .keep = "used"
   ) %>% 
-  show_query(cte = T)
+  show_query(cte = TRUE)
   my_show_query(F)
 
 # パターンマッチング
@@ -515,4 +513,23 @@ db_sales %>%
 
 # これにより、必要な SQL を自由に生成できるようになります。
 
+# options(dplyr.strict_sql)
+
+# dbplyr を強制的にエラーにする
+
+# options(dplyr.strict_sql = FALSE)
+options(dplyr.strict_sql = TRUE)
+
+db_sales %>% 
+  mutate(
+    v = EVEN(month)
+  )
+
+db_master %>% 
+  filter(
+    pref %LIKE% "%ka"
+  )
+
+
 #-------------------------------------------------------------------------------
+
