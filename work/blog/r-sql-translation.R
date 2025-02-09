@@ -136,6 +136,19 @@ db_sales %>%
   arrange(month, desc(profit)) %>% 
   my_show_query(F)
 
+# `distinct()` は SQL の `DISTINCT` 修飾子を生成します。
+db_sales %>% 
+  distinct() %>% 
+  show_query()
+  my_show_query(F)
+
+
+db_sales %>% 
+  distinct(store) %>% 
+  show_query()
+  my_show_query(F)
+
+
 # summarise() は要約関数と合わせて SELECT 句を修正します
 db_sales %>% 
   summarise(avg_profit = mean(profit)) %>% 
