@@ -340,6 +340,11 @@ db_master %>%
   show_query(cte = TRUE)
   my_show_query(F)
 
+date1 <- as.Date("2023-01-15")
+date2 <- as.Date("2023-01-10")
+# 2つの日付の差を日単位で計算
+difftime(date1, date2, units = "days")
+
 # パターンマッチング
 db_master %>% 
   filter(
