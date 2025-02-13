@@ -337,7 +337,7 @@ db_master %>%
     add = ymd + lubridate::days(7L), 
     .keep = "used"
   ) %>% 
-  show_query(cte = TRUE)
+  # show_query(cte = TRUE)
   my_show_query(F)
 
 date1 <- as.Date("2023-01-15")

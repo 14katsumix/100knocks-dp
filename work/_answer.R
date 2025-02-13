@@ -23,7 +23,7 @@ custom_db_get_info = function(dbObj, ...) {
 methods::setMethod("dbGetInfo", "duckdb_connection", custom_db_get_info)
 
 DBI::dbGetInfo(con)
-db_receipt
+db_receipt %>% head(1)
 # Source:   table<receipt> [?? x 9]
 # Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
 #    sales_ymd sales_epoch store_cd receipt_no receipt_sub_no customer_id   
@@ -307,9 +307,9 @@ q %>% my_select(con)
 # 全顧客の平均を求め、平均以上に買い物をしている顧客を抽出し、10件表示せよ。
 # ただし、顧客IDが"Z"から始まるものは非会員を表すため、除外して計算すること。
 
-receipt %>% glimpse()
+df_receipt %>% glimpse()
 
-receipt %>% 
+df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   # mutate(.mean = mean(sum_amount)) %>% 
@@ -332,12 +332,14 @@ receipt %>%
 db_receipt %>% glimpse()
 
 db_receipt %>% 
-  filter(not(customer_id %like% "Z%")) %>% 
+  filter(not(customer_id %LIKE% "Z%")) %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   # mutate(.mean = mean(sum_amount)) %>% 
   # filter(sum_amount >= .mean) %>% 
   filter(sum_amount >= mean(sum_amount)) %>% 
   arrange(desc(sum_amount)) %>% 
+  # my_show_query()
   my_collect(T)
 
 #...............................................................................
@@ -406,42 +408,41 @@ q %>% my_select(con)
 df_customer %>% 
   left_join(df_receipt, by = "customer_id") %>% 
   filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
-  summarise(sum_aomunt = sum(amount, na.rm = T), .by = "customer_id") %>% 
-  arrange(customer_id)
+  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+  arrange(customer_id) %>% 
+  head(10)
+
+# A tibble: 10 × 2
+#    customer_id    sum_amount
+#    <chr>               <dbl>
+#  1 CS001112000009          0
+#  2 CS001112000019          0
+#  3 CS001112000021          0
+#  4 CS001112000023          0
+#  5 CS001112000024          0
+#  6 CS001112000029          0
+#  7 CS001112000030          0
+#  8 CS001113000004       1298
+#  9 CS001113000010          0
+# 10 CS001114000005        626
 
 #...............................................................................
 # dbplyr
 
-tbl_customer %>% 
-  left_join(tbl_receipt, by = "customer_id") %>% 
-  filter(gender_cd == 1, not(customer_id %like% "^Z")) %>% 
-  summarise(sum_aomunt = sum(amount, na.rm = T), .by = "customer_id") %>% 
+db_customer %>% 
+  left_join(db_receipt, by = "customer_id") %>% 
+  # filter(gender_cd == 1L, not(customer_id %LIKE% "^Z")) %>% 
+  filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
+  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+  replace_na(list(sum_amount = 0.0)) %>% 
   arrange(customer_id) %>% 
+  head(10) %>% 
+  # my_show_query()
   my_collect()
 
 #...............................................................................
 q = sql("
-with customer_amount as (
-select 
-  customer_id, 
-  SUM(amount) as sum_amount
-from
-  receipt
-group by 
-  customer_id
-)
-select 
-  cu.customer_id, 
-  coalesce(cm.sum_amount, 0) as sum_amount
-from 
-  customer as cu
-left join customer_amount as cm
-  on cu.customer_id = cm.customer_id
-where
-  cu.gender_cd = '1' and cu.customer_id NOT LIKE 'Z%'
-order by 
-  cu.customer_id
-  -- cm.sum_amount
+
 "
 )
 q %>% my_select(con)
@@ -465,7 +466,26 @@ q %>% my_select(con)
 # 売上金額合計の多い顧客の上位20件を抽出したデータをそれぞれ作成し、さらにその2つを完全外部結合せよ。
 # ただし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
 
-d.rec = receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
+d.rec = df_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  group_by(customer_id)
+
+d.date = d.rec %>% 
+  summarise(n_date = n_distinct(sales_ymd)) %>% 
+  slice_max(n_date, n = 20, with_ties = F)
+
+d.amount = d.rec %>% 
+  summarise(sum_amount = sum(amount)) %>% 
+  slice_max(sum_amount, n = 20, with_ties = F)
+
+d.date %>% 
+  full_join(d.amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount))
+
+#............................
+d.rec = df_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
   select(customer_id, sales_ymd, amount)
 
 # sample.1
@@ -477,7 +497,9 @@ d.amount = d.rec %>%
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   slice_max(sum_amount, n = 20, with_ties = F)
 
-d.date %>% full_join(d.amount, by = "customer_id") %>% arrange(desc(n_date), desc(sum_amount))
+d.date %>% 
+  full_join(d.amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount))
 
 # sample.2
 d.date = d.rec %>% 
@@ -488,10 +510,34 @@ d.amount = d.rec %>%
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   arrange(desc(sum_amount), customer_id) %>% head(n = 20)
 
-d.date %>% full_join(d.amount, by = "customer_id") %>% arrange(desc(n_date), desc(sum_amount))
+d.date %>% 
+  full_join(d.amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount))
 
 #...............................................................................
 # dbplyr
+
+db.rec = db_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  group_by(customer_id)
+
+db.date = db.rec %>% 
+  summarise(n_date = n_distinct(sales_ymd)) %>% 
+  slice_max(n_date, n = 20, with_ties = F)
+
+db.amount = db.rec %>% 
+  summarise(sum_amount = sum(amount)) %>% 
+  slice_max(sum_amount, n = 20, with_ties = F)
+
+db.date %>% 
+  full_join(db.amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount)) %>% 
+  # my_collect() %>% 
+  my_show_query()
+
+#......................
+
 d.rec = tbl_receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
   select(customer_id, sales_ymd, amount)
 
@@ -614,20 +660,34 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上金額（amount）を日付（sales_ymd）ごとに集計し、
 # 前回売上があった日からの売上金額増減を計算せよ。そして結果を10件表示せよ。
 
-receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+df_receipt %>% 
+  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   mutate(
-    pre_sales_ymd = lag(sales_ymd, n = 1L, order_by = sales_ymd), 
-    pre_amount = lag(amount, n = 1L, default = NA, order_by = sales_ymd)
+    pre_sales_ymd = lag(sales_ymd, order_by = sales_ymd), 
+    pre_amount = lag(amount, default = NA, order_by = sales_ymd)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd)
 
+# A tibble: 1,034 × 5
+#    sales_ymd amount pre_sales_ymd pre_amount diff_amount
+#        <int>  <dbl>         <int>      <dbl>       <dbl>
+#  1  20170101  33723            NA         NA          NA
+#  2  20170102  24165      20170101      33723       -9558
+#  3  20170103  27503      20170102      24165        3338
+#  4  20170104  36165      20170103      27503        8662
+#  5  20170105  37830      20170104      36165        1665
+#  6  20170106  32387      20170105      37830       -5443
+#  7  20170107  23415      20170106      32387       -8972
+
 #...............................................................................
 # dbplyr
-tbl_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+db_receipt %>% 
+  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  window_order(sales_ymd) %>% 
   mutate(
-    pre_sales_ymd = lag(sales_ymd, n = 1L, order_by = sales_ymd), 
-    pre_amount = lag(amount, n = 1L, default = NA, order_by = sales_ymd)
+    pre_sales_ymd = lag(sales_ymd), 
+    pre_amount = lag(amount, default = NA), 
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
@@ -1054,7 +1114,8 @@ d.summary = con %>% my_tbl(df = sales_summary, overwrite = T)
 # このデータから性別を縦持ちさせ、年代、性別コード、売上金額の3項目に変換せよ。
 # ただし、性別コードは男性を"00"、女性を"01"、不明を"99"とする。
 
-d = d.wide %>% pivot_longer(
+d = d.wide %>% 
+  pivot_longer(
     cols = !age_range, names_to = "gender_cd", values_to = "amount"
   ) %>% 
   mutate(across(gender_cd, ~ .x %>% lvls_revalue(c("00", "01", "99"))))
@@ -1113,6 +1174,126 @@ q %>% my_select(con)
 # 21 30代  99            50441
 # ...
 # 27 90代  99                0
+
+#-------------------------------------------------------------------------------
+# R-045 ------------
+# 顧客データ（df_customer）の生年月日（birth_day）は日付型でデータを保有している。
+# これをYYYYMMDD形式の文字列に変換し、顧客ID（customer_id）とともに10件表示せよ。
+
+
+
+
+#-------------------------------------------------------------------------------
+# R-047 ------------
+# レシート明細データ（df_receipt）の売上日（sales_ymd）はYYYYMMDD形式の数値型でデータを保有している。
+# これを日付型に変換し、レシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
+df_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_ymd) %>% 
+  mutate(
+    sales_ymd = 
+      sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
+  )
+
+db_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_ymd) %>% 
+  mutate(
+    sales_ymd = 
+      sales_ymd %>% as.character() %>% strptime("%Y%m%d")
+      # sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
+      # sales_ymd %>% as.character() %>% lubridate::parse_date_time(sales_ymd, "%Y%m%d")
+      # sales_ymd %>% as.character() %>% lubridate::as_date()
+  ) %>% 
+  head(10) %>% 
+  my_show_query(F)
+
+q = sql("
+SELECT
+  receipt_no,
+  receipt_sub_no,
+  strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS sales_ymd
+FROM receipt
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+#-------------------------------------------------------------------------------
+# R-048 ------------
+# レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）は数値型のUNIX秒でデータを保有している。
+# これを日付型に変換し、レシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
+
+df_receipt %>% 
+  mutate(
+    sales_date = 
+      lubridate::as_datetime(sales_epoch) %>% 
+      lubridate::as_date()
+  ) %>% 
+  select(receipt_no, receipt_sub_no, sales_date)
+
+db_receipt %>% 
+  mutate(
+    sales_date = sql("TO_TIMESTAMP(sales_epoch) :: TIMESTAMP"), 
+    sales_date = as_date(sales_date)
+  ) %>% 
+  select(receipt_no, receipt_sub_no, sales_date) %>% 
+  my_show_query()
+
+# TIMESTAMP:	タイムゾーンなしの日時型	'2024-02-13 12:34:56'
+# TIMESTAMP:  WITH TIME ZONE	タイムゾーン情報を含む日時型	'2024-02-13 12:34:56 UTC'
+
+db_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_ymd, sales_epoch) %>% 
+  mutate(
+    sales_ymd_d = lubridate::as_datetime(sales_epoch)
+  )
+
+# Error in `collect()`:
+# ! Failed to collect lazy table.
+# Caused by error in `duckdb_result()`:
+# ! rapi_execute: Failed to run query
+# Error: Conversion Error: Unimplemented type for cast (INTEGER -> TIMESTAMP)
+# LINE 6:   CAST(sales_epoch AS TIMESTAMP) AS sales_ymd_d
+# FROM receipt
+
+1541203200L %>% as.POSIXct(format = "%Y-%m-%d")
+1541203200L %>% as.POSIXct(origin = "1970-01-01")
+
+db_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_ymd, sales_epoch) %>% 
+  mutate(
+    sales_ymd_d = as.POSIXct(sales_epoch, origin = "1970-01-01") %>% as.Date()
+  )
+
+#-------------------------------------------------------------------------------
+# R-049 ------------
+# レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）を日付型に変換し、「年」だけ取り出してレシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
+
+df_receipt %>% 
+  mutate(
+    year = 
+      lubridate::as_datetime(sales_epoch) %>% 
+      lubridate::year() %>% 
+      as.integer()
+  ) %>% 
+  select(receipt_no, receipt_sub_no, year)
+
+# 推奨
+db_receipt %>% 
+  mutate(
+    sales_ymd = sql("TO_TIMESTAMP(sales_epoch) :: TIMESTAMP"), 
+    year = sales_ymd %>% lubridate::year() %>% as.integer()
+  ) %>% 
+  select(receipt_no, receipt_sub_no, year) %>% 
+  my_show_query(F)
+
+# 非推奨
+db_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_epoch) %>% 
+  mutate(
+    ymd = sql("YEAR(TO_TIMESTAMP(sales_epoch) :: TIMESTAMP)")
+  ) %>% 
+  my_show_query(F)
+  # my_collect()
 
 #-------------------------------------------------------------------------------
 # R-053 ------------

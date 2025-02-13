@@ -72,16 +72,15 @@ hugo server --navigateToChanged
 hugo server --ignoreCache
 # Fast Render（高速レンダリング）を無効化する場合
 hugo server --disableFastRender
+# ポートを指定する場合
+hugo server --port 1313
 
-hugo server --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged -D
+hugo server --port 1313 --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged -D
 
-hugo server --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged --environment production -D
+hugo server --port 1313 --ignoreCache --disableFastRender --cleanDestinationDir --navigateToChanged --environment production -D
 
 # 以下にアクセスしてサイトを確認する
 http://localhost:1313/tech-blog/
-
-# 別ポートを使用する場合
-hugo server --port 1314
 
 tech-blog/.gitignore を作成する。以下からダウンロード:
 https://github.com/adityatelange/hugo-PaperMod/blob/exampleSite/.gitignore
