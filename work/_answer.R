@@ -1346,6 +1346,102 @@ q %>% my_select(con)
 # 2          1       4400
 
 #-------------------------------------------------------------------------------
+# R-055 ------------
+# レシート明細（df_receipt）データの売上金額（amount）を顧客ID（customer_id）ごとに合計し、その合計金額の四分位点を求めよ。その上で、顧客ごとの売上金額合計に対して以下の基準でカテゴリ値を作成し、顧客ID、売上金額合計とともに10件表示せよ。カテゴリ値は順に1〜4とする。
+# 
+# 最小値以上第1四分位未満 ・・・ 1を付与
+# 第1四分位以上第2四分位未満 ・・・ 2を付与
+# 第2四分位以上第3四分位未満 ・・・ 3を付与
+# 第3四分位以上 ・・・ 4を付与
+
+df_receipt %>%
+  group_by(customer_id) %>% 
+  summarise(sum_amount = sum(amount), .groups = "drop") %>% 
+  mutate(pct_group = 
+    cut(
+      sum_amount, 
+      breaks = quantile(sum_amount), 
+      labels = 1:4 %>% as.character()
+    )) %>% 
+  head(10)
+
+
+df_receipt %>%
+    group_by(customer_id) %>%
+    summarise(sum_amount = sum(amount), .groups = "drop") %>%
+    mutate(pct_group = case_when(
+        sum_amount < quantile(sum_amount)[2]  ~ "1",
+        sum_amount < quantile(sum_amount)[3]  ~ "2",
+        sum_amount < quantile(sum_amount)[4]  ~ "3",
+        quantile(sum_amount)[4] <= sum_amount ~ "4"
+    )) %>%
+    head(10)
+
+db_summary = db_receipt %>%
+  group_by(customer_id) %>%
+  summarise(sum_amount = sum(amount), .groups = "drop")
+
+quantiles = quantile(db_summary %>% pull(sum_amount), probs = c(0.25, 0.5, 0.75, 1.0), na.rm = TRUE) %>% as.vector()
+
+db_summary %>%
+  mutate(pct_group = cut(
+      sum_amount, 
+      breaks = c(-Inf, !!quantiles[1], !!quantiles[2], !!quantiles[3], Inf), 
+      labels = c("1", "2", "3", "4"), 
+      include.lowest = F
+    )
+  ) %>%
+  head(10) %>% 
+  my_show_query()
+
+
+db_summary %>%
+  mutate(pct_group = case_when(
+    (sum_amount < !!quantiles[1]) ~ "1", 
+    (sum_amount < !!quantiles[2]) ~ "2", 
+    (sum_amount < !!quantiles[3]) ~ "3", 
+    (sum_amount >= !!quantiles[3]) ~ "4"
+  )) %>%
+  head(10)
+
+
+q = sql("
+WITH sales_amount AS(
+    SELECT
+        customer_id,
+        SUM(amount) AS sum_amount
+    FROM
+        receipt
+    GROUP BY
+        customer_id
+),
+sales_pct AS (
+    SELECT
+        PERCENTILE_CONT(0.25) WITHIN GROUP(ORDER BY sum_amount) AS pct25,
+        PERCENTILE_CONT(0.50) WITHIN GROUP(ORDER BY sum_amount) AS pct50,
+        PERCENTILE_CONT(0.75) WITHIN GROUP(ORDER BY sum_amount) AS pct75
+    FROM
+        sales_amount
+)
+SELECT
+    a.customer_id,
+    a.sum_amount,
+    CASE
+        WHEN a.sum_amount < pct25 THEN 1
+        WHEN pct25 <= a.sum_amount AND a.sum_amount < pct50 THEN 2
+        WHEN pct50 <= a.sum_amount AND a.sum_amount < pct75 THEN 3
+        WHEN pct75 <= a.sum_amount THEN 4
+    END AS pct_group
+FROM sales_amount a
+CROSS JOIN sales_pct p
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+
+
+#-------------------------------------------------------------------------------
 # R-056 ------------
 # 顧客データ（customer）の年齢（age）をもとに10歳刻みで年代を算出し、
 # 顧客ID（customer_id）、生年月日（birth_day）とともに10件表示せよ。
