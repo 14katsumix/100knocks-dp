@@ -1354,92 +1354,143 @@ q %>% my_select(con)
 # 第2四分位以上第3四分位未満 ・・・ 3を付与
 # 第3四分位以上 ・・・ 4を付与
 
+# Rコード (データフレーム操作)
+
+# df_receipt %>%
+#     group_by(customer_id) %>%
+#     summarise(sum_amount = sum(amount), .groups = "drop") %>%
+#     mutate(pct_group = case_when(
+#         sum_amount < quantile(sum_amount)[2]  ~ "1",
+#         sum_amount < quantile(sum_amount)[3]  ~ "2",
+#         sum_amount < quantile(sum_amount)[4]  ~ "3",
+#         quantile(sum_amount)[4] <= sum_amount ~ "4"
+#     )) %>%
+#     head(10)
+
 df_receipt %>%
   group_by(customer_id) %>% 
   summarise(sum_amount = sum(amount), .groups = "drop") %>% 
-  mutate(pct_group = 
-    cut(
-      sum_amount, 
-      breaks = quantile(sum_amount), 
-      labels = 1:4 %>% as.character()
-    )) %>% 
+  mutate(
+    pct_group = 
+      cut(
+        sum_amount, 
+        breaks = quantile(sum_amount), 
+        # labels = 1:4 %>% as.character(), 
+        labels = FALSE, 
+        right = FALSE, 
+        include.lowest = TRUE
+      ) %>% 
+      as.character()
+  ) %>% 
   head(10)
 
+#...............................................................................
+# Rコード (データベース操作)
 
-df_receipt %>%
-    group_by(customer_id) %>%
-    summarise(sum_amount = sum(amount), .groups = "drop") %>%
-    mutate(pct_group = case_when(
-        sum_amount < quantile(sum_amount)[2]  ~ "1",
-        sum_amount < quantile(sum_amount)[3]  ~ "2",
-        sum_amount < quantile(sum_amount)[4]  ~ "3",
-        quantile(sum_amount)[4] <= sum_amount ~ "4"
-    )) %>%
-    head(10)
-
-db_summary = db_receipt %>%
-  group_by(customer_id) %>%
-  summarise(sum_amount = sum(amount), .groups = "drop")
-
-quantiles = quantile(db_summary %>% pull(sum_amount), probs = c(0.25, 0.5, 0.75, 1.0), na.rm = TRUE) %>% as.vector()
-
-db_summary %>%
-  mutate(pct_group = cut(
-      sum_amount, 
-      breaks = c(-Inf, !!quantiles[1], !!quantiles[2], !!quantiles[3], Inf), 
-      labels = c("1", "2", "3", "4"), 
-      include.lowest = F
-    )
-  ) %>%
-  head(10) %>% 
+# PERCENTILE_CONT() はウィンドウ関数 (OVER ()) として使えない!
+db_receipt %>% 
+  mutate(
+    p25 = quantile(amount, 0.25, na.rm = T)
+  ) %>% 
   my_show_query()
 
-
-db_summary %>%
-  mutate(pct_group = case_when(
-    (sum_amount < !!quantiles[1]) ~ "1", 
-    (sum_amount < !!quantiles[2]) ~ "2", 
-    (sum_amount < !!quantiles[3]) ~ "3", 
-    (sum_amount >= !!quantiles[3]) ~ "4"
-  )) %>%
-  head(10)
-
-
 q = sql("
-WITH sales_amount AS(
-    SELECT
-        customer_id,
-        SUM(amount) AS sum_amount
-    FROM
-        receipt
-    GROUP BY
-        customer_id
-),
-sales_pct AS (
-    SELECT
-        PERCENTILE_CONT(0.25) WITHIN GROUP(ORDER BY sum_amount) AS pct25,
-        PERCENTILE_CONT(0.50) WITHIN GROUP(ORDER BY sum_amount) AS pct50,
-        PERCENTILE_CONT(0.75) WITHIN GROUP(ORDER BY sum_amount) AS pct75
-    FROM
-        sales_amount
-)
 SELECT
-    a.customer_id,
-    a.sum_amount,
-    CASE
-        WHEN a.sum_amount < pct25 THEN 1
-        WHEN pct25 <= a.sum_amount AND a.sum_amount < pct50 THEN 2
-        WHEN pct50 <= a.sum_amount AND a.sum_amount < pct75 THEN 3
-        WHEN pct75 <= a.sum_amount THEN 4
-    END AS pct_group
-FROM sales_amount a
-CROSS JOIN sales_pct p
-LIMIT 10
+  receipt.*,
+  PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) OVER () AS p25
+FROM receipt
 "
 )
 q %>% my_select(con)
 
+# answer
+db_sales_amount = db_receipt %>%
+  summarise(sum_amount = sum(amount), .by = customer_id)
 
+db_sales_pct = db_sales_amount %>%
+  summarise(
+    p25 = quantile(sum_amount, 0.25, na.rm = TRUE), 
+    p50 = quantile(sum_amount, 0.5, na.rm = TRUE), 
+    p75 = quantile(sum_amount, 0.75, na.rm = TRUE)
+  )
+
+db_sales_amount %>% 
+  cross_join(db_sales_pct) %>% 
+  mutate(
+    pct_group = case_when(
+      (sum_amount < p25) ~ "1", 
+      (sum_amount < p50) ~ "2", 
+      (sum_amount < p75) ~ "3", 
+      (sum_amount >= p75) ~ "4"
+    )
+  ) %>% 
+  select(customer_id, sum_amount, pct_group) %>% 
+  head(10) -> 
+  db_result
+
+db_result
+#   customer_id    sum_amount pct_group
+#    <chr>               <dbl> <chr>    
+#  1 CS003515000195       5412 4        
+#  2 CS014415000077      14076 4        
+#  3 CS026615000085       2885 3        
+#  4 CS015415000120       4106 4        
+#  5 CS008314000069       5293 4        
+
+#................................................
+db_sales_amount %>% 
+  cross_join(db_sales_pct) %>% 
+  mutate(
+    pct_group = 
+      cut(
+        sum_amount, 
+        breaks = c(-Inf, p25, p50, p75, Inf), 
+        # labels = 1:4 %>% as.character(), 
+        labels = FALSE, 
+        right = FALSE, 
+        include.lowest = TRUE
+      ) %>% 
+      as.character()
+  ) %>% 
+  head(10)
+#=> Error in `cut()`: ! `breaks` are not unique.
+
+#...............................................................................
+# SQLクエリ
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM receipt
+  GROUP BY customer_id
+),
+q02 AS (
+  SELECT
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sum_amount) AS p25,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sum_amount) AS p50,
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sum_amount) AS p75
+  FROM q01
+),
+q03 AS (
+  SELECT LHS.*, RHS.*
+  FROM q01 LHS
+  CROSS JOIN q02 RHS
+)
+SELECT
+  customer_id,
+  sum_amount,
+  CASE
+WHEN ((sum_amount < p25)) THEN '1'
+WHEN ((sum_amount < p50)) THEN '2'
+WHEN ((sum_amount < p75)) THEN '3'
+WHEN ((sum_amount >= p75)) THEN '4'
+END AS pct_group
+FROM q03 q01
+LIMIT 10
+"
+)
+q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-056 ------------
@@ -1447,8 +1498,14 @@ q %>% my_select(con)
 # 顧客ID（customer_id）、生年月日（birth_day）とともに10件表示せよ。
 # ただし、60歳以上は全て60歳代とすること。年代を表すカテゴリ名は任意とする。
 
-customer %>% mutate(age_rng = epikit::age_categories(age, lower = 0, upper = 60, by = 10)) %>% 
-  select(customer_id, birth_day, age, age_rng)
+pacman::p_load(epikit)
+
+df_customer %>% 
+  mutate(
+    age_rng = epikit::age_categories(age, lower = 0, upper = 60, by = 10)
+  ) %>% 
+  select(customer_id, birth_day, age, age_rng) %>% 
+  head(10)
 
 # A tibble: 21,971 × 4
 #    customer_id    birth_day    age age_rng
@@ -1464,22 +1521,44 @@ customer %>% mutate(age_rng = epikit::age_categories(age, lower = 0, upper = 60,
 # ...
 
 #...............................................................................
+
+db_customer %>% 
+  mutate(
+    age_rng = pmin((floor(age / 10) * 10), 60) %>% as.integer()
+  ) %>% 
+  select(customer_id, birth_day, age, age_rng) %>% 
+  head(10) -> 
+  db_result
+
+db_result
+
+#...............................................................................
+
+db_result %>% my_show_query()
+
+q = sql("
+SELECT
+  customer_id,
+  birth_day,
+  age,
+  CAST(LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER) AS age_rng
+FROM customer
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
 # printf(): 頭に0をつけて文字列変換できる.
 
 q = sql("
-select
+SELECT
   customer_id, 
   birth_day, 
-  -- LEAST((age / 10) * 10, 60) as era
-  -- MIN((age / 10) * 10, 60) as era
-  printf('%02d', MIN((age / 10) * 10, 60)) as era
-from
-  customer
-where
-  age IS NOT NULL
-order by 
-  -- customer_id
-  era, customer_id
+  LEAST((age / 10) * 10, 60) AS era
+  -- printf('%02d', LEAST((age / 10) * 10, 60)) AS era
+FROM customer
+WHERE age IS NOT NULL
+ORDER BY era, customer_id;
 "
 )
 q %>% my_select(con)
@@ -1499,12 +1578,13 @@ q %>% my_select(con)
 # 056の抽出結果と性別コード（gender_cd）により、新たに性別×年代の組み合わせを表すカテゴリデータを作成し、
 # 10件表示せよ。組み合わせを表すカテゴリの値は任意とする。
 
-d.c = customer %>% 
+d.c = df_customer %>% 
   mutate(age_rng = epikit::age_categories(age, lower = 0, upper = 60, by = 10)) %>% 
   select(customer_id, birth_day, age, age_rng, gender_cd)
 
-d = d.c %>% unite("gender_age", gender_cd, age_rng, sep = "_", remove = F) %>% 
-  mutate(across(gender_age, ~ as.factor(.x))) %>% 
+d = d.c %>% 
+  unite("gender_age", gender_cd, age_rng, sep = "_", remove = F) %>% 
+  # mutate(across(gender_age, ~ as.factor(.x))) %>% 
   arrange(customer_id)
 
 d
@@ -1564,7 +1644,7 @@ q %>% my_select(con)
 # R-058 ------------
 # 顧客データ（customer）の性別コード（gender_cd）をダミー変数化し、顧客ID（customer_id）とともに10件表示せよ。
 
-d = customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
+d = df_customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
 d$gender_cd %>% levels()
 
 # d %>% recipes::recipe(~ customer_id + gender_cd, data = .)
@@ -1586,12 +1666,39 @@ d %>% recipes::recipe() %>%
 # ...
 
 #...............................................................................
+
+db_result = db_customer %>% 
+  select(
+    customer_id, gender_cd
+  ) %>% 
+  mutate(
+    gender_cd_0 = ifelse(gender_cd == "0", 1L, 0L), 
+    gender_cd_1 = ifelse(gender_cd == "1", 1L, 0L), 
+    gender_cd_9 = ifelse(gender_cd == "9", 1L, 0L), 
+    .keep = "unused"
+  )
+
+#...............................................................................
+
+db_result %>% show_query()
+
+q = sql("
+SELECT
+  customer_id,
+  CASE WHEN (gender_cd = '0') THEN 1 WHEN NOT (gender_cd = '0') THEN 0 END AS gender_cd_0,
+  CASE WHEN (gender_cd = '1') THEN 1 WHEN NOT (gender_cd = '1') THEN 0 END AS gender_cd_1,
+  CASE WHEN (gender_cd = '9') THEN 1 WHEN NOT (gender_cd = '9') THEN 0 END AS gender_cd_9
+FROM customer
+"
+)
+q %>% my_select(con)
+
 q = sql("
 select
-  customer_id,
-  case when gender_cd = '0' then '1' else '0' end as gender_cd_0, 
-  case when gender_cd = '1' then '1' else '0' end as gender_cd_1, 
-  case when gender_cd = '9' then '1' else '0' end as gender_cd_9
+  customer_id, 
+  case when gender_cd = '0' then 1 else 0 end as gender_cd_0, 
+  case when gender_cd = '1' then 1 else 0 end as gender_cd_1, 
+  case when gender_cd = '9' then 1 else 0 end as gender_cd_9
 from
   customer
 "
