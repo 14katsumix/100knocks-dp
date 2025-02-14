@@ -1730,80 +1730,83 @@ q %>% my_select(con)
 # 売上金額合計を最小値0、最大値1に正規化して顧客ID、売上金額合計とともに10件表示せよ。
 # ただし、顧客IDが"Z"から始まるのものは非会員を表すため、除外して計算すること。
 
-df_receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
+df_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
   mutate(norm_amount = scales::rescale(sum_amount,, to = c(0, 1))) %>% 
   arrange(customer_id)
 
+# A tibble: 8,306 × 3
+#    customer_id    sum_amount norm_amount
+#    <chr>               <dbl>       <dbl>
+#  1 CS001113000004       1298   0.053354 
+#  2 CS001114000005        626   0.024157 
+#  3 CS001115000010       3044   0.12921  
+#  4 CS001205000004       1988   0.083333 
+#  5 CS001205000006       3337   0.14194  
+# ...
+
 #...............................................................................
-q = sql("
-with customer_amount as (
-select
-  customer_id, 
-  SUM(amount) as amount
-from
-  receipt
-where
-  customer_id NOT LIKE 'Z%'
-group by 
-  customer_id
-), 
-stats_amount as (
-  select 
-    MIN(amount) as min_a, 
-    MAX(amount) as max_a
-  from
-    customer_amount
-)
-select
-  c.customer_id, 
-  c.amount, 
-  (c.amount - s.min_a) / (s.max_a - s.min_a) as scale_amount
-from
-  customer_amount as c
-cross join stats_amount as s
-"
-)
-q %>% my_select(con)
+
+db_result = db_receipt %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
+  filter(!customer_id %LIKE% "Z%") %>% 
+  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+  mutate(
+    min_amount = min(sum_amount), 
+    max_amount = max(sum_amount)
+  ) %>% 
+  mutate(
+    norm_amount = 
+      (sum_amount - min_amount) / (max_amount -  min_amount)
+  ) %>% 
+  select(-c(min_amount, max_amount)) %>% 
+  arrange(customer_id)
+
+db_result
+
+#...............................................................................
+
+db_result %>% my_show_query()
 
 q = sql("
-with customer_amount as (
-select
-  customer_id, 
-  SUM(amount) as amount
-from
-  receipt
-where
-  customer_id NOT LIKE 'Z%'
-group by 
-  customer_id
-), 
-cust as (
-  select 
-    *, 
-    MIN(amount) OVER () as min_a, 
-    MAX(amount) OVER () as max_a
-  from
-    customer_amount
+WITH q01 AS (
+  SELECT receipt.*
+  FROM receipt
+  -- WHERE (NOT(REGEXP_MATCHES(customer_id, '^Z')))
+  WHERE (NOT(customer_id LIKE 'Z%'))
+),
+q02 AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM q01
+  GROUP BY customer_id
+),
+q03 AS (
+  SELECT
+    q01.*,
+    MIN(sum_amount) OVER () AS min_amount,
+    MAX(sum_amount) OVER () AS max_amount
+  FROM q02 q01
 )
-select
-  customer_id, 
-  amount, 
-  (amount - min_a) / (max_a - min_a) as scale_amount
-from
-  cust
+SELECT
+  customer_id,
+  sum_amount,
+  (sum_amount - min_amount) / (max_amount - min_amount) AS norm_amount
+FROM q03 q01
+ORDER BY customer_id
 "
 )
 q %>% my_select(con)
 
 # A tibble: 8,306 × 3
-#    customer_id    amount scale_amount
-#    <chr>           <dbl>        <dbl>
-#  1 CS001113000004   1298    0.053354 
-#  2 CS001114000005    626    0.024157 
-#  3 CS001115000010   3044    0.12921  
-#  4 CS001205000004   1988    0.083333 
-#  ...
+#    customer_id    sum_amount norm_amount
+#    <chr>               <dbl>       <dbl>
+#  1 CS001113000004       1298   0.053354 
+#  2 CS001114000005        626   0.024157 
+#  3 CS001115000010       3044   0.12921  
+#  4 CS001205000004       1988   0.083333 
+#  5 CS001205000006       3337   0.14194  
+# ...
 
 #-------------------------------------------------------------------------------
 # R-069 ------------
