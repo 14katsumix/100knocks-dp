@@ -30,6 +30,17 @@ db_receipt %>% head(1)
 #        <int>       <int> <chr>         <int>          <int> <chr>         
 #  1  20181103  1541203200 S14006          112              1 CS006214000001
 
+# 標準出力向けの設定 ------------
+list(
+  "digits" = 2,  
+  "tibble.print_max" = 40, # 表示する最大行数.
+  "tibble.print_min" = 15, # 表示する最小行数.
+  "tibble.width" = NULL,   # 全体の出力幅. デフォルトは NULL.
+  "pillar.sigfig" = 5,     # 表示する有効桁数
+  "pillar.max_dec_width" = 13 # 10進数表記の最大許容幅
+) |> 
+  options()
+
 #-------------------------------------------------------------------------------
 # R-003 ------------
 # レシート明細データ（df_receipt）から売上年月日（sales_ymd）、顧客ID（customer_id）、
@@ -1719,9 +1730,9 @@ q %>% my_select(con)
 # 売上金額合計を最小値0、最大値1に正規化して顧客ID、売上金額合計とともに10件表示せよ。
 # ただし、顧客IDが"Z"から始まるのものは非会員を表すため、除外して計算すること。
 
-receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
+df_receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
-  mutate(norm_amount = rescale(sum_amount,, to = c(0, 1))) %>% 
+  mutate(norm_amount = scales::rescale(sum_amount,, to = c(0, 1))) %>% 
   arrange(customer_id)
 
 #...............................................................................
