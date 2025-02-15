@@ -2554,37 +2554,113 @@ df_customer %>%
   count(postal_cd)
 
 #...............................................................................
+# ランダムな行番号を生成する方法
+# 列の一部を出力
+
+db_customer %>% 
+  select(gender_cd) %>% 
+  group_by(gender_cd) %>% 
+  mutate(r = runif(n = n())) %>% 
+  my_show_query(T)
+
+# 上記コードは、group_by(gender_cd) が効かない
+# SELECT gender_cd, RANDOM() AS r
+# FROM customer
+
+# customer をランダムに並び替えてからグループ内で順番付けをする
+db_result = db_customer %>%
+  mutate(r = runif(n = n())) %>% 
+  window_order(r) %>% 
+  group_by(gender_cd) %>%
+  mutate(
+    row_num = row_number(), # グループ内で順番付け
+    cnt = n()
+  ) %>%
+  # 上位10%を選択
+  filter(row_num <= 0.1 * cnt) %>% 
+  # select(customer_id, gender_cd, gender, birth_day, age, r, row_num, cnt) %>% 
+  count(gender_cd)
+
+db_result
+# Source:     SQL [3 x 2]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Groups:     gender_cd
+# Ordered by: r
+#   gender_cd     n
+#       <int> <dbl>
+# 1         0   298
+# 2         1  1791
+# 3         9   107
+
+db_result %>% show_query(cte = T)
+
+#................................................
+
+db_result
+db_result %>% collect() %>% head(30)
+db_result %>% collect() %>% tail(30)
+db_result %>% collect() %>% count(gender_cd)
+db_result %>% collect() %>% group_by(gender_cd) %>% reframe(x = quantile(r))
+db_result %>% collect() %>% group_by(gender_cd) %>% reframe(x = quantile(row_num))
+
+df_customer %>% arrange(customer_id)
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
 q = sql("
-with cusotmer_random as (
-  select
-    gender_cd, 
-    row_number() OVER (win order by RANDOM()) as row, 
-    count(*) OVER win as cnt
-  from
-    customer
+WITH q01 AS (
+  SELECT customer.*, RANDOM() AS r
+  FROM customer
+),
+q02 AS (
+  SELECT
+    q01.*,
+    ROW_NUMBER() OVER (PARTITION BY gender_cd ORDER BY r) AS row_num,
+    COUNT(*) OVER (PARTITION BY gender_cd) AS cnt
+  FROM q01
+),
+q03 AS (
+  SELECT q01.*
+  FROM q02 q01
+  WHERE (row_num <= (0.1 * cnt))
+)
+SELECT gender_cd, COUNT(*) AS n
+FROM q03 q01
+GROUP BY gender_cd
+"
+)
+q %>% my_select(con)
+
+q = sql("
+SELECT SETSEED(0.5);
+WITH cusotmer_r AS (
+  SELECT customer.*, RANDOM() AS r
+  FROM customer
+),
+cusotmer_random AS (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (win ORDER BY r) AS row_num,
+    COUNT(*) OVER win AS cnt
+  FROM cusotmer_r
   WINDOW win as (partition by gender_cd)
 )
-select
-  gender_cd, 
-  count(*) as n_customer
-from
-  cusotmer_random
-where
-  row <= 0.1 * cnt
-group by
-  gender_cd
-order by
-  gender_cd
+SELECT gender_cd, COUNT(*) AS n
+FROM cusotmer_random
+WHERE (row_num <= (0.1 * cnt))
+GROUP BY gender_cd
 "
 )
 q %>% my_select(con)
 
 # A tibble: 3 × 2
-#   gender_cd n_customer
-#       <int>      <int>
-# 1         0        298
-# 2         1       1791
-# 3         9        107
+#   gender_cd     n
+#       <int> <dbl>
+# 1         0   298
+# 2         1  1791
+# 3         9   107
 
 #-------------------------------------------------------------------------------
 # R-081 ------------
