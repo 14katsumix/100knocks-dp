@@ -41,6 +41,9 @@ list(
 ) |> 
   options()
 
+# dplyr が認識できない関数をエラーにする 
+options(dplyr.strict_sql = TRUE)
+
 #-------------------------------------------------------------------------------
 # R-003 ------------
 # レシート明細データ（df_receipt）から売上年月日（sales_ymd）、顧客ID（customer_id）、
@@ -1201,15 +1204,29 @@ q %>% my_select(con)
 df_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
-    sales_ymd = 
-      sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
+    sales_ymd = sales_ymd %>% 
+      as.character() %>% 
+      lubridate::fast_strptime("%Y%m%d") %>% lubridate::as_date()
   )
 
-db_receipt %>% 
+# A tibble: 104,681 × 3
+#    receipt_no receipt_sub_no sales_ymd 
+#         <int>          <int> <date>    
+#  1        112              1 2018-11-03
+#  2       1132              2 2018-11-18
+#  3       1102              1 2017-07-12
+#  4       1132              1 2019-02-05
+#  5       1102              2 2018-08-21
+#  6       1112              1 2019-06-05
+#  ...
+
+db_result = db_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
-    sales_ymd = 
-      sales_ymd %>% as.character() %>% strptime("%Y%m%d")
+    sales_ymd = sales_ymd %>% 
+      as.character() %>% 
+      strptime("%Y%m%d") %>% lubridate::as_date()
+      # sales_ymd %>% as.character() %>% strptime("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::parse_date_time(sales_ymd, "%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::as_date()
@@ -1217,11 +1234,15 @@ db_receipt %>%
   head(10) %>% 
   my_show_query(F)
 
+db_result
+
+db_result %>% show_query()
+
 q = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
-  strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS sales_ymd
+  CAST(strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE) AS sales_ymd
 FROM receipt
 LIMIT 10
 "
@@ -1814,15 +1835,72 @@ q %>% my_select(con)
 # カテゴリ大区分コード（category_major_cd）が"07"（瓶詰缶詰）の売上金額合計を計算の上、両者の比率を求めよ。
 # 抽出対象はカテゴリ大区分コード"07"（瓶詰缶詰）の売上実績がある顧客のみとし、結果を10件表示せよ。
 
-receipt %>% left_join(product, by = "product_cd") %>% 
+df_receipt %>% 
+  inner_join(df_product, by = "product_cd") %>% 
   select(customer_id, category_major_cd, amount) %>% 
   mutate(amount_07 = ifelse(category_major_cd == "07", amount, 0.0)) %>% 
   summarise(across(c(amount, amount_07), ~ sum(.x, na.rm = T)), .by = "customer_id") %>% 
   filter(amount_07 > 0.0) %>% 
-  mutate(sales_rate = (amount_07 / amount) %>% round(2)) %>% 
+  mutate(sales_rate = amount_07 / amount) %>% 
   arrange(customer_id)
 
+# A tibble: 6,865 × 4
+#    customer_id    amount amount_07 sales_rate
+#    <chr>           <dbl>     <dbl>      <dbl>
+#  1 CS001113000004   1298      1298    1      
+#  2 CS001114000005    626       486    0.77636
+#  3 CS001115000010   3044      2694    0.88502
+#  4 CS001205000004   1988       346    0.17404
+#  5 CS001205000006   3337      2004    0.60054
+#  ...
+
 #...............................................................................
+
+db_result = db_receipt %>% 
+  inner_join(db_product, by = "product_cd") %>% 
+  select(customer_id, category_major_cd, amount) %>% 
+  mutate(amount_07 = ifelse(category_major_cd == "07", amount, 0.0)) %>% 
+  summarise(across(c(amount, amount_07), ~ sum(.x, na.rm = T)), .by = "customer_id") %>% 
+  filter(amount_07 > 0.0) %>% 
+  mutate(sales_rate = amount_07 / amount) %>% 
+  arrange(customer_id)
+
+db_result
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+# db_receipt %>% 
+#   mutate(x = amount %>% round(2L), .keep = "used") %>% my_show_query()
+
+q = sql("
+WITH q01 AS (
+  SELECT customer_id, category_major_cd, amount
+  FROM receipt
+  INNER JOIN product
+    ON (receipt.product_cd = product.product_cd)
+),
+q02 AS (
+  SELECT
+    q01.*,
+    CASE WHEN (category_major_cd = '07') THEN amount WHEN NOT (category_major_cd = '07') THEN 0.0 END AS amount_07
+  FROM q01
+),
+q03 AS (
+  SELECT customer_id, SUM(amount) AS amount, SUM(amount_07) AS amount_07
+  FROM q02 q01
+  GROUP BY customer_id
+  HAVING (SUM(amount_07) > 0.0)
+)
+SELECT q01.*, amount_07 / amount AS sales_rate
+FROM q03 q01
+ORDER BY customer_id
+"
+)
+q %>% my_select(con)
+
+#................................................
 q = sql("
 with rec as (
   select
@@ -1865,16 +1943,6 @@ from
 )
 q %>% my_select(con)
 
-# A tibble: 6,865 × 4
-#    customer_id    sum_amount major_amount ratio
-#    <chr>               <dbl>        <dbl> <dbl>
-#  1 CS001113000004       1298         1298  1   
-#  2 CS001114000005        626          486  0.78
-#  3 CS001115000010       3044         2694  0.89
-#  4 CS001205000004       1988          346  0.17
-#  5 CS001205000006       3337         2004  0.6 
-# ...
-
 #-------------------------------------------------------------------------------
 # R-070 ------------
 # レシート明細データ（receipt）の売上日（sales_ymd）に対し、顧客データ（customer）の会員申込日
@@ -1882,18 +1950,171 @@ q %>% my_select(con)
 # 10件表示せよ（sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。
 
 # 経過日数
-difftime(get.POSIXct("20170322"), get.POSIXct("20160322")) %>% as.numeric(units = "days")
+"20170322" %>% lubridate::parse_date_time("%Y%m%d")
+"20170322" %>% lubridate::parse_date_time("%Y%m%d") %>% class()
+# "POSIXlt" "POSIXt" 
+strptime("20170322", "%Y%m%d")
+strptime("20170322", "%Y%m%d") %>% class()
+# "POSIXlt" "POSIXt" 
+difftime(strptime("20170322", "%Y%m%d"), strptime("20170222", "%Y%m%d")) %>% as.numeric(units = "days")
 
-receipt %>% 
+df_receipt %>% 
   distinct(customer_id, sales_ymd) %>% 
-  inner_join(customer %>% select(customer_id, application_date), by = "customer_id") %>% 
+  inner_join(
+    df_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
   mutate(
     elapsed_days = 
-      difftime(get.POSIXct(sales_ymd), get.POSIXct(application_date)) %>% as.numeric(units = "days")
+      difftime(
+        strptime(as.character(sales_ymd), "%Y%m%d"), 
+        strptime(application_date, "%Y%m%d"), 
+        units = "days"
+      ) %>% 
+      as.integer()
   ) %>% 
   arrange(customer_id, sales_ymd)
 
+# 
+df_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    df_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    elapsed_days = 
+      lubridate::interval(
+        strptime(application_date, "%Y%m%d"), 
+        strptime(as.character(sales_ymd), "%Y%m%d")
+      ) %/%
+      lubridate::days(1L)
+  ) %>% 
+  arrange(customer_id, sales_ymd)
+
+# A tibble: 32,411 × 4
+#    customer_id    sales_ymd application_date elapsed_days
+#    <chr>              <int> <chr>                   <int>
+#  1 CS001113000004  20190308 20151105                 1219
+#  2 CS001114000005  20180503 20160412                  751
+#  3 CS001114000005  20190731 20160412                 1205
+#  4 CS001115000010  20171228 20150417                  986
+#  5 CS001115000010  20180701 20150417                 1171
+#  6 CS001115000010  20190405 20150417                 1449
+#  ...
+
 #...............................................................................
+
+db_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    db_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    elapsed_days = 
+      difftime(
+        strptime(as.character(sales_ymd), "%Y%m%d"), 
+        strptime(application_date, "%Y%m%d"), 
+        units = "days"
+      ) %>% 
+      as.integer()
+  ) %>% 
+  arrange(customer_id, sales_ymd)
+
+# 上記、db_receipt, db_customer がテーブル参照。
+# Error in `difftime()`:
+# ! Don't know how to translate `difftime()`
+
+# 
+db_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    db_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    elapsed_days = 
+      # strptime(as.character(sales_ymd), "%Y%m%d") - strptime(application_date, "%Y%m%d")
+      lubridate::interval(
+        strptime(application_date, "%Y%m%d"), 
+        strptime(as.character(sales_ymd), "%Y%m%d")
+      ) %/%
+      lubridate::days(1L)
+  ) %>% 
+  arrange(customer_id, sales_ymd)
+
+# Error in `lubridate::interval()`:
+# ! No known SQL translation
+
+# dplyr が認識できない関数をエラーにする 
+options(dplyr.strict_sql = FALSE)
+
+db_result = db_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    db_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    elapsed_days = 
+      strptime(
+        as.character(sales_ymd), "%Y%m%d") - 
+          strptime(application_date, "%Y%m%d"
+      )
+  ) %>% 
+  mutate(
+    elapsed_days = sql("EXTRACT(DAY FROM elapsed_days)")
+    # elapsed_days = as.integer(elapsed_days)
+  ) %>% 
+  # select(-elapsed_time) %>% 
+  arrange(customer_id, sales_ymd)
+
+db_result
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT DISTINCT customer_id, sales_ymd
+  FROM receipt
+),
+q02 AS (
+  SELECT LHS.*, application_date
+  FROM q01 LHS
+  INNER JOIN customer
+    ON (LHS.customer_id = customer.customer_id)
+),
+q03 AS (
+  SELECT
+    q01.*,
+    strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') - strptime(application_date, '%Y%m%d') AS elapsed_days
+  FROM q02 q01
+)
+SELECT
+  customer_id,
+  sales_ymd,
+  application_date,
+  EXTRACT(DAY FROM elapsed_days) AS elapsed_days
+FROM q03 q01
+ORDER BY customer_id, sales_ymd
+"
+)
+q %>% my_select(con)
+
+# A tibble: 32,411 × 4
+#    customer_id    sales_ymd application_date elapsed_days
+#    <chr>              <int> <chr>                   <dbl>
+#  1 CS001113000004  20190308 20151105                 1219
+#  2 CS001114000005  20180503 20160412                  751
+#  3 CS001114000005  20190731 20160412                 1205
+#  4 CS001115000010  20171228 20150417                  986
+#  5 CS001115000010  20180701 20150417                 1171
+#  ...
+
+# sqlight
 q = sql("
 select
   r.customer_id, 
@@ -1917,56 +2138,397 @@ ORDER BY
 )
 q %>% my_select(con)
 
-# A tibble: 32,411 × 4
-#    customer_id    sales_ymd application_date elapsed_days
-#    <chr>          <chr>     <chr>                   <dbl>
-#  1 CS001113000004 20190308  20151105                 1219
-#  2 CS001114000005 20180503  20160412                  751
-#  3 CS001114000005 20190731  20160412                 1205
-#  4 CS001115000010 20171228  20150417                  986
-#  5 CS001115000010 20180701  20150417                 1171
-#  6 CS001115000010 20190405  20150417                 1449
-#  7 CS001205000004 20170914  20160615                  456
-#  8 CS001205000004 20180821  20160615                  797
-#  ...
+#-------------------------------------------------------------------------------
+# R-071 ------------
+# レシート明細データ（df_receipt）の売上日（sales_ymd）に対し、顧客データ（df_customer）の会員申込日
+# （application_date）からの経過月数を計算し、顧客ID（customer_id）、売上日、会員申込日とともに10件表示せよ
+# （sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。1ヶ月未満は切り捨てること。
+
+df_receipt %>%
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+      df_customer %>% select(customer_id, application_date), 
+      by = "customer_id"
+  ) %>% 
+  mutate(
+      intrval = 
+        lubridate::interval(
+          strptime(application_date, "%Y%m%d"), 
+          strptime(as.character(sales_ymd), "%Y%m%d")
+        ), 
+      elapsed_months = (intrval %/% months(1)) %>% as.integer()
+      # time_age = as.period(intrval) %>% year()
+  ) %>%
+  select(
+      customer_id, sales_ymd, application_date, elapsed_months
+  ) %>% 
+  arrange(customer_id, sales_ymd) %>% 
+  head(10)
+
+# A tibble: 10 × 4
+#    customer_id    sales_ymd application_date elapsed_months
+#    <chr>              <int> <chr>                     <int>
+#  1 CS001113000004  20190308 20151105                     40
+#  2 CS001114000005  20180503 20160412                     24
+#  3 CS001114000005  20190731 20160412                     39
+#  4 CS001115000010  20171228 20150417                     32
+#  5 CS001115000010  20180701 20150417                     38
+#  6 CS001115000010  20190405 20150417                     47
+#  7 CS001205000004  20170914 20160615                     14
+#  8 CS001205000004  20180821 20160615                     26
+#  9 CS001205000004  20180904 20160615                     26
+# 10 CS001205000004  20190312 20160615                     32
+
+#...............................................................................
+# dplyr が認識できない関数をエラーにする 
+options(dplyr.strict_sql = FALSE)
+
+db_result = db_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    db_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    sales_ymd_d = strptime(as.character(sales_ymd), "%Y%m%d"), 
+    application_date_d = strptime(application_date, "%Y%m%d")
+  ) %>% 
+  mutate(
+    elapsed_months = DATEDIFF('month', application_date_d, sales_ymd_d)
+    # elapsed_years = DATEDIFF('year', application_date_d, sales_ymd_d)
+  ) %>% 
+  select(-c(sales_ymd_d, application_date_d)) %>% 
+  arrange(customer_id, sales_ymd) %>% 
+  head(10)
+
+# DATEDIFF('year', start_date, end_date) が年の境界を超えた回数を数えるため、28 ヶ月の差が 3 年とカウントする
+
+db_result
+#    customer_id    sales_ymd application_date elapsed_months
+#    <chr>              <int> <chr>                     <dbl>
+#  1 CS001113000004  20190308 20151105                     40
+#  2 CS001114000005  20180503 20160412                     25
+#  3 CS001114000005  20190731 20160412                     39
+#  4 CS001115000010  20171228 20150417                     32
+#  5 CS001115000010  20180701 20150417                     39
+#  6 CS001115000010  20190405 20150417                     48
+#  7 CS001205000004  20170914 20160615                     15
+#  8 CS001205000004  20180821 20160615                     26
+#  9 CS001205000004  20180904 20160615                     27
+# 10 CS001205000004  20190312 20160615                     33
+
+db_result = db_receipt %>% 
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    db_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    sales_ymd_d = strptime(as.character(sales_ymd), "%Y%m%d"), 
+    application_date_d = strptime(application_date, "%Y%m%d")
+  ) %>% 
+  mutate(
+    time_age = AGE(sales_ymd_d, application_date_d)
+  ) %>% 
+  mutate(
+    elapsed_months = 
+      lubridate::year(time_age) * 12 + lubridate::month(time_age)
+  ) %>% 
+  select(-c(sales_ymd_d, application_date_d, time_age)) %>% 
+  arrange(customer_id, sales_ymd) %>% 
+  head(10)
+
+db_result
+# Source:     SQL [10 x 4]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Ordered by: customer_id, sales_ymd
+#    customer_id    sales_ymd application_date elapsed_months
+#    <chr>              <int> <chr>                     <dbl>
+#  1 CS001113000004  20190308 20151105                     40
+#  2 CS001114000005  20180503 20160412                     24
+#  3 CS001114000005  20190731 20160412                     39
+#  4 CS001115000010  20171228 20150417                     32
+#  5 CS001115000010  20180701 20150417                     38
+#  6 CS001115000010  20190405 20150417                     47
+#  7 CS001205000004  20170914 20160615                     14
+#  8 CS001205000004  20180821 20160615                     26
+#  9 CS001205000004  20180904 20160615                     26
+# 10 CS001205000004  20190312 20160615                     32
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT DISTINCT customer_id, sales_ymd
+  FROM receipt
+),
+q02 AS (
+  SELECT LHS.*, application_date
+  FROM q01 LHS
+  INNER JOIN customer
+    ON (LHS.customer_id = customer.customer_id)
+),
+q03 AS (
+  SELECT
+    q01.*,
+    strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS sales_ymd_d,
+    strptime(application_date, '%Y%m%d') AS application_date_d
+  FROM q02 q01
+),
+q04 AS (
+  SELECT q01.*, AGE(sales_ymd_d, application_date_d) AS time_age
+  FROM q03 q01
+)
+SELECT
+  customer_id,
+  sales_ymd,
+  application_date,
+  (EXTRACT(year FROM time_age) * 12.0) + EXTRACT(MONTH FROM time_age) AS elapsed_months
+FROM q04 q01
+ORDER BY customer_id, sales_ymd
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+#-------------------------------------------------------------------------------
+# R-074 ------------
+
+# 月曜日を求め、経過日数を計算
+df_result = df_receipt %>%
+  mutate(
+    sales_date = 
+      strptime(as.character(sales_ymd), "%Y%m%d") %>% 
+      lubridate::as_date()
+  ) %>% 
+  mutate(
+    # 曜日 : 月曜日を週の始まりとする
+    dow = wday(sales_date, week_start = 1L),  
+    # その週の月曜日の日付を計算
+    monday_ymd = sales_date - days(dow - 1L),
+    # 月曜日からの経過日数を計算
+    elapsed_days = 
+      difftime(
+        sales_date, 
+        monday_ymd, 
+        units = "days"
+      ) %>% 
+      as.integer()
+  ) %>%
+  select(sales_ymd, sales_date, monday_ymd, elapsed_days) %>%
+  head(10)
+
+df_result
+
+# A tibble: 10 × 4
+#    sales_ymd sales_date monday_ymd elapsed_days
+#        <int> <date>     <date>            <int>
+#  1  20181103 2018-11-03 2018-10-29            5
+#  2  20181118 2018-11-18 2018-11-12            6
+#  3  20170712 2017-07-12 2017-07-10            2
+#  4  20190205 2019-02-05 2019-02-04            1
+#  5  20180821 2018-08-21 2018-08-20            1
+#  6  20190605 2019-06-05 2019-06-03            2
+#  7  20181205 2018-12-05 2018-12-03            2
+#  8  20190922 2019-09-22 2019-09-16            6
+#  9  20170504 2017-05-04 2017-05-01            3
+# 10  20191010 2019-10-10 2019-10-07            3
+
+#...............................................................................
+
+db_result = db_receipt %>%
+  mutate(
+    sales_date = 
+      strptime(as.character(sales_ymd), "%Y%m%d") %>% 
+      lubridate::as_date()
+  ) %>% 
+  mutate(
+    # 曜日 : 月曜日を週の始まりとする
+    dow = lubridate::wday(sales_date, week_start = 1L), 
+    # その週の月曜日の日付を計算
+    monday_ymd = (sales_date - lubridate::days(dow - 1L)) %>% lubridate::as_date(), 
+    # 月曜日からの経過日数を計算
+    elapsed_days = (sales_date - monday_ymd) %>% as.integer()
+  ) %>% 
+  select(sales_ymd, sales_date, monday_ymd, elapsed_days) %>% 
+  head(10)
+
+db_result
+
+# Source:   SQL [10 x 4]
+# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+#    sales_ymd sales_date monday_ymd elapsed_days
+#        <int> <date>     <date>            <int>
+#  1  20181103 2018-11-03 2018-10-29            5
+#  2  20181118 2018-11-18 2018-11-12            6
+#  3  20170712 2017-07-12 2017-07-10            2
+#  4  20190205 2019-02-05 2019-02-04            1
+#  5  20180821 2018-08-21 2018-08-20            1
+#  6  20190605 2019-06-05 2019-06-03            2
+#  7  20181205 2018-12-05 2018-12-03            2
+#  8  20190922 2019-09-22 2019-09-16            6
+#  9  20170504 2017-05-04 2017-05-01            3
+# 10  20191010 2019-10-10 2019-10-07            3
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT
+    receipt.*,
+    CAST(strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE) AS sales_date
+  FROM receipt
+),
+q02 AS (
+  SELECT q01.*, EXTRACT('dow' FROM CAST(sales_date AS DATE) + 6) + 1 AS dow
+  FROM q01
+),
+q03 AS (
+  SELECT
+    q01.*,
+    CAST((sales_date - TO_DAYS(CAST(dow - 1 AS INTEGER))) AS DATE) AS monday_ymd
+  FROM q02 q01
+)
+SELECT
+  sales_ymd,
+  sales_date,
+  monday_ymd,
+  CAST((sales_date - monday_ymd) AS INTEGER) AS elapsed_days
+FROM q03 q01
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+# A tibble: 10 × 4
+#    sales_ymd sales_date monday_ymd elapsed_days
+#        <int> <date>     <date>            <int>
+#  1  20181103 2018-11-03 2018-10-29            5
+#  2  20181118 2018-11-18 2018-11-12            6
+#  3  20170712 2017-07-12 2017-07-10            2
+#  4  20190205 2019-02-05 2019-02-04            1
+#  5  20180821 2018-08-21 2018-08-20            1
+#  6  20190605 2019-06-05 2019-06-03            2
+#  7  20181205 2018-12-05 2018-12-03            2
+#  8  20190922 2019-09-22 2019-09-16            6
+#  9  20170504 2017-05-04 2017-05-01            3
+# 10  20191010 2019-10-10 2019-10-07            3
+
+q = sql("
+SELECT 
+  sales_ymd, 
+  CAST(
+    STRFTIME(
+      '%Y%m%d', 
+      DATE_TRUNC(
+        'week', 
+        STRPTIME(CAST(sales_ymd AS STRING), '%Y%m%d')
+      )
+    ) 
+  AS INTEGER) AS monday_ymd,
+  EXTRACT(
+    DAY FROM (
+      STRPTIME(
+        CAST(
+          sales_ymd AS STRING), '%Y%m%d') - 
+            DATE_TRUNC('week', STRPTIME(CAST(sales_ymd AS STRING), '%Y%m%d'))
+        )
+  ) AS days_since_monday
+FROM receipt
+LIMIT 10
+"
+)
+q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-075 ------------
 # 顧客データ（customer）からランダムに1%のデータを抽出し、先頭から10件表示せよ。
 
-customer %>% slice_sample(prop = 0.01) %>% my_with_seed(14)
+df_customer %>% slice_sample(prop = 0.01) %>% with_seed(14, .) %>% head(10)
 
 #...............................................................................
+
+db_customer %>% slice_sample(prop = 0.01) %>% head(10)
+
+# Error in `slice_sample()`:
+# ! Sampling by `prop` is not supported on database backends
+
+db_result = db_customer %>% 
+  slice_sample(n = 100) %>% 
+  # slice_sample(n = 0.01 * n()) %>% 
+  head(10)
+
+db_result = db_customer %>% 
+  mutate(r = runif(n = n())) %>% 
+  filter(r <= 0.01) %>% 
+  select(customer_id, customer_name, gender_cd, gender) %>% 
+  head(10)
+db_result %>% show_query()
+
+# ランダムな行番号を生成する方法
+# 列の一部を出力
+db_result = db_customer %>% 
+  mutate(r = runif(n = n())) %>% 
+  window_order(r) %>% 
+  mutate(
+    row_num = row_number(), 
+    cnt = n()
+  ) %>% 
+  filter(row_num <= 0.01 * cnt) %>% 
+  # select(customer_id, customer_name, gender_cd, gender, r, row_num, cnt) %>% 
+  select(customer_id, gender_cd, gender, birth_day, age) %>% 
+  head(10)
+
+db_result
+db_result %>% collect()
+df_customer %>% arrange(customer_id)
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+# set seed すること!!!
+
 q = sql("
-with tmp as (
-SELECT 
-  *, 
-  row_number() OVER (order by random()) as row, 
-  count(*) OVER () as cnt
-FROM 
-  customer
+SELECT SETSEED(0.5);
+WITH q01 AS (
+  SELECT customer.*, RANDOM() AS r
+  FROM customer
+),
+q02 AS (
+  SELECT
+    q01.*,
+    ROW_NUMBER() OVER (ORDER BY r) AS row_num,
+    COUNT(*) OVER () AS cnt
+  FROM q01
 )
-select 
-  row, cnt, 
-  customer_id, customer_name, gender_cd
-from
-  tmp
-where
-  row <= 0.01 * cnt
+SELECT customer_id, gender_cd, gender, birth_day, age
+FROM q02 q01
+WHERE (row_num <= (0.01 * cnt))
 -- チェック用
--- order by row desc
+-- order by row_num desc
+LIMIT 10
 "
 )
 q %>% my_select(con)
 
-# A tibble: 219 × 5
-#      row   cnt customer_id    customer_name gender_cd
-#    <int> <int> <chr>          <chr>             <int>
-#  1     1 21971 CS004414000181 柴山 奈々             1
-#  2     2 21971 CS018612000090 塩田 はるみ           9
-#  3     3 21971 CS002615000275 筒井 薫               1
-#  4     4 21971 CS008702000021 綾小路 明             0
-#  ...
+# A tibble: 10 × 5
+#    customer_id    gender_cd gender birth_day    age
+#    <chr>              <int> <chr>  <date>     <int>
+#  1 CS027512000028         1 女性   1967-12-15    51
+#  2 CS015513000041         1 女性   1962-09-01    56
+#  3 CS035515000219         1 女性   1960-06-29    58
+#  4 CS031312000076         1 女性   1980-04-05    38
+#  5 CS003315000484         1 女性   1988-03-16    31
+#  6 CS051313000008         1 女性   1982-08-28    36
+#  7 CS027715000080         1 女性   1943-12-15    75
+#  8 CS003513000181         1 女性   1964-05-26    54
+#  9 CS024313000089         1 女性   1985-07-25    33
+# 10 CS005503000015         0 男性   1966-07-09    52
 
 #-------------------------------------------------------------------------------
 # R-076 ------------
@@ -1974,22 +2536,22 @@ q %>% my_select(con)
 # 性別コードごとに件数を集計せよ。
 
 # 層別サンプリング
-customer %>% 
+df_customer %>% 
   rsample::initial_split(prop = 0.1, strata = "gender_cd") %>% my_with_seed(14) %>% 
   training() %>% 
   count(gender_cd)
 
 # slice_sample
-customer %>% slice_sample(prop = 0.1, by = gender_cd) %>% my_with_seed(14) %>% 
+df_customer %>% slice_sample(prop = 0.1, by = gender_cd) %>% my_with_seed(14) %>% 
   count(gender_cd)
 
 # グループ分割
 # 同じ postal_cd が双方の分割データに含まれないように分割
-customer %>% 
+df_customer %>% 
   rsample::group_initial_split(group = postal_cd, prop = 0.1) %>% 
   my_with_seed(14) %>% 
   training() %>% 
-  count(gender_cd)
+  count(postal_cd)
 
 #...............................................................................
 q = sql("
