@@ -2837,9 +2837,9 @@ db_result %>% show_query()
 # なお、平均値については1円未満を丸めること（四捨五入または偶数への丸めで良い）。
 # 補完実施後、各項目について欠損が生じていないことも確認すること。
 
-pacman::p_load(recipes)
+pacman::p_load(skimr)
 
-df_product %>% skim()
+df_product %>% skimr::skim()
 
 # sample.1
 df_product_2 = df_product %>% 
@@ -2847,13 +2847,18 @@ df_product_2 = df_product %>%
   step_impute_mean(starts_with("unit_")) %>% 
   prep() %>% bake(new_data = NULL) %>% 
   mutate(across(starts_with("unit_"), ~ round(.x, 1)))
-
 # 確認
-df_product_2 %>% skim()
+df_product_2 %>% skimr::skim()
 
 # sample.2
+avg_price = mean(df_product$unit_price, na.rm = TRUE) %>% round()
+avg_cost = mean(df_product$unit_cost, na.rm = TRUE) %>% round()
+df_product_2 = df_product %>% 
+    replace_na(list(unit_price = avg_price, unit_cost = avg_cost))
+# 確認
+df_product_2 %>% skimr::skim()
 
-
+# avg_price, avg_cost の計算結果が正しいことも確認できる.
 
 df_product_2
 
@@ -2869,40 +2874,67 @@ df_product_2
 #  ...
 
 #...............................................................................
+
+rm(avg_price, avg_cost)
+
+db_result = db_product %>% 
+  mutate(
+    avg_price = mean(unit_price) %>% round(0L), 
+    avg_cost = mean(unit_cost) %>% round(0L)
+  ) %>% 
+  mutate(
+    unit_price = coalesce(unit_price, avg_price), 
+    unit_cost = coalesce(unit_cost, avg_cost)
+  ) %>% 
+  select(-starts_with("avg"))
+  # select(starts_with("unit"), starts_with("avg"))
+
+# 確認
+db_result %>% skimr::skim()
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
 q = sql("
-with prod as (
-  select
-    product_cd, 
-    unit_price, 
-    unit_cost, 
-    AVG(unit_price) OVER () as mean_price, 
-    AVG(unit_cost) OVER () as mean_cost
-  from
-    product
+WITH q01 AS (
+  SELECT
+    product.*,
+    ROUND_EVEN(AVG(unit_price) OVER (), CAST(ROUND(0, 0) AS INTEGER)) AS avg_price,
+    ROUND_EVEN(AVG(unit_cost) OVER (), CAST(ROUND(0, 0) AS INTEGER)) AS avg_cost
+  FROM product
 )
-select
-  product_cd, 
-  ROUND(COALESCE(unit_price, mean_price)) as unit_price, 
-  ROUND(COALESCE(unit_cost, mean_cost)) as unit_cost, 
-  mean_price, 
-  mean_cost
-from
-  prod
+SELECT
+  product_cd,
+  category_major_cd,
+  category_medium_cd,
+  category_small_cd,
+  COALESCE(unit_price, avg_price) AS unit_price,
+  COALESCE(unit_cost, avg_cost) AS unit_cost
+FROM q01
 -- チェック用
 -- where unit_price IS NULL
 "
 )
 q %>% my_select(con)
 
-# A tibble: 10,030 × 5
-#    product_cd unit_price unit_cost mean_price mean_cost
-#    <chr>           <dbl>     <dbl>      <dbl>     <dbl>
-#  1 P040101001        198       149     402.58    302.19
-#  2 P040101002        218       164     402.58    302.19
-#  3 P040101003        230       173     402.58    302.19
-#  4 P040101004        248       186     402.58    302.19
-#  5 P040101005        268       201     402.58    302.19
+# 確認
+q %>% my_select(con) %>% skimr::skim()
+
+# A tibble: 10,030 × 6
+#    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
+#    <chr>      <chr>             <chr>              <chr>                  <dbl>     <dbl>
+#  1 P040101001 04                0401               040101                   198       149
+#  2 P040101002 04                0401               040101                   218       164
+#  3 P040101003 04                0401               040101                   230       173
+#  4 P040101004 04                0401               040101                   248       186
+#  5 P040101005 04                0401               040101                   268       201
+#  6 P040101006 04                0401               040101                   298       224
+#  7 P040101007 04                0401               040101                   338       254
+#  8 P040101008 04                0401               040101                   420       315
 #  ...
+
+#...............................................................................
 
 ## 各商品のカテゴリ小区分コード（category_small_cd）ごとに算出した平均値で補完する場合
 q = sql("
@@ -2912,18 +2944,18 @@ with prod as (
     category_small_cd, 
     unit_price, 
     unit_cost, 
-    AVG(unit_price) OVER (partition by category_small_cd) as mean_price, 
-    AVG(unit_cost) OVER (partition by category_small_cd) as mean_cost
+    AVG(unit_price) OVER (partition by category_small_cd) as avg_price, 
+    AVG(unit_cost) OVER (partition by category_small_cd) as avg_cost
   from
     product
 )
 select
   product_cd, 
   category_small_cd, 
-  ROUND(COALESCE(unit_price, mean_price)) as unit_price, 
-  ROUND(COALESCE(unit_cost, mean_cost)) as unit_cost, 
-  mean_price, 
-  mean_cost
+  ROUND(COALESCE(unit_price, avg_price)) as unit_price, 
+  ROUND(COALESCE(unit_cost, avg_cost)) as unit_cost, 
+  avg_price, 
+  avg_cost
 from
   prod
 -- チェック用
