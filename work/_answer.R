@@ -2849,14 +2849,28 @@ df_result %>% skimr::skim()
 # sample.2
 avg_price = mean(df_product$unit_price, na.rm = TRUE) %>% round()
 avg_cost = mean(df_product$unit_cost, na.rm = TRUE) %>% round()
-df_result = df_product %>% 
+df_result2 = df_product %>% 
     replace_na(list(unit_price = avg_price, unit_cost = avg_cost))
 # 確認
-df_result %>% skimr::skim()
+df_result2 %>% skimr::skim()
 
 # avg_price, avg_cost の計算結果が正しいことも確認できる.
 
-df_result
+df_result2
+rm(avg_price, avg_cost)
+
+#................................................
+
+df_stats = df_product %>% 
+  mutate(
+    unit_price = mean(unit_price, na.rm = T) %>% round(0L), 
+    unit_cost = mean(unit_cost, na.rm = T) %>% round(0L)
+  ) %>% 
+  select(product_cd, starts_with("unit_"))
+
+df_stats
+df_result3 = df_product %>% rows_patch(df_stats)
+df_result3 %>% skimr::skim()
 
 # A tibble: 10,030 × 6
 #    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
@@ -2870,8 +2884,19 @@ df_result
 #  ...
 
 #...............................................................................
+# rows_patch
+db_stats = db_product %>% 
+  mutate(
+    unit_price = mean(unit_price, na.rm = T) %>% round(0L), 
+    unit_cost = mean(unit_cost, na.rm = T) %>% round(0L)
+  ) %>% 
+  select(product_cd, starts_with("unit_"))
 
-rm(avg_price, avg_cost)
+db_result = db_product %>% rows_patch(db_stats, unmatched = "ignore")
+db_result
+db_result %>% skimr::skim()
+
+#................................................
 
 db_result = db_product %>% 
   mutate(
@@ -2890,7 +2915,7 @@ db_result %>% skimr::skim()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query()
 
 q = sql("
 WITH q01 AS (
@@ -3069,23 +3094,122 @@ q %>% my_select(con) %>% skimr::skim()
 # ただし、売上実績がない場合は0として扱うこと。そして計算した割合が0超のものを抽出し、結果を10件表示せよ。
 # また、作成したデータに欠損が存在しないことを確認せよ。
 
-# receipt %>% select(customer_id) %>% anti_join(customer, by = "customer_id")
+# df_receipt %>% select(customer_id) %>% anti_join(df_customer, by = "customer_id")
 
-d = receipt %>% select(customer_id, sales_ymd, amount) %>% 
-  mutate(sales_year = sales_ymd %>% get.POSIXct() %>% year()) %>% 
-  right_join(customer, by = "customer_id") %>% 
-  mutate(amount_2019 = ifelse(sales_year == 2019, amount, 0.0), .after = sales_year) %>% 
+df_result = df_receipt %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  mutate(
+    sales_year = sales_ymd %>% 
+      as.character() %>% strptime("%Y%m%d") %>% lubridate::year()
+  ) %>% 
+  right_join(df_customer %>% select(customer_id), by = "customer_id") %>% 
+  mutate(amount_2019 = ifelse(sales_year == 2019, amount, 0.0)) %>% 
   summarise(
-    across(starts_with("amount"), ~ sum(.x, na.rm = T), 
-    .names = "sales_{.col}"), .by = customer_id
+    across(starts_with("amount"), 
+    ~ sum(.x, na.rm = T), 
+    .names = "sales_{.col}"), 
+    .by = customer_id
   ) %>% 
   mutate(sales_rate = 
-    ifelse(sales_amount == 0.0, 0.0, (sales_amount_2019 / sales_amount) %>% round(2))
+    ifelse(sales_amount == 0.0, 0.0, (sales_amount_2019 / sales_amount))
   ) %>% 
   filter(sales_rate > 0.0) %>% 
   arrange(customer_id)
-  
-d %>% skim()
+
+df_result %>% head(10)
+df_result %>% skimr::skim()
+
+df_result %>% filter(is.na(sales_rate))
+df_result
+
+# A tibble: 10 × 4
+#    customer_id    sales_amount sales_amount_2019 sales_rate
+#    <chr>                 <dbl>             <dbl>      <dbl>
+#  1 CS001113000004         1298              1298    1      
+#  2 CS001114000005          626               188    0.30032
+#  3 CS001115000010         3044               578    0.18988
+#  4 CS001205000004         1988               702    0.35312
+#  5 CS001205000006         3337               486    0.14564
+#  6 CS001211000025          456               456    1      
+#  7 CS001212000070          456               456    1      
+#  8 CS001214000009         4685               664    0.14173
+#  9 CS001214000017         4132              2962    0.71684
+# 10 CS001214000048         2374              1889    0.79570
+
+#...............................................................................
+db_result = db_receipt %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  mutate(
+    sales_year = sales_ymd %>% 
+      as.character() %>% strptime("%Y%m%d") %>% lubridate::year()
+  ) %>% 
+  right_join(db_customer %>% select(customer_id), by = "customer_id") %>% 
+  mutate(amount_2019 = ifelse(sales_year == 2019, amount, 0.0)) %>% 
+  summarise(
+    across(starts_with("amount"), 
+    ~ sum(.x, na.rm = T), 
+    .names = "sales_{.col}"), 
+    .by = customer_id
+  ) %>% 
+  mutate(sales_rate = 
+    ifelse(sales_amount == 0.0, 0.0, (sales_amount_2019 / sales_amount))
+  ) %>% 
+  filter(sales_rate > 0.0) %>% 
+  arrange(customer_id)
+
+db_result %>% head(10)
+db_result %>% skimr::skim()
+
+db_result %>% filter(is.na(sales_rate))
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT
+    customer_id,
+    sales_ymd,
+    amount,
+    EXTRACT(year FROM strptime(CAST(sales_ymd AS TEXT), '%Y%m%d')) AS sales_year
+  FROM receipt
+),
+q02 AS (
+  SELECT customer.customer_id AS customer_id, sales_ymd, amount, sales_year
+  FROM q01 LHS
+  RIGHT JOIN customer
+    ON (LHS.customer_id = customer.customer_id)
+),
+q03 AS (
+  SELECT
+    q01.*,
+    CASE WHEN (sales_year = 2019.0) THEN amount WHEN NOT (sales_year = 2019.0) THEN 0.0 END AS amount_2019
+  FROM q02 q01
+),
+q04 AS (
+  SELECT
+    customer_id,
+    SUM(amount) AS sales_amount,
+    SUM(amount_2019) AS sales_amount_2019
+  FROM q03 q01
+  GROUP BY customer_id
+),
+q05 AS (
+  SELECT
+    q01.*,
+    CASE WHEN (sales_amount = 0.0) THEN 0.0 WHEN NOT (sales_amount = 0.0) THEN ((sales_amount_2019 / sales_amount)) END AS sales_rate
+  FROM q04 q01
+)
+SELECT q01.*
+FROM q05 q01
+WHERE (sales_rate > 0.0)
+ORDER BY customer_id
+"
+)
+q %>% my_select(con)
+
+q %>% my_select(con) %>% skimr::skim()
 
 #...............................................................................
 con %>% dbExecute("DROP TABLE IF EXISTS cust_sales_rate")
