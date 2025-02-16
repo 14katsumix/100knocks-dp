@@ -2790,8 +2790,6 @@ db_result %>% show_query(cte = T)
 #-------------------------------------------------------------------------------
 # R-079 ------------
 
-pacman::p_load(skimr)
-
 df_product %>% skimr::skim()
 
 df_product %>% 
@@ -2837,30 +2835,28 @@ db_result %>% show_query()
 # なお、平均値については1円未満を丸めること（四捨五入または偶数への丸めで良い）。
 # 補完実施後、各項目について欠損が生じていないことも確認すること。
 
-pacman::p_load(skimr)
-
 df_product %>% skimr::skim()
 
 # sample.1
-df_product_2 = df_product %>% 
+df_result = df_product %>% 
   recipes::recipe() %>% 
   step_impute_mean(starts_with("unit_")) %>% 
   prep() %>% bake(new_data = NULL) %>% 
   mutate(across(starts_with("unit_"), ~ round(.x, 1)))
 # 確認
-df_product_2 %>% skimr::skim()
+df_result %>% skimr::skim()
 
 # sample.2
 avg_price = mean(df_product$unit_price, na.rm = TRUE) %>% round()
 avg_cost = mean(df_product$unit_cost, na.rm = TRUE) %>% round()
-df_product_2 = df_product %>% 
+df_result = df_product %>% 
     replace_na(list(unit_price = avg_price, unit_cost = avg_cost))
 # 確認
-df_product_2 %>% skimr::skim()
+df_result %>% skimr::skim()
 
 # avg_price, avg_cost の計算結果が正しいことも確認できる.
 
-df_product_2
+df_result
 
 # A tibble: 10,030 × 6
 #    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
@@ -2973,6 +2969,98 @@ q %>% my_select(con)
 #  4 P040101004 040101                   248       186     329.6     247.5 
 #  5 P040101005 040101                   268       201     329.6     247.5 
 #  ...
+
+#-------------------------------------------------------------------------------
+# R-083 ------------
+# 単価（unit_price）と原価（unit_cost）の欠損値について、各商品のカテゴリ小区分コード（category_small_cd）
+# ごとに算出した中央値で補完した新たな商品データを作成せよ。なお、中央値については1円未満を丸めること
+# （四捨五入または偶数への丸めで良い）。補完実施後、各項目について欠損が生じていないことも確認すること。
+
+df_result = df_product %>% 
+  mutate(
+    median_price = median(unit_price, na.rm = T) %>% round(0L), 
+    median_cost = median(unit_cost, na.rm = T) %>% round(0L), 
+    .by = category_small_cd
+  ) %>% 
+  mutate(
+    unit_price = coalesce(unit_price, median_price), 
+    unit_cost = coalesce(unit_cost, median_cost)
+  ) %>% 
+  select(-starts_with("median"))
+
+df_result
+# 確認
+df_result %>% skimr::skim()
+
+# A tibble: 10,030 × 8
+#    category_small_cd median_price median_cost product_cd category_major_cd category_medium_cd unit_price unit_cost
+#    <chr>                    <dbl>       <dbl> <chr>      <chr>             <chr>                   <dbl>     <dbl>
+#  1 040101                     283         212 P040101001 04                0401                      198       149
+#  2 040101                     283         212 P040101002 04                0401                      218       164
+#  3 040101                     283         212 P040101003 04                0401                      230       173
+#  4 040101                     283         212 P040101004 04                0401                      248       186
+#  5 040101                     283         212 P040101005 04                0401                      268       201
+#  6 040101                     283         212 P040101006 04                0401                      298       224
+#  ...
+
+#...............................................................................
+
+db_result = db_product %>% 
+    summarise(
+      median_price = median(unit_price, na.rm = TRUE) %>% round(0L), 
+      median_cost = median(unit_cost, na.rm = TRUE) %>% round(0L), 
+      .by = "category_small_cd"
+    ) %>% 
+    inner_join(db_product, by = "category_small_cd") %>% 
+    mutate(
+      unit_price = coalesce(unit_price, median_price), 
+      unit_cost = coalesce(unit_cost, median_cost)
+    ) %>% 
+    select(product_cd, everything(), -starts_with("median"))
+
+db_result
+# 確認
+db_result %>% skimr::skim()
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+WITH q01 AS (
+  SELECT
+    category_small_cd,
+    ROUND_EVEN(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unit_price), CAST(ROUND(0, 0) AS INTEGER)) AS median_price,
+    ROUND_EVEN(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unit_cost), CAST(ROUND(0, 0) AS INTEGER)) AS median_cost
+  FROM product
+  GROUP BY category_small_cd
+),
+q02 AS (
+  SELECT
+    LHS.*,
+    product_cd,
+    category_major_cd,
+    category_medium_cd,
+    unit_price,
+    unit_cost
+  FROM q01 LHS
+  INNER JOIN product
+    ON (LHS.category_small_cd = product.category_small_cd)
+)
+SELECT
+  product_cd,
+  category_small_cd,
+  category_major_cd,
+  category_medium_cd,
+  COALESCE(unit_price, median_price) AS unit_price,
+  COALESCE(unit_cost, median_cost) AS unit_cost
+FROM q02 q01
+"
+)
+
+q %>% my_select(con)
+# 確認
+q %>% my_select(con) %>% skimr::skim()
 
 #-------------------------------------------------------------------------------
 # R-084 ------------
