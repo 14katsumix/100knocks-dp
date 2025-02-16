@@ -2448,7 +2448,7 @@ q %>% my_select(con)
 # R-075 ------------
 # 顧客データ（customer）からランダムに1%のデータを抽出し、先頭から10件表示せよ。
 
-df_customer %>% slice_sample(prop = 0.01) %>% with_seed(14, .) %>% head(10)
+df_customer %>% slice_sample(prop = 0.01) %>% withr::with_seed(14, .) %>% head(10)
 
 #...............................................................................
 
@@ -2537,19 +2537,19 @@ q %>% my_select(con)
 
 # 層別サンプリング
 df_customer %>% 
-  rsample::initial_split(prop = 0.1, strata = "gender_cd") %>% my_with_seed(14) %>% 
+  rsample::initial_split(prop = 0.1, strata = "gender_cd") %>% withr::with_seed(14, .) %>% 
   training() %>% 
   count(gender_cd)
 
 # slice_sample
-df_customer %>% slice_sample(prop = 0.1, by = gender_cd) %>% my_with_seed(14) %>% 
+df_customer %>% slice_sample(prop = 0.1, by = gender_cd) %>% withr::with_seed(14, .) %>% 
   count(gender_cd)
 
 # グループ分割
 # 同じ postal_cd が双方の分割データに含まれないように分割
 df_customer %>% 
   rsample::group_initial_split(group = postal_cd, prop = 0.1) %>% 
-  my_with_seed(14) %>% 
+  withr::with_seed(14, .) %>% 
   training() %>% 
   count(postal_cd)
 
@@ -3281,76 +3281,273 @@ con %>% dbGetQuery("PRAGMA index_list(cust_sales_rate)")
 # ただし、同一顧客に対しては売上金額合計が最も高いものを残し、売上金額合計が同一もしくは売上実績がない顧客
 # については顧客ID（customer_id）の番号が小さいものを残すこととする。
 
-d.amount = receipt %>% summarise(
+# R-088 も合わせての解答
+# 重複のある顧客について確認できるようにする
+
+df_amount = df_receipt %>% 
+  summarise(
     sum_amount = sum(amount), 
     .by = customer_id
   )
 
 vars = c("customer_name", "postal_cd")
-d.cust =
-  customer %>% 
-  # select(customer_id, customer_name, postal_cd) %>% 
-  left_join(d.amount, by = "customer_id") %>% 
+
+df_cust = df_customer %>% 
+  left_join(df_amount, by = "customer_id") %>% 
   mutate(sum_amount = coalesce(sum_amount, 0.0)) %>% 
   group_by(across(!!vars)) %>% 
-  add_count(name = "n") %>% 
+  # mutate(
+  #   rank = row_number(tibble(desc(sum_amount), customer_id)), 
+  #   n = n()
+  # ) %>% 
   arrange(desc(sum_amount), customer_id) %>% 
-  mutate(row = row_number()) %>% 
-  mutate(integration_id = max(ifelse(row == 1, customer_id, "")), .before = 1) %>% 
-  ungroup() %>% 
-  arrange(across(!!vars), row)
+  mutate(
+    rank = row_number(), 
+    n = n()
+  ) %>% 
+  mutate(
+    integration_id = max(ifelse(rank == 1L, customer_id, "")), 
+    .before = 1
+  ) %>% 
+  ungroup()
+  # arrange(across(!!vars), rank)
+
+df_cust %>% glimpse()
+df_cust %>% collect()
 
 # for check
-d.cust %>% filter(n > 1) %>% arrange(customer_name, postal_cd) %>% 
-  select(integration_id, customer_id, customer_name, postal_cd, sum_amount, row) %>% 
-  tbl_print(30)
+df_cust %>% 
+  select(integration_id, customer_id, !!vars, sum_amount, rank, n) %>% 
+  filter(n > 1) %>% 
+  arrange(across(!!vars), rank) %>% 
+  collect() %>% 
+  head(20)
 
-d.customer.u = d.cust %>% filter(row == 1)
+# 名寄顧客データ
+df_customer_u = df_cust %>% 
+  filter(rank == 1) %>% 
+  select(-c(sum_amount, rank, n))
 
-n.all = customer %>% nrow() %T>% print()
-n.u = d.customer.u %>% nrow() %T>% print()
-n.all - n.u
+# 名寄顧客データ
+df_customer_u = df_cust %>% 
+  filter(rank == 1L) %>% 
+  select(-c(integration_id, sum_amount, rank, n))
 
+df_customer_u %>% glimpse()
+
+# 顧客データに統合名寄IDを付与したデータを作成する (R-088)
+df_customer_n = df_customer %>% 
+  inner_join(
+    df_cust %>% select(integration_id, customer_id), 
+    by = "customer_id"
+  ) %>% 
+  relocate(integration_id, .before = 1)
+
+df_customer_n %>% glimpse()
+df_customer_n %>% collect()
+
+# 顧客データの件数、名寄顧客データの件数、重複数
+df_customer_n %>% 
+  summarise(
+    n_all = n(), 
+    n_unique = n_distinct(integration_id)
+  ) %>% 
+  mutate(diff = n_all - n_unique)
+
+#   n_all n_unique  diff
+#   <int>    <int> <int>
+# 1 21971    21941    30
+
+tibble::tribble(
+  ~name, ~count, 
+  "顧客データの件数", nrow(df_customer), 
+  "名寄顧客データの件数", nrow(df_customer_u), 
+  "重複数", nrow(df_customer) - nrow(df_customer_u)
+)
+
+#   name                 count
+#   <chr>                <int>
+# 1 顧客データの件数     21971
+# 2 名寄顧客データの件数 21941
+# 3 重複数                  30
+
+n.all = nrow(df_customer)
+n.u = nrow(df_customer_u)
+"顧客データの件数: %s\n名寄顧客データの件数: %s\n重複数: %s" %>% 
+  sprintf(n.all, n.u, n.all - n.u) %>% cat()
+# 顧客データの件数: 21971
+# 名寄顧客データの件数: 21941
+# 重複数: 30
+
+#................................................
 # row_number(tibble(desc(sum_amount), customer_id)) は時間がかかる
-d = customer %>% 
+d = df_customer %>% 
   select(customer_id, customer_name, postal_cd) %>% 
-  left_join(d.amount, by = "customer_id") %>% 
+  left_join(df_amount, by = "customer_id") %>% 
   mutate(sum_amount = coalesce(sum_amount, 0.0)) %>% 
-  mutate(row = row_number(tibble(desc(sum_amount), customer_id)), .by = c(customer_name, postal_cd))
+  mutate(
+    row = row_number(tibble(desc(sum_amount), customer_id)), 
+    .by = c(customer_name, postal_cd)
+  )
 
 d %>% filter(row > 1)
 
+#...............................................................................
 # dbplyr
-d.ant = tbl_receipt %>% summarise(
+db_amount = db_receipt %>% 
+  summarise(
     sum_amount = sum(amount), 
     .by = customer_id
   )
 
 vars = c("customer_name", "postal_cd")
-d = tbl_customer %>% 
-  left_join(d.ant, by = "customer_id") %>% 
+db_cust = db_customer %>% 
+  left_join(db_amount, by = "customer_id") %>% 
   mutate(sum_amount = coalesce(sum_amount, 0.0)) %>% 
   group_by(across(!!vars)) %>% 
   mutate(
-    n = n(), 
-    row = row_number(tibble(desc(sum_amount), customer_id))
+    rank = row_number(tibble(desc(sum_amount), customer_id)), 
+    n = n()
   ) %>% 
   mutate(
-    integration_id = max(ifelse(row == 1, customer_id, "")), 
+    integration_id = max(ifelse(rank == 1L, customer_id, "")), 
     .before = 1
   ) %>% 
-  ungroup() %>% 
-  window_order(across(!!vars), row)
-  # arrange(across(!!vars), desc(sum_amount), customer_id)
+  ungroup()
+  # arrange(across(!!vars), rank)
 
-d %>% my_show_query()
+db_cust %>% glimpse()
+db_cust %>% collect()
 
-d %>% glimpse()
-d %>% collect()
-d %>% filter(n > 1) %>% collect() %>% 
-  select(integration_id, customer_id, customer_name, postal_cd, sum_amount, row)
+# for check
+db_cust %>% 
+  select(integration_id, customer_id, !!vars, sum_amount, rank, n) %>% 
+  filter(n > 1) %>% 
+  arrange(across(!!vars), rank) %>% 
+  collect() %>% 
+  head(20)
+
+#    integration_id customer_id    customer_name postal_cd sum_amount  rank     n
+#    <chr>          <chr>          <chr>         <chr>          <dbl> <dbl> <dbl>
+#  1 CS001515000422 CS001515000422 久野 みゆき   144-0052        1173     1     2
+#  2 CS001515000422 CS016712000025 久野 みゆき   144-0052           0     2     2
+#  3 CS038214000037 CS038214000037 今 充則       246-0001           0     1     2
+#  4 CS038214000037 CS040601000007 今 充則       246-0001           0     2     2
+#  5 CS001515000561 CS001515000561 伴 芽以       144-0051        2283     1     2
+#  6 CS001515000561 CS004712000149 伴 芽以       144-0051           0     2     2
+#  7 CS002215000052 CS002215000052 前田 美紀     185-0022        1002     1     2
+#  8 CS002215000052 CS002615000172 前田 美紀     185-0022           0     2     2
+#  9 CS017414000126 CS017414000126 原 優         166-0003        1497     1     2
+# 10 CS017414000126 CS018413000015 原 優         166-0003           0     2     2
+# 11 CS001412000304 CS001412000304 多部 あさみ   222-0032           0     1     2
+# 12 CS001412000304 CS010413000041 多部 あさみ   222-0032           0     2     2
+# 13 CS004315000058 CS004315000058 宇多田 文世   165-0027         490     1     2
+# 14 CS004315000058 CS023403000036 宇多田 文世   165-0027           0     2     2
+# 15 CS007315000087 CS007315000087 宇野 真悠子   285-0855           0     1     2
+# 16 CS007315000087 CS007715000041 宇野 真悠子   285-0855           0     2     2
+# 17 CS020515000002 CS020515000002 宮下 陽子     115-0053        4905     1     2
+# 18 CS020515000002 CS003502000148 宮下 陽子     115-0053           0     2     2
+# 19 CS028414000005 CS028414000005 小市 礼子     185-0013        8323     1     2
+# 20 CS028414000005 CS002815000025 小市 礼子     185-0013        1158     2     2
+
+# 名寄顧客データ
+db_customer_u = db_cust %>% 
+  filter(rank == 1L) %>% 
+  select(-c(integration_id, sum_amount, rank, n))
+
+db_customer_u %>% glimpse()
+db_customer_u %>% collect()
+
+#................................................
+# 顧客データに統合名寄IDを付与したデータを作成する (R-088)
+db_customer_n = db_customer %>% 
+  inner_join(
+    db_cust %>% select(integration_id, customer_id), 
+    by = "customer_id"
+  ) %>% 
+  relocate(integration_id, .before = 1)
+
+db_customer_n %>% glimpse()
+db_customer_n %>% collect()
+
+# 顧客データの件数、名寄顧客データの件数、重複数
+db_customer_n %>% 
+  summarise(
+    n_all = n(), 
+    n_unique = n_distinct(integration_id)
+  ) %>% 
+  mutate(diff = n_all - n_unique)
+
+#   n_all n_unique  diff
+#   <dbl>    <dbl> <dbl>
+# 1 21971    21941    30
 
 #...............................................................................
+
+db_customer_n %>% show_query(cte = T)
+
+q = sql("
+WITH sales_amount AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM receipt
+  GROUP BY customer_id
+),
+cust_sales_amount AS (
+  SELECT 
+    customer.*, 
+    COALESCE(sum_amount, 0.0) AS sum_amount
+  FROM customer
+  LEFT JOIN sales_amount 
+  USING (customer_id)
+),
+cust_sales_rank AS (
+  SELECT
+    *, 
+    ROW_NUMBER() OVER (
+      PARTITION BY customer_name, postal_cd 
+      ORDER BY sum_amount DESC, customer_id
+    ) AS rank
+  FROM 
+    cust_sales_amount
+),
+integration AS (
+  SELECT
+    MAX(
+      CASE WHEN (rank = 1) THEN customer_id ELSE '' END
+    ) OVER (
+      PARTITION BY customer_name, postal_cd
+    ) AS integration_id,
+    customer_id
+  FROM 
+    cust_sales_rank
+)
+SELECT integration_id, customer.*
+FROM customer
+INNER JOIN integration
+USING (customer_id)
+"
+)
+
+q %>% my_select(con)
+q %>% my_select(con) %>% glimpse()
+
+# A tibble: 21,971 × 12
+#    integration_id customer_id  customer_name gender_cd gender birth_day    age postal_cd
+#    <chr>          <chr>        <chr>             <int> <chr>  <date>     <int> <chr>    
+#  1 CS021313000114 CS021313000… 大野 あや子           1 女性   1981-04-29    37 259-1113 
+#  2 CS037613000071 CS037613000… 六角 雅彦             9 不明   1952-04-01    66 136-0076 
+#  3 CS031415000172 CS031415000… 宇多田 貴美子         1 女性   1976-10-04    42 151-0053 
+#  4 CS028811000001 CS028811000… 堀井 かおり           1 女性   1933-03-27    86 245-0016 
+#  5 CS001215000145 CS001215000… 田崎 美紀             1 女性   1995-03-29    24 144-0055 
+#  6 CS020401000016 CS020401000… 宮下 達士             0 男性   1974-09-15    44 174-0065 
+#  7 CS015414000103 CS015414000… 奥野 陽子             1 女性   1977-08-09    41 136-0073 
+#  8 CS029403000008 CS029403000… 釈 人志               0 男性   1973-08-17    45 279-0003 
+#  9 CS015804000004 CS015804000… 松谷 米蔵             0 男性   1931-05-02    87 136-0073 
+# 10 CS033513000180 CS033513000… 安斎 遥               1 女性   1962-07-11    56 241-0823 
+
+#-------------------------------------------------------------------------------
 # R-088 ------------
 # 087で作成したデータを元に、顧客データに統合名寄IDを付与したデータを作成せよ。
 # ただし、統合名寄IDは以下の仕様で付与するものとする。
@@ -3432,14 +3629,31 @@ q %>% my_select(con)
 # 売上実績がある顧客を、予測モデル構築のため学習用データとテスト用データに分割したい。
 # それぞれ 8:2 の割合でランダムにデータを分割せよ。
 
-d = receipt %>% summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+d = df_receipt %>% 
+  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   filter(sum_amount > 0.0) %>% 
-  inner_join(customer, by = "customer_id")
+  inner_join(df_customer, by = "customer_id")
 d
 
-obj.rsplit = d %>% rsample::initial_split(prop = 0.8) %>% my_with_seed(14)
-obj.rsplit %>% training()
-obj.rsplit %>% testing()
+rsplit = d %>% 
+  rsample::initial_split(prop = 0.8) %>% 
+  withr::with_seed(14, .)
+
+rsplit %>% training()
+rsplit %>% testing()
+
+#...............................................................................
+
+d = db_receipt %>% 
+  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+  filter(sum_amount > 0.0) %>% 
+  inner_join(db_customer, by = "customer_id")
+d
+
+rsplit = d %>% 
+  rsample::initial_split(prop = 0.8) %>% 
+  withr::with_seed(14, .)
+
 
 #...............................................................................
 con %>% dbExecute("DROP TABLE IF EXISTS cust")
