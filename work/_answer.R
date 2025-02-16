@@ -2663,28 +2663,209 @@ q %>% my_select(con)
 # 3         9   107
 
 #-------------------------------------------------------------------------------
+# R-078 ------------
+# レシート明細データ（df_receipt）の売上金額（amount）を顧客単位に合計し、合計した売上金額の外れ値を抽出せよ。
+# ただし、顧客IDが"Z"から始まるのものは非会員を表すため、除外して計算すること。
+# なお、ここでは外れ値を第1四分位と第3四分位の差であるIQRを用いて、「第1四分位数-1.5×IQR」を下回るもの、
+# または「第3四分位数+1.5×IQR」を超えるものとする。結果は10件表示せよ。
+
+df_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
+  summarise(
+    sum_amount = sum(amount, na.rm = T), 
+    .by = customer_id
+  ) %>% 
+  drop_na(sum_amount) %>% 
+  mutate(
+    stat1 = 
+      quantile(sum_amount, 0.25, na.rm = T) - 1.5 * IQR(sum_amount), 
+    stat2 = 
+      quantile(sum_amount, 0.75, na.rm = T) + 1.5 * IQR(sum_amount)
+  ) %>% 
+  filter(
+    sum_amount < stat1 | sum_amount > stat2
+  ) %>% 
+  select(customer_id, sum_amount) %>% 
+  arrange(desc(sum_amount))
+
+# A tibble: 393 × 2
+#    customer_id    sum_amount
+#    <chr>               <dbl>
+#  1 CS017415000097      23086
+#  2 CS015415000185      20153
+#  3 CS031414000051      19202
+#  4 CS028415000007      19127
+#  5 CS001605000009      18925
+#  6 CS010214000010      18585
+#  7 CS016415000141      18372
+#  8 CS006515000023      18372
+#  9 CS011414000106      18338
+# 10 CS038415000104      17847
+
+#...............................................................................
+# R-055: PERCENTILE_CONT() はウィンドウ関数 (OVER ()) として使えない!
+db_receipt %>% 
+  mutate(
+    p25 = quantile(amount, 0.25, na.rm = T)
+  ) %>% 
+  my_show_query(F)
+
+#................................................
+db_sales_amount = db_receipt %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
+  filter(!(customer_id %LIKE% "Z%")) %>% 
+  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+  filter(!is.na(sum_amount))
+
+stats_amount = db_sales_amount %>% 
+  summarise(
+    p25 = quantile(sum_amount, 0.25, na.rm = T), 
+    p75 = quantile(sum_amount, 0.75, na.rm = T)
+  )
+
+stats_amount
+#      p25    p75
+#    <dbl>  <dbl>
+# 1 548.25 3649.8
+
+db_result = db_sales_amount %>% 
+  cross_join(stats_amount) %>% 
+  mutate(
+    stat1 = p25 - 1.5 * (p75 - p25), 
+    stat2 = p75 + 1.5 * (p75 - p25)
+  ) %>% 
+  filter(
+    sum_amount < stat1 | sum_amount > stat2
+  ) %>% 
+  select(customer_id, sum_amount) %>% 
+  arrange(desc(sum_amount))
+
+db_result
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+# <SQL>
+# WITH q01 AS (
+#   SELECT receipt.*
+#   FROM receipt
+#   WHERE (NOT((customer_id LIKE 'Z%')))
+# ),
+# q02 AS (
+#   SELECT customer_id, SUM(amount) AS sum_amount
+#   FROM q01
+#   GROUP BY customer_id
+#   HAVING (NOT(((SUM(amount)) IS NULL)))
+# ),
+# q03 AS (
+#   SELECT customer_id, SUM(amount) AS sum_amount
+#   FROM q01
+#   GROUP BY customer_id
+#   HAVING (NOT(((SUM(amount)) IS NULL)))
+# ),
+# q04 AS (
+#   SELECT
+#     PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sum_amount) AS p25,
+#     PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sum_amount) AS p75
+#   FROM q03 q01
+# ),
+# q05 AS (
+#   SELECT LHS.*, RHS.*
+#   FROM q02 LHS
+#   CROSS JOIN q04 RHS
+# ),
+# q06 AS (
+#   SELECT
+#     q01.*,
+#     p25 - 1.5 * (p75 - p25) AS stat1,
+#     p75 + 1.5 * (p75 - p25) AS stat2
+#   FROM q05 q01
+# )
+# SELECT customer_id, sum_amount
+# FROM q06 q01
+# WHERE (sum_amount < stat1 OR sum_amount > stat2)
+# ORDER BY sum_amount DESC
+
+#-------------------------------------------------------------------------------
+# R-079 ------------
+
+pacman::p_load(skimr)
+
+df_product %>% skimr::skim()
+
+df_product %>% 
+  summarise(
+    across(everything(), ~ is.na(.) %>% sum())
+  )
+
+df_product %>% 
+  summarise(
+    across(everything(), ~ sum(ifelse(is.na(.), 1, 0)))
+  )
+
+# A tibble: 1 × 6
+#   product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
+#        <int>             <int>              <int>             <int>      <int>     <int>
+# 1          0                 0                  0                 0          7         7
+
+#...............................................................................
+
+db_result = db_product %>% 
+  summarise(
+    across(everything(), ~ sum(ifelse(is.na(.), 1, 0)))
+  )
+
+db_result
+
+#...............................................................................
+
+db_result %>% show_query()
+
+# SELECT
+#   SUM(CASE WHEN ((product_cd IS NULL)) THEN 1.0 WHEN NOT ((product_cd IS NULL)) THEN 0.0 END) AS product_cd,
+#   SUM(CASE WHEN ((category_major_cd IS NULL)) THEN 1.0 WHEN NOT ((category_major_cd IS NULL)) THEN 0.0 END) AS category_major_cd,
+#   SUM(CASE WHEN ((category_medium_cd IS NULL)) THEN 1.0 WHEN NOT ((category_medium_cd IS NULL)) THEN 0.0 END) AS category_medium_cd,
+#   SUM(CASE WHEN ((category_small_cd IS NULL)) THEN 1.0 WHEN NOT ((category_small_cd IS NULL)) THEN 0.0 END) AS category_small_cd,
+#   SUM(CASE WHEN ((unit_price IS NULL)) THEN 1.0 WHEN NOT ((unit_price IS NULL)) THEN 0.0 END) AS unit_price,
+#   SUM(CASE WHEN ((unit_cost IS NULL)) THEN 1.0 WHEN NOT ((unit_cost IS NULL)) THEN 0.0 END) AS unit_cost
+# FROM product
+
+#-------------------------------------------------------------------------------
 # R-081 ------------
 # 単価（unit_price）と原価（unit_cost）の欠損値について、それぞれの平均値で補完した新たな商品データを作成せよ。
 # なお、平均値については1円未満を丸めること（四捨五入または偶数への丸めで良い）。
 # 補完実施後、各項目について欠損が生じていないことも確認すること。
 
-product %>% skim()
+pacman::p_load(recipes)
 
-d = product %>% recipes::recipe() %>% 
+df_product %>% skim()
+
+# sample.1
+df_product_2 = df_product %>% 
+  recipes::recipe() %>% 
   step_impute_mean(starts_with("unit_")) %>% 
   prep() %>% bake(new_data = NULL) %>% 
   mutate(across(starts_with("unit_"), ~ round(.x, 1)))
 
-d %>% skim()
-d
+# 確認
+df_product_2 %>% skim()
+
+# sample.2
+
+
+
+df_product_2
+
 # A tibble: 10,030 × 6
-#    product_cd category_major_cd category_medium_cd category_small_cd unit_price
-#    <chr>      <chr>             <chr>              <chr>                  <dbl>
-#  1 P040101001 04                0401               040101                   198
-#  2 P040101002 04                0401               040101                   218
-#  3 P040101003 04                0401               040101                   230
-#  4 P040101004 04                0401               040101                   248
-#  5 P040101005 04                0401               040101                   268
+#    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
+#    <chr>      <chr>             <chr>              <chr>                  <dbl>     <dbl>
+#  1 P040101001 04                0401               040101                   198       149
+#  2 P040101002 04                0401               040101                   218       164
+#  3 P040101003 04                0401               040101                   230       173
+#  4 P040101004 04                0401               040101                   248       186
+#  5 P040101005 04                0401               040101                   268       201
+#  6 P040101006 04                0401               040101                   298       224
 #  ...
 
 #...............................................................................
