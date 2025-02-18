@@ -3941,13 +3941,10 @@ db_sales_customer = db_customer %>%
     .by = customer_id
   ) %>% 
   filter(sum_amount > 0.0) %>% 
-  select(customer_id) %>% 
   mutate(rnum = row_number()) %>% 
   mutate(rand = runif(n = n())) %>% 
-  mutate(
-    prank = percent_rank(rand)
-  ) %>% 
-  select(-c(rnum, rand))
+  mutate(prank = percent_rank(rand)) %>% 
+  select(customer_id, prank)
 
 db_sales_customer %>% collect() %>% arrange(customer_id)
 
@@ -4043,34 +4040,43 @@ db_sales_customer %>% show_query(cte = T)
 q = sql("
 SELECT SETSEED(0.5);
 WITH q01 AS (
-  SELECT customer_id AS customer_id, amount
+  SELECT customer_id
   FROM customer
-  INNER JOIN receipt
+  INNER JOIN receipt 
   USING (customer_id)
+  GROUP BY customer_id
+  HAVING SUM(amount) > 0.0
 ),
 q02 AS (
-  SELECT customer_id
+  SELECT *, ROW_NUMBER() OVER () AS rnum
   FROM q01
-  GROUP BY customer_id
-  HAVING (SUM(amount) > 0.0)
 ),
 q03 AS (
-  SELECT *, ROW_NUMBER() OVER () AS rnum
-  FROM q02
-),
-q04 AS (
   SELECT *, RANDOM() AS rand
-  FROM q03
+  FROM q02
 )
 SELECT
   customer_id, 
   PERCENT_RANK() OVER (ORDER BY rand) AS prank
-FROM q04
+FROM q03
 "
 )
 
-q %>% my_select(con) %>% arrange(customer_id)
 q %>% my_select(con) %>% glimpse()
+q %>% my_select(con) %>% arrange(customer_id)
+
+# A tibble: 8,306 × 2
+#    customer_id       prank
+#    <chr>             <dbl>
+#  1 CS001113000004 0.23998 
+#  2 CS001114000005 0.43636 
+#  3 CS001115000010 0.76123 
+#  4 CS001205000004 0.54871 
+#  5 CS001205000006 0.96677 
+#  6 CS001211000025 0.15521 
+#  7 CS001212000027 0.054425
+#  8 CS001212000031 0.20554 
+#  ...
 
 #................................................
 
@@ -4104,9 +4110,7 @@ INNER JOIN
   customer c
 USING (customer_id)
 EXCEPT
-  SELECT *
-  FROM 
-    customer_train
+  SELECT * FROM customer_train
 "
 )
 
@@ -4150,39 +4154,25 @@ con %>% dbExecute("SELECT SETSEED(0.5);")
 q = sql("
 CREATE TEMP TABLE sales_customer AS 
 WITH q01 AS (
-  SELECT 
-    customer_id AS customer_id, amount
-  FROM 
-    customer
-  INNER JOIN 
-    receipt
+  SELECT customer_id
+  FROM customer
+  INNER JOIN receipt 
   USING (customer_id)
+  GROUP BY customer_id
+  HAVING SUM(amount) > 0.0
 ),
 q02 AS (
-  SELECT customer_id
+  SELECT *, ROW_NUMBER() OVER () AS rnum
   FROM q01
-  GROUP BY customer_id
-  HAVING (SUM(amount) > 0.0)
 ),
 q03 AS (
-  SELECT 
-    *, 
-    ROW_NUMBER() OVER () AS rnum
-  FROM 
-    q02
-),
-q04 AS (
-  SELECT 
-    *, 
-    RANDOM() AS rand
-  FROM 
-  q03
+  SELECT *, RANDOM() AS rand
+  FROM q02
 )
 SELECT
   customer_id, 
   PERCENT_RANK() OVER (ORDER BY rand) AS prank
-FROM 
-  q04
+FROM q03
 "
 )
 
