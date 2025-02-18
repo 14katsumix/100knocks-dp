@@ -2453,46 +2453,176 @@ df_customer %>% slice_sample(prop = 0.01) %>% withr::with_seed(14, .) %>% head(1
 #...............................................................................
 
 db_customer %>% slice_sample(prop = 0.01) %>% head(10)
-
+# >
 # Error in `slice_sample()`:
 # ! Sampling by `prop` is not supported on database backends
 
-db_result = db_customer %>% 
+db_customer %>% 
   slice_sample(n = 100) %>% 
   # slice_sample(n = 0.01 * n()) %>% 
   head(10)
 
+#................................................
+# シードを設定
+dbExecute(con, "SELECT SETSEED(0.5);")
+
 db_result = db_customer %>% 
   mutate(r = runif(n = n())) %>% 
   filter(r <= 0.01) %>% 
-  select(customer_id, customer_name, gender_cd, gender) %>% 
-  head(10)
+  select(customer_id, gender_cd, gender, birth_day, age)
+  # head(10)
+
+db_result %>% arrange(customer_id)
 db_result %>% show_query()
+
+#................................................
+# シードを設定
+dbExecute(con, "SELECT SETSEED(0.5);")
+db_result = db_customer %>% 
+  # mutate(prank = percent_rank(runif(n = n()))) %>% 
+  mutate(r = runif(n = n())) %>% 
+  mutate(prank = percent_rank(r)) %>% 
+  filter(prank <= 0.01) %>% 
+  select(customer_id, gender_cd, gender, birth_day, age)
+
+db_result %>% collect() %>%  arrange(customer_id)
+# Source:     SQL [?? x 5]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Ordered by: customer_id
+#    customer_id    gender_cd gender birth_day    age
+#    <chr>              <int> <chr>  <date>     <int>
+#  1 CS001305000005         0 男性   1979-01-02    40
+#  2 CS001312000261         1 女性   1987-04-07    31
+#  3 CS001313000376         1 女性   1980-03-09    39
+#  4 CS001315000444         1 女性   1987-04-01    31
+#  5 CS001512000180         1 女性   1963-03-26    56
+#  6 CS001512000275         1 女性   1960-08-09    58
+#  7 CS001513000084         1 女性   1962-07-01    56
+#  8 CS001513000355         1 女性   1959-07-14    59
+#  9 CS001515000118         1 女性   1967-08-07    51
+# 10 CS001515000568         1 女性   1959-07-28    59
+
+#................................................
 
 # ランダムな行番号を生成する方法
 # 列の一部を出力
+dbExecute(con, "SELECT SETSEED(0.5);")
 db_result = db_customer %>% 
   mutate(r = runif(n = n())) %>% 
-  window_order(r) %>% 
   mutate(
-    row_num = row_number(), 
-    cnt = n()
+    row_num = row_number(r)
   ) %>% 
-  filter(row_num <= 0.01 * cnt) %>% 
+  filter(row_num <= 0.01 * n()) %>% 
   # select(customer_id, customer_name, gender_cd, gender, r, row_num, cnt) %>% 
   select(customer_id, gender_cd, gender, birth_day, age) %>% 
   head(10)
 
-db_result
+db_result %>% arrange(customer_id)
+# Source:     SQL [10 x 5]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Ordered by: customer_id
+#    customer_id    gender_cd gender birth_day    age
+#    <chr>              <int> <chr>  <date>     <int>
+#  1 CS003315000484         1 女性   1988-03-16    31
+#  2 CS003513000181         1 女性   1964-05-26    54
+#  3 CS005503000015         0 男性   1966-07-09    52
+#  4 CS015513000041         1 女性   1962-09-01    56
+#  5 CS024313000089         1 女性   1985-07-25    33
+#  6 CS027512000028         1 女性   1967-12-15    51
+#  ...
+
 db_result %>% collect()
 df_customer %>% arrange(customer_id)
 
 #...............................................................................
 
+# PERCENT_RANK() を使用
+
+dbExecute(con, "SELECT SETSEED(0.5);")
+db_result = db_customer %>% 
+  mutate(r = runif(n = n())) %>% 
+  mutate(prank = percent_rank(r)) %>% 
+  filter(prank <= 0.01) %>% 
+  select(customer_id, gender_cd, gender, birth_day, age)
+
 db_result %>% show_query(cte = T)
 
 # set seed すること!!!
+q = sql("
+SELECT SETSEED(0.5);
+WITH rand_customers AS (
+  SELECT 
+    *, 
+    RANDOM() AS rand
+  FROM customer
+),
+ranked_customers AS (
+  SELECT
+    *,
+    PERCENT_RANK() OVER (ORDER BY rand) AS prank
+  FROM rand_customers
+)
+SELECT customer_id, gender_cd, gender, birth_day, age
+FROM ranked_customers
+WHERE (prank <= 0.01)
+"
+)
 
+q %>% my_select(con) %>% arrange(customer_id)
+
+# A tibble: 220 × 5
+#    customer_id    gender_cd gender birth_day    age
+#    <chr>              <int> <chr>  <date>     <int>
+#  1 CS001305000005         0 男性   1979-01-02    40
+#  2 CS001312000261         1 女性   1987-04-07    31
+#  3 CS001313000376         1 女性   1980-03-09    39
+#  4 CS001315000444         1 女性   1987-04-01    31
+#  5 CS001512000180         1 女性   1963-03-26    56
+#  6 CS001512000275         1 女性   1960-08-09    58
+#  7 CS001513000084         1 女性   1962-07-01    56
+#  8 CS001513000355         1 女性   1959-07-14    59
+#  9 CS001515000118         1 女性   1967-08-07    51
+# 10 CS001515000568         1 女性   1959-07-28    59
+
+#................................................
+# 以下はブログに書かない
+# 再現性が確保されない方法
+
+# set seed すること!!!
+q = sql("
+SELECT SETSEED(0.5);
+WITH ranked_customers AS (
+  SELECT 
+    customer_id, gender_cd, gender, birth_day, age,
+    PERCENT_RANK() OVER (ORDER BY RANDOM()) AS prank
+  FROM customer
+)
+SELECT *
+FROM ranked_customers
+WHERE prank <= 0.01
+"
+)
+
+q %>% my_select(con) %>% arrange(customer_id)
+
+# A tibble: 220 × 5
+#    customer_id    gender_cd gender birth_day    age
+#    <chr>              <int> <chr>  <date>     <int>
+#  1 CS001305000005         0 男性   1979-01-02    40
+#  2 CS001312000261         1 女性   1987-04-07    31
+#  3 CS001313000376         1 女性   1980-03-09    39
+#  4 CS001315000444         1 女性   1987-04-01    31
+#  5 CS001512000180         1 女性   1963-03-26    56
+#  6 CS001512000275         1 女性   1960-08-09    58
+#  7 CS001513000084         1 女性   1962-07-01    56
+#  8 CS001513000355         1 女性   1959-07-14    59
+#  9 CS001515000118         1 女性   1967-08-07    51
+# 10 CS001515000568         1 女性   1959-07-28    59
+
+#................................................
+# 以下はブログに書かない
+
+# set seed すること!!!
 q = sql("
 SELECT SETSEED(0.5);
 WITH q01 AS (
@@ -2516,19 +2646,21 @@ LIMIT 10
 )
 q %>% my_select(con)
 
+q %>% my_select(con) %>% arrange(customer_id)
+
 # A tibble: 10 × 5
 #    customer_id    gender_cd gender birth_day    age
 #    <chr>              <int> <chr>  <date>     <int>
-#  1 CS027512000028         1 女性   1967-12-15    51
-#  2 CS015513000041         1 女性   1962-09-01    56
-#  3 CS035515000219         1 女性   1960-06-29    58
-#  4 CS031312000076         1 女性   1980-04-05    38
-#  5 CS003315000484         1 女性   1988-03-16    31
-#  6 CS051313000008         1 女性   1982-08-28    36
+#  1 CS003315000484         1 女性   1988-03-16    31
+#  2 CS003513000181         1 女性   1964-05-26    54
+#  3 CS005503000015         0 男性   1966-07-09    52
+#  4 CS015513000041         1 女性   1962-09-01    56
+#  5 CS024313000089         1 女性   1985-07-25    33
+#  6 CS027512000028         1 女性   1967-12-15    51
 #  7 CS027715000080         1 女性   1943-12-15    75
-#  8 CS003513000181         1 女性   1964-05-26    54
-#  9 CS024313000089         1 女性   1985-07-25    33
-# 10 CS005503000015         0 男性   1966-07-09    52
+#  8 CS031312000076         1 女性   1980-04-05    38
+#  9 CS035515000219         1 女性   1960-06-29    58
+# 10 CS051313000008         1 女性   1982-08-28    36
 
 #-------------------------------------------------------------------------------
 # R-076 ------------
@@ -2567,21 +2699,66 @@ db_customer %>%
 # SELECT gender_cd, RANDOM() AS r
 # FROM customer
 
-# customer をランダムに並び替えてからグループ内で順番付けをする
+#................................................
+
+# ランダムシードを設定
+con %>% dbExecute("SELECT SETSEED(0.5);")
+
 db_result = db_customer %>%
-  mutate(r = runif(n = n())) %>% 
-  window_order(r) %>% 
+  mutate(rand = runif(n = n())) %>% 
   group_by(gender_cd) %>%
   mutate(
-    row_num = row_number(), # グループ内で順番付け
+    prank = percent_rank(rand)
+  ) %>%
+  filter(prank <= 0.1) # 上位10%を選択
+
+db_result %>% select(customer_id, rand, prank) %>% arrange(rand)
+
+db_result %>% arrange(customer_id)
+# Source:     SQL [?? x 13]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Groups:     gender_cd
+# Ordered by: customer_id
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001211000003 池内 美帆             1 女性   1993-08-17    25 140-0015  東京都品川…
+#  2 CS001211000007 竹村 遥               1 女性   1990-03-10    29 140-0013  東京都品川…
+#  3 CS001212000098 菊地 りえ             9 不明   1995-01-19    24 210-0842  神奈川県川…
+#  4 CS001213000152 生田 陽子             1 女性   1989-10-10    29 144-0035  東京都大田…
+#  5 CS001214000052 宮脇 恵梨香           1 女性   1993-12-01    25 144-0055  東京都大田…
+#  6 CS001214000063 増田 丈雄             9 不明   1993-08-20    25 144-0055  東京都大田…
+#  7 CS001214000103 堀越 涼子             1 女性   1992-06-22    26 144-0046  東京都大田…
+#  8 CS001215000158 川瀬 美智子           1 女性   1993-02-10    26 144-0055  東京都大田…
+#  9 CS001215000173 塩田 未來             1 女性   1993-06-12    25 144-0055  東京都大田…
+# 10 CS001301000026 木内 竜次             0 男性   1983-05-23    35 212-0004  神奈川県川…
+
+db_result %>% count(gender_cd)
+
+#   gender_cd     n
+#       <int> <dbl>
+# 1         0   299
+# 2         1  1792
+# 3         9   108
+
+#................................................
+# customer をランダムに並び替えてからグループ内で順番付けをする
+
+# ランダムシードを設定
+con %>% dbExecute("SELECT SETSEED(0.5);")
+
+db_result = db_customer %>%
+  mutate(rand = runif(n = n())) %>% 
+  group_by(gender_cd) %>%
+  mutate(
+    row_num = row_number(rand), # グループ内で順番付け
     cnt = n()
   ) %>%
   # 上位10%を選択
-  filter(row_num <= 0.1 * cnt) %>% 
-  # select(customer_id, gender_cd, gender, birth_day, age, r, row_num, cnt) %>% 
-  count(gender_cd)
+  filter(row_num <= 0.1 * cnt)
 
-db_result
+db_result %>% arrange(customer_id)
+
+db_result %>% count(gender_cd)
 # Source:     SQL [3 x 2]
 # Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Groups:     gender_cd
@@ -2600,14 +2777,88 @@ db_result
 db_result %>% collect() %>% head(30)
 db_result %>% collect() %>% tail(30)
 db_result %>% collect() %>% count(gender_cd)
-db_result %>% collect() %>% group_by(gender_cd) %>% reframe(x = quantile(r))
-db_result %>% collect() %>% group_by(gender_cd) %>% reframe(x = quantile(row_num))
+db_result %>% collect() %>% group_by(gender_cd) %>% reframe(x = quantile(rand))
 
 df_customer %>% arrange(customer_id)
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+con %>% dbExecute("SELECT SETSEED(0.5);")
+
+db_result = db_customer %>%
+  mutate(rand = runif(n = n())) %>% 
+  group_by(gender_cd) %>%
+  mutate(
+    prank = percent_rank(rand)
+  ) %>%
+  filter(prank <= 0.1) # 上位10%を選択
+
+db_result %>% count(gender_cd) %>% show_query(cte = T)
+
+# 以下、前者の方が再現性が高く、パフォーマンス的にも安定する可能性がある
+
+q = sql("
+SELECT SETSEED(0.5);
+WITH rand_customers AS (
+  SELECT 
+    *, 
+    RANDOM() AS rand
+  FROM customer
+),
+ranked_customers AS (
+  SELECT
+    *,
+    PERCENT_RANK() OVER (partition by gender_cd ORDER BY rand) AS prank
+  FROM rand_customers
+)
+SELECT gender_cd, COUNT(*) AS n
+FROM ranked_customers
+WHERE prank <= 0.1
+GROUP BY gender_cd
+"
+)
+
+q %>% my_select(con)
+
+#................................................
+# 以下の方法だと、再現性が確保されない
+
+q = sql("
+SELECT SETSEED(0.5);
+WITH customer_random AS (
+  SELECT
+    *, 
+    PERCENT_RANK() OVER (partition by gender_cd ORDER BY RANDOM()) AS prank
+  FROM customer
+)
+SELECT *
+FROM customer_random
+WHERE prank <= 0.1
+"
+)
+q %>% my_select(con) %>% arrange(customer_id)
+q %>% my_select(con) %>% count(gender_cd)
+df_customer %>% count(gender_cd)
+
+q = sql("
+SELECT SETSEED(0.5);
+WITH customer_random AS (
+  SELECT
+    *, 
+    PERCENT_RANK() OVER (partition by gender_cd ORDER BY RANDOM()) AS prank
+  FROM customer
+)
+SELECT gender_cd, COUNT(*) AS n
+FROM customer_random
+WHERE prank <= 0.1
+GROUP BY gender_cd
+"
+)
+
+q %>% my_select(con)
+
+#...............................................................................
+# 以下の方法はブログには書かない
 
 q = sql("
 WITH q01 AS (
@@ -3629,98 +3880,406 @@ q %>% my_select(con)
 # 売上実績がある顧客を、予測モデル構築のため学習用データとテスト用データに分割したい。
 # それぞれ 8:2 の割合でランダムにデータを分割せよ。
 
-d = df_receipt %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+df_sales_customer = df_receipt %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = customer_id
+  ) %>% 
   filter(sum_amount > 0.0) %>% 
+  select(-sum_amount) %>% 
   inner_join(df_customer, by = "customer_id")
-d
 
-rsplit = d %>% 
+df_sales_customer
+
+rsplit = df_sales_customer %>% 
   rsample::initial_split(prop = 0.8) %>% 
   withr::with_seed(14, .)
 
-rsplit %>% training()
-rsplit %>% testing()
+df_train = rsplit %>% training()
+df_test = rsplit %>% testing()
+df_train
+# A tibble: 6,644 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS032415000205 細谷 真奈美           1 女性   1970-05-27    48 144-0056  東京都大田…
+#  2 CS032513000167 大後 たまき           1 女性   1966-07-13    52 144-0054  東京都大田…
+#  3 CS028415000226 小柳 まさみ           1 女性   1974-04-24    44 246-0021  神奈川県横…
+#  4 CS029512000122 野口 季衣             1 女性   1964-07-12    54 279-0021  千葉県浦安…
+#  5 CS010411000006 森口 めぐみ           1 女性   1973-12-26    45 223-0058  神奈川県横…
+#  ...
+
+df_test
+# A tibble: 1,662 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS008415000097 中田 光               1 女性   1971-05-21    47 182-0004  東京都調布…
+#  2 CS028414000014 米倉 ヒカル           1 女性   1977-02-05    42 246-0023  神奈川県横…
+#  3 CS003515000195 梅村 真奈美           1 女性   1963-05-31    55 182-0022  東京都調布…
+#  4 CS027514000015 小宮 菜々美           1 女性   1960-08-20    58 251-0016  神奈川県藤…
+#  5 CS025415000134 小杉 優               1 女性   1977-02-03    42 242-0024  神奈川県大…
+#  ...
+
 
 #...............................................................................
+# ランダムな番号付けをする際、通常は
+# percent_rank(runif(n = n()))
+# を用いるが、再現性がない。
+# そのため、
+# 一意な識別子である customer_id を使い、SQL MD5関数(ハッシュ関数) でランダムな文字列を生成し、
+# その辞書順によりランダムな番号付けをする
 
-d = db_receipt %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+con %>% dbExecute("SELECT SETSEED(0.5);")
+
+db_sales_customer = db_customer %>% 
+  select(customer_id) %>% 
+  inner_join(
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
+  ) %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = customer_id
+  ) %>% 
   filter(sum_amount > 0.0) %>% 
-  inner_join(db_customer, by = "customer_id")
-d
+  select(customer_id) %>% 
+  mutate(rnum = row_number()) %>% 
+  mutate(rand = runif(n = n())) %>% 
+  mutate(
+    prank = percent_rank(rand)
+  ) %>% 
+  select(-c(rnum, rand))
 
-rsplit = d %>% 
-  rsample::initial_split(prop = 0.8) %>% 
-  withr::with_seed(14, .)
+db_sales_customer %>% collect() %>% arrange(customer_id)
 
+# db_sales_customer %>% pull(prank) %>% sort() %>% diff()
+# db_sales_customer %>% glimpse()
+# db_sales_customer %>% collect()
+# db_sales_customer %>% show_query(cte = T)
+
+# データベースに一時テーブルとして保存
+db_sales_customer %>% 
+  compute(name = "sales_customer", temporary = TRUE, overwrite = T)
+# テーブルの確認
+dbReadTable(con, "sales_customer") %>% glimpse()
+
+# 保存したテーブルの参照を取得
+db_sales_c = tbl(con, "sales_customer")
+
+db_customer_train = db_sales_c %>% 
+  filter(prank <= 0.8) %>% 
+  select(-prank) %>% 
+  inner_join(
+    db_customer, 
+    by = "customer_id"
+  )
+
+# db_customer_train
+# db_customer_train %>% collect()
+# db_customer_train %>% glimpse()
+# db_customer_train %>% show_query(cte = T)
+
+# データベースに保存
+db_customer_train %>% 
+  compute(name = "customer_train", temporary = FALSE, overwrite = T)
+# テーブルの確認
+dbReadTable(con, "customer_train") %>% glimpse()
+# 保存したテーブルの参照を取得
+db_train = tbl(con, "customer_train")
+
+db_customer_test = db_sales_c %>% 
+  select(-prank) %>% 
+  inner_join(
+    db_customer, 
+    by = "customer_id"
+  ) %>% 
+  setdiff(db_train)
+
+# db_customer_test
+# db_customer_test %>% collect()
+# db_customer_test %>% glimpse()
+# db_customer_test %>% show_query(cte = T)
+
+# データベースに保存
+db_customer_test %>% 
+  compute(name = "customer_test", temporary = FALSE, overwrite = T)
+# テーブルの確認
+dbReadTable(con, "customer_test") %>% glimpse()
+
+# データベースに保存されているテーブルのリストを確認
+con %>% dbListTables()
+# [1] "category"       "customer"       "customer_test"  "customer_train" "geocode"       
+# [6] "product"        "receipt"        "sales_customer" "store"   
+
+#> sales_customer, customer_train, customer_test が作成されている
+# sales_customer は一時テーブルなので、Rセッションが切れると消去される
 
 #...............................................................................
-con %>% dbExecute("DROP TABLE IF EXISTS cust")
+# SQLクエリ
 
-# SET SEED TO 0.25;
-
+# MD5(customer_id)
 q = sql("
-CREATE TEMP TABLE cust AS 
-with cust0 as (
-select
+SELECT 
   customer_id, 
-  customer_name, 
-  SUM(amount) as sum_amount
-from
+  PERCENT_RANK() OVER (ORDER BY MD5(customer_id)) AS prank
+FROM 
   customer
-inner join receipt USING(customer_id)
-group by 
+INNER JOIN 
+  receipt r
+USING (customer_id)
+GROUP BY 
   customer_id
-having
-  sum_amount > 0.0
-)
-select
-  *, 
-  PERCENT_RANK() OVER (order by RANDOM()) as rank
-from
-  cust0
--- order by rank desc
+HAVING 
+  (SUM(r.amount) > 0.0)
 "
 )
+
+q %>% my_select(con) %>% arrange(customer_id)
+q %>% my_select(con) %>% glimpse()
+
+#................................................
+
+db_sales_customer %>% show_query(cte = T)
+
+q = sql("
+SELECT SETSEED(0.5);
+WITH q01 AS (
+  SELECT customer_id AS customer_id, amount
+  FROM customer
+  INNER JOIN receipt
+  USING (customer_id)
+),
+q02 AS (
+  SELECT customer_id
+  FROM q01
+  GROUP BY customer_id
+  HAVING (SUM(amount) > 0.0)
+),
+q03 AS (
+  SELECT *, ROW_NUMBER() OVER () AS rnum
+  FROM q02
+),
+q04 AS (
+  SELECT *, RANDOM() AS rand
+  FROM q03
+)
+SELECT
+  customer_id, 
+  PERCENT_RANK() OVER (ORDER BY rand) AS prank
+FROM q04
+"
+)
+
+q %>% my_select(con) %>% arrange(customer_id)
+q %>% my_select(con) %>% glimpse()
+
+#................................................
+
+db_customer_train %>% show_query()
+
+q = sql("
+SELECT
+  c.*
+FROM
+  sales_customer s
+INNER JOIN 
+  customer c
+USING (customer_id)
+WHERE 
+  s.prank <= 0.8
+"
+)
+
+q %>% my_select(con) %>% glimpse()
+
+#................................................
+
+db_customer_test %>% show_query()
+
+q = sql("
+SELECT
+  c.*
+FROM 
+  sales_customer
+INNER JOIN 
+  customer c
+USING (customer_id)
+EXCEPT
+  SELECT *
+  FROM 
+    customer_train
+"
+)
+
+q %>% my_select(con) %>% glimpse()
+
+#...............................................................................
+# テーブル作成
+
+# PERCENT_RANK() OVER (ORDER BY MD5(customer_id))
+
+con %>% dbExecute("DROP TABLE IF EXISTS sales_customer")
+
+q = sql("
+CREATE TEMP TABLE sales_customer AS 
+SELECT 
+  customer_id, 
+  PERCENT_RANK() OVER (ORDER BY MD5(customer_id)) AS prank
+FROM 
+  customer
+INNER JOIN 
+  receipt r
+USING (customer_id)
+GROUP BY 
+  customer_id
+HAVING 
+  (SUM(r.amount) > 0.0)
+"
+)
+
+con %>% dbExecute(q)
+con %>% dbReadTable("sales_customer") %>% as_tibble() %>% arrange(customer_id)
+
+#................................................
+
+# PERCENT_RANK() OVER (ORDER BY rand)
+
+con %>% dbExecute("DROP TABLE IF EXISTS sales_customer")
+
+con %>% dbExecute("SELECT SETSEED(0.5);")
+
+q = sql("
+CREATE TEMP TABLE sales_customer AS 
+WITH q01 AS (
+  SELECT 
+    customer_id AS customer_id, amount
+  FROM 
+    customer
+  INNER JOIN 
+    receipt
+  USING (customer_id)
+),
+q02 AS (
+  SELECT customer_id
+  FROM q01
+  GROUP BY customer_id
+  HAVING (SUM(amount) > 0.0)
+),
+q03 AS (
+  SELECT 
+    *, 
+    ROW_NUMBER() OVER () AS rnum
+  FROM 
+    q02
+),
+q04 AS (
+  SELECT 
+    *, 
+    RANDOM() AS rand
+  FROM 
+  q03
+)
+SELECT
+  customer_id, 
+  PERCENT_RANK() OVER (ORDER BY rand) AS prank
+FROM 
+  q04
+"
+)
+
 con %>% dbExecute(q)
 
-con %>% dbReadTable("cust") %>% as_tibble()
-#    customer_id    customer_name     sum_amount       rank
-#    <chr>          <chr>                  <dbl>      <dbl>
-#  1 CS001515000018 緒方 優                  276 0         
-#  2 CS004414000255 成海 莉沙                210 0.00012041
-#  3 CS002514000100 溝口 さやか              625 0.00024082
-#  4 CS042515000025 宮崎 恵麻                483 0.00036123
-#  5 CS009513000055 矢口 美咲               2491 0.00048164
-#  6 ...
+con %>% dbReadTable("sales_customer") %>% as_tibble() %>% arrange(customer_id)
+
+# A tibble: 8,306 × 2
+#    customer_id       prank
+#    <chr>             <dbl>
+#  1 CS001113000004 0.23998 
+#  2 CS001114000005 0.43636 
+#  3 CS001115000010 0.76123 
+#  4 CS001205000004 0.54871 
+#  5 CS001205000006 0.96677 
+#  ...
+
+#...............................................................................
 
 con %>% dbExecute("DROP TABLE IF EXISTS customer_train")
 
 q = sql("
 CREATE TABLE customer_train AS
-select * from cust where rank < 0.8
--- order by rank desc
+SELECT
+  c.*
+FROM
+  sales_customer s
+INNER JOIN 
+  customer c
+USING (customer_id)
+WHERE 
+  s.prank <= 0.8
 "
 )
 con %>% dbExecute(q)
 
-con %>% dbReadTable("customer_train") %>% as_tibble()
+con %>% dbReadTable("customer_train") %>% as_tibble() %>% arrange(customer_id)
+
+#................................................
 
 con %>% dbExecute("DROP TABLE IF EXISTS customer_test")
 
 q = sql("
 CREATE TABLE customer_test AS
-select * from cust
+SELECT
+  c.*
+FROM 
+  sales_customer
+INNER JOIN 
+  customer c
+USING (customer_id)
 EXCEPT
-select * from customer_train
+  SELECT * FROM customer_train
 "
 )
 con %>% dbExecute(q)
 
-con %>% dbReadTable("customer_test") %>% as_tibble()
+con %>% dbReadTable("customer_test") %>% as_tibble() %>% arrange(customer_id)
 
+# データベースに保存されているテーブルのリストを確認
 con %>% dbListTables()
+# [1] "category"       "customer"       "customer_test"  "customer_train" "geocode"       
+# [6] "product"        "receipt"        "sales_customer" "store"   
+
+#> sales_customer は一時テーブルなので、Rセッションが切れると消去される
+
+# テーブルの内容を確認
+
+con %>% dbReadTable("customer_train") %>% as_tibble() %>% arrange(customer_id)
+
+# A tibble: 6,645 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001113000004 葛西 莉央             1 女性   2003-02-22    16 144-0056  東京都大田…
+#  2 CS001114000005 安 里穂               1 女性   2004-11-22    14 144-0056  東京都大田…
+#  3 CS001115000010 藤沢 涼               1 女性   2006-05-16    12 144-0056  東京都大田…
+#  4 CS001205000004 奥山 秀隆             0 男性   1993-02-28    26 144-0056  東京都大田…
+#  5 CS001205000006 福士 明               0 男性   1993-06-12    25 144-0056  東京都大田…
+#  6 CS001211000025 河野 夏希             1 女性   1996-06-09    22 140-0013  東京都品川…
+#  7 CS001212000027 杉山 なぎさ           1 女性   1991-03-25    28 210-0022  神奈川県川…
+#  8 CS001212000031 平塚 恵望子           1 女性   1990-07-26    28 210-0007  神奈川県川…
+#  ...
+
+con %>% dbReadTable("customer_test") %>% as_tibble() %>% arrange(customer_id)
+
+# A tibble: 1,661 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001212000046 伊東 愛               1 女性   1994-09-08    24 210-0014  神奈川県川…
+#  2 CS001214000059 若林 奈央             1 女性   1995-08-06    23 144-0055  東京都大田…
+#  3 CS001215000133 稲垣 菜々美           1 女性   1993-05-26    25 146-0095  東京都大田…
+#  4 CS001305000016 梅本 真一             0 男性   1982-02-18    37 144-0046  東京都大田…
+#  5 CS001311000033 広田 奈央             1 女性   1985-07-08    33 212-0054  神奈川県川…
+#  6 CS001314000122 藤沢 愛子             1 女性   1980-04-13    38 144-0053  東京都大田…
+#  7 CS001314000144 薬師丸 貴美子         1 女性   1980-07-03    38 144-0055  東京都大田…
+#  8 CS001315000069 木下 路子             1 女性   1984-10-25    34 144-0053  東京都大田…
+#  ...
 
 #-------------------------------------------------------------------------------
 # R-090 ------------
