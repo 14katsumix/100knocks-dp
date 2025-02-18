@@ -53,7 +53,7 @@ my_vroom = function(fname, col_types, .subdir = "data") {
 # (エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない)
 df_receipt = "receipt.csv" %>% my_vroom(col_types = "iiciiccnn")
 # customer.birth_day を Dateクラスとして読み込む
-df_customer = "customer.csv" %>% my_vroom(col_types = "ccicDiccccc")
+df_customer = "customer.csv" %>% my_vroom(col_types = "ccccDiccccc")
 df_product = "product.csv" %>% my_vroom(col_types = "ccccnn")
 df_category = "category.csv" %>% my_vroom(col_types = "cccccc")
 df_store = "store.csv" %>% my_vroom(col_types = "cccccccddd")

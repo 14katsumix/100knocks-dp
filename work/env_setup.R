@@ -6,7 +6,7 @@
 # 無い場合は自動でインストールした後にロードする.
 pacman::p_load(
   # tidyverse: 
-  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, 
+  magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, forcats, 
   DBI, dbplyr, dbx, # duckdb, # for DB
   httr, xfun, # for download
   vroom, withr, janitor, jsonlite, skimr, 

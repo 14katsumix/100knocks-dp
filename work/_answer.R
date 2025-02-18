@@ -122,55 +122,57 @@ db_result %>% my_show_query()
 
 # sample.1 ------------
 
-# [R] データフレームでの処理
-df_receipt %>% 
+# [R] データフレーム操作
+df_result = df_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
-  arrange(store_cd) %>% 
+  arrange(desc(n)) %>% 
   head(10)
+
+df_result
 
 # A tibble: 10 × 3
 #    store_cd product_cd     n
 #    <chr>    <chr>      <int>
-#  1 S12007   P060303001    72
-#  2 S12013   P060303001   107
-#  3 S12014   P060303001    65
-#  4 S12029   P060303001    92
-#  5 S12030   P060303001   115
-#  6 S13001   P060303001    67
-#  7 S13002   P060303001    78
-#  8 S13003   P071401001    65
-#  9 S13004   P060303001    88
-# 10 S13005   P040503001    36
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S13044   P060303001    96
+#  8 S14024   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13004   P060303001    88
 
-# 結果がたまたま store_cdで ソートされる場合もありますが、順序は保証されないため、
+# 結果がたまたま store_cd で ソートされる場合もありますが、順序は保証されないため、
 # 確実にソートしたい場合は arrange()を使うべきです。
 
 #...............................................................................
 # [R] データベース・バックエンドでの処理
-db_receipt %>% 
+db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10) -> 
-  db_result
+  arrange(desc(n)) %>% 
+  head(10)
 
 db_result
+
 # Source:     SQL [10 x 3]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: store_cd
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Ordered by: desc(n)
 #    store_cd product_cd     n
 #    <chr>    <chr>      <dbl>
-#  1 S12007   P060303001    72
-#  2 S12013   P060303001   107
-#  3 S12014   P060303001    65
-#  4 S12029   P060303001    92
-#  5 S12030   P060303001   115
-#  6 S13001   P060303001    67
-#  7 S13002   P060303001    78
-#  8 S13003   P071401001    65
-#  9 S13004   P060303001    88
-# 10 S13005   P040503001    36
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S13044   P060303001    96
+#  8 S14024   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13037   P060303001    88
 
 #...............................................................................
 # SQLクエリ
@@ -189,21 +191,43 @@ db_result %>% my_show_query()
 # SELECT store_cd, product_cd, n
 # FROM q02 q01
 # WHERE (n = col01)
-# ORDER BY store_cd
+# ORDER BY n DESC
 # LIMIT 10
+
+q = sql("
+WITH q01 AS (
+  SELECT 
+    store_cd, 
+    product_cd, 
+    COUNT(*) AS n
+  FROM 
+    receipt
+  GROUP BY 
+    store_cd, product_cd
+),
+q02 AS (
+  SELECT 
+    *, 
+    MAX(n) OVER (PARTITION BY store_cd) AS col01
+  FROM q01
+)
+SELECT 
+  store_cd, product_cd, n
+FROM 
+  q02
+WHERE 
+  n = col01
+ORDER BY 
+  n DESC
+LIMIT 10
+"
+)
+
+q %>% my_select(con)
 
 # col01, q01, q02 は dbplyrパッケージで自動生成されるエイリアス名.
 # col01: 中間列名
 # エイリアス名を直接指定する方法はありません。
-
-# A tibble: 55 × 3
-#    store_cd product_cd  mode
-#    <chr>    <chr>      <int>
-#  1 S12007   P060303001    72
-#  2 S12013   P060303001   107
-#  3 S12014   P060303001    65
-#  4 S12029   P060303001    92
-# ...
 
 #...............................................................................
 # sample.2 ------------
@@ -212,55 +236,55 @@ db_result %>% my_show_query()
 df_receipt %>% 
   count(store_cd, product_cd) %>% 
   slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd) %>% 
+  arrange(desc(n)) %>% 
   head(10)
 
 # A tibble: 10 × 3
 #    store_cd product_cd     n
 #    <chr>    <chr>      <int>
-#  1 S12007   P060303001    72
-#  2 S12013   P060303001   107
-#  3 S12014   P060303001    65
-#  4 S12029   P060303001    92
-#  5 S12030   P060303001   115
-#  6 S13001   P060303001    67
-#  7 S13002   P060303001    78
-#  8 S13003   P071401001    65
-#  9 S13004   P060303001    88
-# 10 S13005   P040503001    36
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S13044   P060303001    96
+#  8 S14024   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13004   P060303001    88
 
 #...............................................................................
 # [R] データベース・バックエンドでの処理
-db_receipt %>% 
+
+db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
   slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(store_cd) %>% 
-  head(10) -> 
-  db_result
+  arrange(desc(n)) %>% 
+  head(10)
 
 db_result
-# Source:     SQL [10 x 3]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: store_cd
+
+#  Source:     SQL [10 x 3]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Ordered by: desc(n)
 #    store_cd product_cd     n
 #    <chr>    <chr>      <dbl>
-#  1 S12007   P060303001    72
-#  2 S12013   P060303001   107
-#  3 S12014   P060303001    65
-#  4 S12029   P060303001    92
-#  5 S12030   P060303001   115
-#  6 S13001   P060303001    67
-#  7 S13002   P060303001    78
-#  8 S13003   P071401001    65
-#  9 S13004   P060303001    88
-# 10 S13005   P040503001    36
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S14024   P060303001    96
+#  8 S13044   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13004   P060303001    88
 
 #...............................................................................
 # SQLクエリ
 
 db_result %>% my_show_query()
 
-# <SQL>
 # WITH q01 AS (
 #   SELECT store_cd, product_cd, COUNT(*) AS n
 #   FROM receipt
@@ -273,7 +297,7 @@ db_result %>% my_show_query()
 # SELECT store_cd, product_cd, n
 # FROM q02 q01
 # WHERE (col01 <= 1)
-# ORDER BY store_cd
+# ORDER BY n DESC
 # LIMIT 10
 
 # リライト
@@ -306,8 +330,7 @@ FROM
   product_rank
 WHERE
   rank = 1
-ORDER BY 
-  store_cd
+ORDER BY n DESC
 LIMIT 10
 ;
 "
@@ -344,73 +367,73 @@ df_receipt %>%
 # dbplyr
 db_receipt %>% glimpse()
 
-db_receipt %>% 
-  filter(not(customer_id %LIKE% "Z%")) %>% 
-  # filter(!str_detect(customer_id, "^Z")) %>% 
+db_result = db_receipt %>% 
+  # filter(not(customer_id %LIKE% "Z%")) %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   # mutate(.mean = mean(sum_amount)) %>% 
   # filter(sum_amount >= .mean) %>% 
   filter(sum_amount >= mean(sum_amount)) %>% 
-  arrange(desc(sum_amount)) %>% 
-  # my_show_query()
-  my_collect(T)
+  arrange(desc(sum_amount))
+
+db_result %>% show_query(cte = T)
 
 #...............................................................................
+
 q = sql("
-with customer_amount as (
-  select
-    customer_id, 
-    SUM(amount) as total_amount
-  from receipt
-  where customer_id NOT LIKE 'Z%'
-  group by customer_id
+WITH q01 AS (
+  SELECT *
+  FROM receipt
+  WHERE customer_id NOT LIKE 'Z%'
+),
+q02 AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM q01
+  GROUP BY customer_id
+),
+q03 AS (
+  SELECT *, AVG(sum_amount) OVER () AS avg_amount
+  FROM q02
 )
-select 
-  *
-from
-  customer_amount
-where 
-  total_amount >= (select AVG(total_amount) from customer_amount)
-order by
-  total_amount DESC
+SELECT customer_id, sum_amount
+FROM q03
+WHERE (sum_amount >= avg_amount)
+ORDER BY sum_amount DESC
 "
 )
 q %>% my_select(con)
 
+# 改善点: 
+# WITH 句の定義を1つ (customer_sales) にまとめ、不要なCTEを削減。
+# 平均値の計算を WHERE 句内のサブクエリで処理し、AVG() のウィンドウ関数を不要に。
+# 読みやすさと実行効率を向上。
+
 q = sql("
-with customer_amount as (
-  select
+WITH customer_sales AS (
+  SELECT 
     customer_id, 
-    SUM(amount) as total_amount
-  from receipt
-  where customer_id NOT LIKE 'Z%'
-  group by customer_id
+    SUM(amount) AS sum_amount
+  FROM 
+    receipt
+  WHERE 
+    customer_id NOT LIKE 'Z%'
+  GROUP BY 
+    customer_id
 )
-select
-  *
-from
-  (
-  select 
-    *, 
-    AVG(total_amount) OVER () as mean_amount
-  from
-    customer_amount
+SELECT 
+  customer_id, 
+  sum_amount
+FROM 
+  customer_sales
+WHERE 
+  sum_amount >= (
+    SELECT AVG(sum_amount) FROM customer_sales
   )
-where 
-  total_amount >= mean_amount
-order by
-  total_amount DESC
+ORDER BY 
+  sum_amount DESC;
 "
 )
 q %>% my_select(con)
-
-# A tibble: 2,996 × 3
-#    customer_id    total_amount mean_amount
-#    <chr>                 <dbl>       <dbl>
-#  1 CS017415000097        23086      2547.7
-#  2 CS015415000185        20153      2547.7
-#  3 CS031414000051        19202      2547.7
-# ...
 
 #-------------------------------------------------------------------------------
 # R-038 ------------
@@ -419,8 +442,11 @@ q %>% my_select(con)
 # また、顧客は性別コード（gender_cd）が女性（1）であるものを対象とし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
 
 df_customer %>% 
-  left_join(df_receipt, by = "customer_id") %>% 
-  filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
+  filter(gender_cd == "1", !str_detect(customer_id, "^Z")) %>% 
+  left_join(
+    df_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
+  ) %>% 
   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
   arrange(customer_id) %>% 
   head(10)
@@ -442,23 +468,34 @@ df_customer %>%
 #...............................................................................
 # dbplyr
 
-db_customer %>% 
-  left_join(db_receipt, by = "customer_id") %>% 
-  # filter(gender_cd == 1L, not(customer_id %LIKE% "%Z")) %>% 
-  filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
-  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+db_result = db_customer %>% 
+  # filter(gender_cd == "1", not(customer_id %LIKE% "%Z")) %>% 
+  filter(gender_cd == "1", !str_detect(customer_id, "^Z")) %>% 
+  left_join(
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
+  ) %>% 
+  summarise(sum_amount = sum(amount), .by = "customer_id") %>% 
   replace_na(list(sum_amount = 0.0)) %>% 
   arrange(customer_id) %>% 
-  head(10) %>% 
-  # my_show_query()
-  my_collect()
+  head(10)
+
+db_result %>% show_query(cte = T)
+db_result
 
 #...............................................................................
+db_result %>% show_query(cte = T)
+
+
+# NOT(REGEXP_MATCHES(customer_id, '^Z'))
+# customer_id NOT LIKE 'Z%'
+
 q = sql("
 
 "
 )
 q %>% my_select(con)
+
 # A tibble: 17,918 × 2
 #    customer_id    sum_amount
 #    <chr>               <dbl>
@@ -988,24 +1025,26 @@ q %>% my_select(con) %>% tbl_print(n = 10, n.tail = 7)
 # ただし、項目構成は年代、女性の売上金額、男性の売上金額、性別不明の売上金額の4項目とすること
 # （縦に年代、横に性別のクロス集計）。また、年代は10歳ごとの階級とすること。
 
-max_age = customer$age %>% max(na.rm = T)
+max_age = df_customer$age %>% max(na.rm = T)
 
 d = 
-  receipt %>% inner_join(customer, by = "customer_id") %>% 
-  mutate(age_range = 
-    epikit::age_categories(
-      age, 
-      lower = 0, 
-      # upper = round(max_age, -1) - ifelse(mod(max_age, 10) == 0, 0L, 1L), 
-      upper = trunc(max_age / 10) * 10 + 10, 
-      by = 10
-    )) %>% 
+  df_receipt %>% inner_join(df_customer, by = "customer_id") %>% 
+  mutate(
+    age_range = 
+      epikit::age_categories(
+        age, 
+        lower = 0, 
+        # upper = round(max_age, -1) - ifelse(mod(max_age, 10) == 0, 0L, 1L), 
+        upper = floor(max_age / 10) * 10 + 10, 
+        by = 10
+      )
+  ) %>% 
   summarise(sum_amount = sum(amount), .by = c("gender_cd", "age_range")) %>% 
   # mutate(gender_cd = gender_cd %>% as.character(.) %>% lvls_revalue(c("男性", "女性", "不明")))
-  mutate(across(gender_cd, ~ as.character(.x) %>% lvls_revalue(c("男性", "女性", "不明"))))
+  mutate(across(gender_cd, ~ forcats::lvls_revalue(.x, c("男性", "女性", "不明"))))
 
-# d$gender_cd %>% as.character() %>% fct_recode(男性 = "0", 女性 = "1", 不明 = "9")
-# d$gender_cd %<>% as.character() %>% lvls_revalue(c("男性", "女性", "不明"))
+# d$gender_cd %>% forcats::fct_recode(男性 = "0", 女性 = "1", 不明 = "9")
+# d$gender_cd %<>% forcats::lvls_revalue(c("男性", "女性", "不明"))
 
 # for test
 # d %<>% filter(age_range != "20-29")
@@ -1043,6 +1082,8 @@ d.wide = d %>% pivot_wider(
     names_from = gender_cd, values_from = sum_amount, names_expand = T, values_fill = 0.0
   )
 
+d.wide
+
 # A tibble: 11 × 4
 #    age_range   男性    女性   不明
 #    <fct>      <dbl>   <dbl>  <dbl>
@@ -1073,7 +1114,7 @@ with customer_amount as (
   select
     c.customer_id, 
     c.gender_cd, 
-    ((c.age / 10) * 10) || '代' as age_range, 
+    (FLOOR(c.age / 10) * 10) || '代' as age_range, 
     r.amount
   from
     customer as c
@@ -1092,9 +1133,9 @@ sum_amount as (
 )
 select 
   age_range as '年代', 
-  COALESCE(SUM(case when gender_cd = 0 then amount end), 0) as '男性', 
-  COALESCE(SUM(case when gender_cd = 1 then amount end), 0) as '女性', 
-  COALESCE(SUM(case when gender_cd = 9 then amount end), 0) as 'その他'
+  COALESCE(SUM(case when gender_cd = '0' then amount end), 0) as '男性', 
+  COALESCE(SUM(case when gender_cd = '1' then amount end), 0) as '女性', 
+  COALESCE(SUM(case when gender_cd = '9' then amount end), 0) as 'その他'
 from
   sum_amount
 group by
@@ -1131,7 +1172,7 @@ d = d.wide %>%
   pivot_longer(
     cols = !age_range, names_to = "gender_cd", values_to = "amount"
   ) %>% 
-  mutate(across(gender_cd, ~ .x %>% lvls_revalue(c("00", "01", "99"))))
+  mutate(across(gender_cd, ~ forcats::lvls_revalue(.x, c("00", "01", "99"))))
 
 # d$gender_cd
 d
@@ -1621,22 +1662,19 @@ d = d.c %>%
 d
 # A tibble: 21,971 × 6
 #    customer_id    birth_day    age gender_age age_rng gender_cd
-#    <chr>          <chr>      <int> <fct>      <fct>       <int>
-#  1 CS001105000001 2000-01-14    19 0_10-19    10-19           0
-#  2 CS001112000009 2006-08-24    12 1_10-19    10-19           1
-#  3 CS001112000019 2001-01-31    18 1_10-19    10-19           1
-#  4 CS001112000021 2001-12-15    17 1_10-19    10-19           1
-#  5 CS001112000023 2004-01-26    15 1_10-19    10-19           1
-#  6 CS001112000024 2001-01-16    18 1_10-19    10-19           1
-#  7 CS001112000029 2005-01-24    14 1_10-19    10-19           1
-#  8 CS001112000030 2003-03-02    16 1_10-19    10-19           1
-#  9 CS001113000004 2003-02-22    16 1_10-19    10-19           1
-# 10 CS001113000010 2005-05-09    13 1_10-19    10-19           1
-# 11 CS001114000005 2004-11-22    14 1_10-19    10-19           1
-# 12 CS001115000006 2007-03-02    12 9_10-19    10-19           9
-# 13 CS001115000010 2006-05-16    12 1_10-19    10-19           1
-# 14 CS001202000023 1995-08-27    23 0_20-29    20-29           0
-# 15 CS001202000024 1994-10-17    24 0_20-29    20-29           0
+#    <chr>          <date>     <int> <chr>      <fct>   <chr>    
+#  1 CS001105000001 2000-01-14    19 0_10-19    10-19   0        
+#  2 CS001112000009 2006-08-24    12 1_10-19    10-19   1        
+#  3 CS001112000019 2001-01-31    18 1_10-19    10-19   1        
+#  4 CS001112000021 2001-12-15    17 1_10-19    10-19   1        
+#  5 CS001112000023 2004-01-26    15 1_10-19    10-19   1        
+#  6 CS001112000024 2001-01-16    18 1_10-19    10-19   1        
+#  7 CS001112000029 2005-01-24    14 1_10-19    10-19   1        
+#  8 CS001112000030 2003-03-02    16 1_10-19    10-19   1        
+#  9 CS001113000004 2003-02-22    16 1_10-19    10-19   1        
+# 10 CS001113000010 2005-05-09    13 1_10-19    10-19   1        
+# 11 CS001114000005 2004-11-22    14 1_10-19    10-19   1        
+# 12 CS001115000006 2007-03-02    12 9_10-19    10-19   9   
 # ...
 
 d$gender_age %>% levels() %>% writeLines(sep = ", ")
@@ -2490,17 +2528,17 @@ db_result %>% arrange(customer_id)
 # Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: customer_id
 #    customer_id    gender_cd gender birth_day    age
-#    <chr>              <int> <chr>  <date>     <int>
-#  1 CS001305000005         0 男性   1979-01-02    40
-#  2 CS001312000261         1 女性   1987-04-07    31
-#  3 CS001313000376         1 女性   1980-03-09    39
-#  4 CS001315000444         1 女性   1987-04-01    31
-#  5 CS001512000180         1 女性   1963-03-26    56
-#  6 CS001512000275         1 女性   1960-08-09    58
-#  7 CS001513000084         1 女性   1962-07-01    56
-#  8 CS001513000355         1 女性   1959-07-14    59
-#  9 CS001515000118         1 女性   1967-08-07    51
-# 10 CS001515000568         1 女性   1959-07-28    59
+#    <chr>          <chr>     <chr>  <date>     <int>
+#  1 CS001305000005 0         男性   1979-01-02    40
+#  2 CS001312000261 1         女性   1987-04-07    31
+#  3 CS001313000376 1         女性   1980-03-09    39
+#  4 CS001315000444 1         女性   1987-04-01    31
+#  5 CS001512000180 1         女性   1963-03-26    56
+#  6 CS001512000275 1         女性   1960-08-09    58
+#  7 CS001513000084 1         女性   1962-07-01    56
+#  8 CS001513000355 1         女性   1959-07-14    59
+#  9 CS001515000118 1         女性   1967-08-07    51
+# 10 CS001515000568 1         女性   1959-07-28    59
 
 #................................................
 
@@ -2523,17 +2561,17 @@ db_result %>% arrange(customer_id)
 # Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: customer_id
 #    customer_id    gender_cd gender birth_day    age
-#    <chr>              <int> <chr>  <date>     <int>
-#  1 CS003315000484         1 女性   1988-03-16    31
-#  2 CS003513000181         1 女性   1964-05-26    54
-#  3 CS005503000015         0 男性   1966-07-09    52
-#  4 CS015513000041         1 女性   1962-09-01    56
-#  5 CS024313000089         1 女性   1985-07-25    33
-#  6 CS027512000028         1 女性   1967-12-15    51
-#  7 CS027715000080         1 女性   1943-12-15    75
-#  8 CS031312000076         1 女性   1980-04-05    38
-#  9 CS035515000219         1 女性   1960-06-29    58
-# 10 CS051313000008         1 女性   1982-08-28    36
+#    <chr>          <chr>     <chr>  <date>     <int>
+#  1 CS003315000484 1         女性   1988-03-16    31
+#  2 CS003513000181 1         女性   1964-05-26    54
+#  3 CS005503000015 0         男性   1966-07-09    52
+#  4 CS015513000041 1         女性   1962-09-01    56
+#  5 CS024313000089 1         女性   1985-07-25    33
+#  6 CS027512000028 1         女性   1967-12-15    51
+#  7 CS027715000080 1         女性   1943-12-15    75
+#  8 CS031312000076 1         女性   1980-04-05    38
+#  9 CS035515000219 1         女性   1960-06-29    58
+# 10 CS051313000008 1         女性   1982-08-28    36
 
 db_result %>% collect()
 df_customer %>% arrange(customer_id)
@@ -2576,17 +2614,17 @@ q %>% my_select(con) %>% arrange(customer_id)
 
 # A tibble: 220 × 5
 #    customer_id    gender_cd gender birth_day    age
-#    <chr>              <int> <chr>  <date>     <int>
-#  1 CS001305000005         0 男性   1979-01-02    40
-#  2 CS001312000261         1 女性   1987-04-07    31
-#  3 CS001313000376         1 女性   1980-03-09    39
-#  4 CS001315000444         1 女性   1987-04-01    31
-#  5 CS001512000180         1 女性   1963-03-26    56
-#  6 CS001512000275         1 女性   1960-08-09    58
-#  7 CS001513000084         1 女性   1962-07-01    56
-#  8 CS001513000355         1 女性   1959-07-14    59
-#  9 CS001515000118         1 女性   1967-08-07    51
-# 10 CS001515000568         1 女性   1959-07-28    59
+#    <chr>          <chr>     <chr>  <date>     <int>
+#  1 CS001305000005 0         男性   1979-01-02    40
+#  2 CS001312000261 1         女性   1987-04-07    31
+#  3 CS001313000376 1         女性   1980-03-09    39
+#  4 CS001315000444 1         女性   1987-04-01    31
+#  5 CS001512000180 1         女性   1963-03-26    56
+#  6 CS001512000275 1         女性   1960-08-09    58
+#  7 CS001513000084 1         女性   1962-07-01    56
+#  8 CS001513000355 1         女性   1959-07-14    59
+#  9 CS001515000118 1         女性   1967-08-07    51
+# 10 CS001515000568 1         女性   1959-07-28    59
 
 #................................................
 # 以下はブログに書かない
@@ -2609,19 +2647,19 @@ WHERE prank <= 0.01
 
 q %>% my_select(con) %>% arrange(customer_id)
 
-# A tibble: 220 × 5
-#    customer_id    gender_cd gender birth_day    age
-#    <chr>              <int> <chr>  <date>     <int>
-#  1 CS001305000005         0 男性   1979-01-02    40
-#  2 CS001312000261         1 女性   1987-04-07    31
-#  3 CS001313000376         1 女性   1980-03-09    39
-#  4 CS001315000444         1 女性   1987-04-01    31
-#  5 CS001512000180         1 女性   1963-03-26    56
-#  6 CS001512000275         1 女性   1960-08-09    58
-#  7 CS001513000084         1 女性   1962-07-01    56
-#  8 CS001513000355         1 女性   1959-07-14    59
-#  9 CS001515000118         1 女性   1967-08-07    51
-# 10 CS001515000568         1 女性   1959-07-28    59
+# A tibble: 220 × 6
+#    customer_id    gender_cd gender birth_day    age      prank
+#    <chr>          <chr>     <chr>  <date>     <int>      <dbl>
+#  1 CS001305000005 0         男性   1979-01-02    40 0.0045972 
+#  2 CS001312000261 1         女性   1987-04-07    31 0.0055985 
+#  3 CS001313000376 1         女性   1980-03-09    39 0.0069640 
+#  4 CS001315000444 1         女性   1987-04-01    31 0.0085116 
+#  5 CS001512000180 1         女性   1963-03-26    56 0.0092399 
+#  6 CS001512000275 1         女性   1960-08-09    58 0.0028220 
+#  7 CS001513000084 1         女性   1962-07-01    56 0.0063268 
+#  8 CS001513000355 1         女性   1959-07-14    59 0.00086482
+#  9 CS001515000118 1         女性   1967-08-07    51 0.0018207 
+# 10 CS001515000568 1         女性   1959-07-28    59 0.0015931 
 
 #................................................
 # 以下はブログに書かない
@@ -2651,20 +2689,6 @@ LIMIT 10
 q %>% my_select(con)
 
 q %>% my_select(con) %>% arrange(customer_id)
-
-# A tibble: 10 × 5
-#    customer_id    gender_cd gender birth_day    age
-#    <chr>              <int> <chr>  <date>     <int>
-#  1 CS003315000484         1 女性   1988-03-16    31
-#  2 CS003513000181         1 女性   1964-05-26    54
-#  3 CS005503000015         0 男性   1966-07-09    52
-#  4 CS015513000041         1 女性   1962-09-01    56
-#  5 CS024313000089         1 女性   1985-07-25    33
-#  6 CS027512000028         1 女性   1967-12-15    51
-#  7 CS027715000080         1 女性   1943-12-15    75
-#  8 CS031312000076         1 女性   1980-04-05    38
-#  9 CS035515000219         1 女性   1960-06-29    58
-# 10 CS051313000008         1 女性   1982-08-28    36
 
 #-------------------------------------------------------------------------------
 # R-076 ------------
@@ -2723,17 +2747,17 @@ db_result %>% arrange(customer_id)
 # Groups:     gender_cd
 # Ordered by: customer_id
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS001211000003 池内 美帆             1 女性   1993-08-17    25 140-0015  東京都品川…
-#  2 CS001211000007 竹村 遥               1 女性   1990-03-10    29 140-0013  東京都品川…
-#  3 CS001212000098 菊地 りえ             9 不明   1995-01-19    24 210-0842  神奈川県川…
-#  4 CS001213000152 生田 陽子             1 女性   1989-10-10    29 144-0035  東京都大田…
-#  5 CS001214000052 宮脇 恵梨香           1 女性   1993-12-01    25 144-0055  東京都大田…
-#  6 CS001214000063 増田 丈雄             9 不明   1993-08-20    25 144-0055  東京都大田…
-#  7 CS001214000103 堀越 涼子             1 女性   1992-06-22    26 144-0046  東京都大田…
-#  8 CS001215000158 川瀬 美智子           1 女性   1993-02-10    26 144-0055  東京都大田…
-#  9 CS001215000173 塩田 未來             1 女性   1993-06-12    25 144-0055  東京都大田…
-# 10 CS001301000026 木内 竜次             0 男性   1983-05-23    35 212-0004  神奈川県川…
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001114000005 安 里穂       1         女性   2004-11-22    14 144-0056  東京都大田…
+#  2 CS001205000006 福士 明       0         男性   1993-06-12    25 144-0056  東京都大田…
+#  3 CS001211000018 西脇 真悠子   1         女性   1997-01-16    22 212-0058  神奈川県川…
+#  4 CS001212000045 保坂 ヒカル   1         女性   1994-10-27    24 210-0822  神奈川県川…
+#  5 CS001212000099 宇野 郁恵     1         女性   1990-03-28    29 210-0025  神奈川県川…
+#  6 CS001213000090 板倉 昌代     1         女性   1992-04-07    26 146-0095  東京都大田…
+#  7 CS001213000115 小野 貴美子   1         女性   1995-06-25    23 146-0095  東京都大田…
+#  8 CS001214000009 平尾 奈月     1         女性   1990-05-02    28 144-0056  東京都大田…
+#  9 CS001214000059 若林 奈央     1         女性   1995-08-06    23 144-0055  東京都大田…
+# 10 CS001215000061 伴 綾         1         女性   1989-03-14    30 144-0046  東京都大田…
 
 db_result %>% count(gender_cd)
 
@@ -3789,17 +3813,17 @@ q %>% my_select(con) %>% glimpse()
 
 # A tibble: 21,971 × 12
 #    integration_id customer_id  customer_name gender_cd gender birth_day    age postal_cd
-#    <chr>          <chr>        <chr>             <int> <chr>  <date>     <int> <chr>    
-#  1 CS021313000114 CS021313000… 大野 あや子           1 女性   1981-04-29    37 259-1113 
-#  2 CS037613000071 CS037613000… 六角 雅彦             9 不明   1952-04-01    66 136-0076 
-#  3 CS031415000172 CS031415000… 宇多田 貴美子         1 女性   1976-10-04    42 151-0053 
-#  4 CS028811000001 CS028811000… 堀井 かおり           1 女性   1933-03-27    86 245-0016 
-#  5 CS001215000145 CS001215000… 田崎 美紀             1 女性   1995-03-29    24 144-0055 
-#  6 CS020401000016 CS020401000… 宮下 達士             0 男性   1974-09-15    44 174-0065 
-#  7 CS015414000103 CS015414000… 奥野 陽子             1 女性   1977-08-09    41 136-0073 
-#  8 CS029403000008 CS029403000… 釈 人志               0 男性   1973-08-17    45 279-0003 
-#  9 CS015804000004 CS015804000… 松谷 米蔵             0 男性   1931-05-02    87 136-0073 
-# 10 CS033513000180 CS033513000… 安斎 遥               1 女性   1962-07-11    56 241-0823 
+#    <chr>          <chr>        <chr>         <chr>     <chr>  <date>     <int> <chr>    
+#  1 CS021313000114 CS021313000… 大野 あや子   1         女性   1981-04-29    37 259-1113 
+#  2 CS037613000071 CS037613000… 六角 雅彦     9         不明   1952-04-01    66 136-0076 
+#  3 CS031415000172 CS031415000… 宇多田 貴美子 1         女性   1976-10-04    42 151-0053 
+#  4 CS028811000001 CS028811000… 堀井 かおり   1         女性   1933-03-27    86 245-0016 
+#  5 CS001215000145 CS001215000… 田崎 美紀     1         女性   1995-03-29    24 144-0055 
+#  6 CS020401000016 CS020401000… 宮下 達士     0         男性   1974-09-15    44 174-0065 
+#  7 CS015414000103 CS015414000… 奥野 陽子     1         女性   1977-08-09    41 136-0073 
+#  8 CS029403000008 CS029403000… 釈 人志       0         男性   1973-08-17    45 279-0003 
+#  9 CS015804000004 CS015804000… 松谷 米蔵     0         男性   1931-05-02    87 136-0073 
+# 10 CS033513000180 CS033513000… 安斎 遥       1         女性   1962-07-11    56 241-0823 
 
 #-------------------------------------------------------------------------------
 # R-088 ------------
@@ -3900,28 +3924,28 @@ rsplit = df_sales_customer %>%
 
 df_train = rsplit %>% training()
 df_test = rsplit %>% testing()
+
 df_train
 # A tibble: 6,644 × 11
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS032415000205 細谷 真奈美           1 女性   1970-05-27    48 144-0056  東京都大田…
-#  2 CS032513000167 大後 たまき           1 女性   1966-07-13    52 144-0054  東京都大田…
-#  3 CS028415000226 小柳 まさみ           1 女性   1974-04-24    44 246-0021  神奈川県横…
-#  4 CS029512000122 野口 季衣             1 女性   1964-07-12    54 279-0021  千葉県浦安…
-#  5 CS010411000006 森口 めぐみ           1 女性   1973-12-26    45 223-0058  神奈川県横…
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS032415000205 細谷 真奈美   1         女性   1970-05-27    48 144-0056  東京都大田…
+#  2 CS032513000167 大後 たまき   1         女性   1966-07-13    52 144-0054  東京都大田…
+#  3 CS028415000226 小柳 まさみ   1         女性   1974-04-24    44 246-0021  神奈川県横…
+#  4 CS029512000122 野口 季衣     1         女性   1964-07-12    54 279-0021  千葉県浦安…
+#  5 CS010411000006 森口 めぐみ   1         女性   1973-12-26    45 223-0058  神奈川県横…
 #  ...
 
 df_test
-# A tibble: 1,662 × 11
+#  A tibble: 1,662 × 11
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS008415000097 中田 光               1 女性   1971-05-21    47 182-0004  東京都調布…
-#  2 CS028414000014 米倉 ヒカル           1 女性   1977-02-05    42 246-0023  神奈川県横…
-#  3 CS003515000195 梅村 真奈美           1 女性   1963-05-31    55 182-0022  東京都調布…
-#  4 CS027514000015 小宮 菜々美           1 女性   1960-08-20    58 251-0016  神奈川県藤…
-#  5 CS025415000134 小杉 優               1 女性   1977-02-03    42 242-0024  神奈川県大…
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS008415000097 中田 光       1         女性   1971-05-21    47 182-0004  東京都調布…
+#  2 CS028414000014 米倉 ヒカル   1         女性   1977-02-05    42 246-0023  神奈川県横…
+#  3 CS003515000195 梅村 真奈美   1         女性   1963-05-31    55 182-0022  東京都調布…
+#  4 CS027514000015 小宮 菜々美   1         女性   1960-08-20    58 251-0016  神奈川県藤…
+#  5 CS025415000134 小杉 優       1         女性   1977-02-03    42 242-0024  神奈川県大…
 #  ...
-
 
 #...............................................................................
 # ランダムな番号付けをする際、通常は
@@ -3962,6 +3986,11 @@ db_sales_customer %>%
 # テーブルの確認
 dbReadTable(con, "sales_customer") %>% glimpse()
 
+# Rows: 8,306
+# Columns: 2
+# $ customer_id <chr> "CS011615000069", "CS027615000105", "CS033415000085", "CS003415000…
+# $ prank       <dbl> 0.00000, 0.00012, 0.00024, 0.00036, 0.00048, 0.00060, 0.00072, 0.0…
+
 # 保存したテーブルの参照を取得
 db_sales_c = tbl(con, "sales_customer")
 
@@ -3983,6 +4012,18 @@ db_customer_train %>%
   compute(name = "customer_train", temporary = FALSE, overwrite = T)
 # テーブルの確認
 dbReadTable(con, "customer_train") %>% glimpse()
+dbReadTable(con, "customer_train") %>% as_tibble()
+
+# A tibble: 6,645 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS031415000172 宇多田 貴美子 1         女性   1976-10-04    42 151-0053  東京都渋谷…
+#  2 CS001215000145 田崎 美紀     1         女性   1995-03-29    24 144-0055  東京都大田…
+#  3 CS015414000103 奥野 陽子     1         女性   1977-08-09    41 136-0073  東京都江東…
+#  4 CS033513000180 安斎 遥       1         女性   1962-07-11    56 241-0823  神奈川県横…
+#  5 CS040412000191 川井 郁恵     1         女性   1977-01-05    42 226-0021  神奈川県横…
+#  ...
+
 # 保存したテーブルの参照を取得
 db_train = tbl(con, "customer_train")
 
@@ -4004,6 +4045,18 @@ db_customer_test %>%
   compute(name = "customer_test", temporary = FALSE, overwrite = T)
 # テーブルの確認
 dbReadTable(con, "customer_test") %>% glimpse()
+
+dbReadTable(con, "customer_test") %>% as_tibble() %>% head(10)
+
+# A tibble: 10 × 11
+#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001615000296 吉川 陽子     1         女性   1949-08-18    69 144-0045  東京都大田…
+#  2 CS039415000286 長田 麗奈     1         女性   1971-12-27    47 167-0032  東京都杉並…
+#  3 CS019412000131 福士 杏       1         女性   1971-12-24    47 174-0063  東京都板橋…
+#  4 CS032411000013 長浜 恭子     1         女性   1970-06-15    48 212-0054  神奈川県川…
+#  5 CS011511000005 石田 由樹     1         女性   1965-01-03    54 211-0002  神奈川県川…
+#  ...
 
 # データベースに保存されているテーブルのリストを確認
 con %>% dbListTables()
@@ -4248,30 +4301,30 @@ con %>% dbReadTable("customer_train") %>% as_tibble() %>% arrange(customer_id)
 
 # A tibble: 6,645 × 11
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS001113000004 葛西 莉央             1 女性   2003-02-22    16 144-0056  東京都大田…
-#  2 CS001114000005 安 里穂               1 女性   2004-11-22    14 144-0056  東京都大田…
-#  3 CS001115000010 藤沢 涼               1 女性   2006-05-16    12 144-0056  東京都大田…
-#  4 CS001205000004 奥山 秀隆             0 男性   1993-02-28    26 144-0056  東京都大田…
-#  5 CS001205000006 福士 明               0 男性   1993-06-12    25 144-0056  東京都大田…
-#  6 CS001211000025 河野 夏希             1 女性   1996-06-09    22 140-0013  東京都品川…
-#  7 CS001212000027 杉山 なぎさ           1 女性   1991-03-25    28 210-0022  神奈川県川…
-#  8 CS001212000031 平塚 恵望子           1 女性   1990-07-26    28 210-0007  神奈川県川…
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001113000004 葛西 莉央     1         女性   2003-02-22    16 144-0056  東京都大田…
+#  2 CS001114000005 安 里穂       1         女性   2004-11-22    14 144-0056  東京都大田…
+#  3 CS001115000010 藤沢 涼       1         女性   2006-05-16    12 144-0056  東京都大田…
+#  4 CS001205000004 奥山 秀隆     0         男性   1993-02-28    26 144-0056  東京都大田…
+#  5 CS001205000006 福士 明       0         男性   1993-06-12    25 144-0056  東京都大田…
+#  6 CS001211000025 河野 夏希     1         女性   1996-06-09    22 140-0013  東京都品川…
+#  7 CS001212000031 平塚 恵望子   1         女性   1990-07-26    28 210-0007  神奈川県川…
+#  8 CS001212000046 伊東 愛       1         女性   1994-09-08    24 210-0014  神奈川県川…
 #  ...
 
 con %>% dbReadTable("customer_test") %>% as_tibble() %>% arrange(customer_id)
 
 # A tibble: 1,661 × 11
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>             <int> <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS001212000046 伊東 愛               1 女性   1994-09-08    24 210-0014  神奈川県川…
-#  2 CS001214000059 若林 奈央             1 女性   1995-08-06    23 144-0055  東京都大田…
-#  3 CS001215000133 稲垣 菜々美           1 女性   1993-05-26    25 146-0095  東京都大田…
-#  4 CS001305000016 梅本 真一             0 男性   1982-02-18    37 144-0046  東京都大田…
-#  5 CS001311000033 広田 奈央             1 女性   1985-07-08    33 212-0054  神奈川県川…
-#  6 CS001314000122 藤沢 愛子             1 女性   1980-04-13    38 144-0053  東京都大田…
-#  7 CS001314000144 薬師丸 貴美子         1 女性   1980-07-03    38 144-0055  東京都大田…
-#  8 CS001315000069 木下 路子             1 女性   1984-10-25    34 144-0053  東京都大田…
+#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
+#  1 CS001205000006 福士 明       0         男性   1993-06-12    25 144-0056  東京都大田…
+#  2 CS001212000046 伊東 愛       1         女性   1994-09-08    24 210-0014  神奈川県川…
+#  3 CS001215000080 池谷 菜摘     1         女性   1994-04-28    24 144-0055  東京都大田…
+#  4 CS001305000016 梅本 真一     0         男性   1982-02-18    37 144-0046  東京都大田…
+#  5 CS001311000059 浜口 菜々美   1         女性   1985-04-22    33 212-0004  神奈川県川…
+#  6 CS001314000051 生瀬 杏       1         女性   1978-12-23    40 144-0055  東京都大田…
+#  7 CS001411000054 筒井 花       1         女性   1973-06-19    45 210-0007  神奈川県川…
+#  8 CS001412000026 美木 彩華     1         女性   1973-01-04    46 212-0058  神奈川県川…
 #  ...
 
 #-------------------------------------------------------------------------------
