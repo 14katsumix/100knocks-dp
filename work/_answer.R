@@ -71,10 +71,9 @@ df_receipt %>%
 
 #...............................................................................
 # [R] データベース・バックエンドでの処理
-db_receipt %>% 
+db_result = db_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
-  head(10) -> 
-  db_result
+  head(10)
 
 db_result
 # Source:   SQL [10 x 4]
@@ -445,7 +444,7 @@ df_customer %>%
 
 db_customer %>% 
   left_join(db_receipt, by = "customer_id") %>% 
-  # filter(gender_cd == 1L, not(customer_id %LIKE% "^Z")) %>% 
+  # filter(gender_cd == 1L, not(customer_id %LIKE% "%Z")) %>% 
   filter(gender_cd == 1, !str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
   replace_na(list(sum_amount = 0.0)) %>% 
@@ -2485,9 +2484,10 @@ db_result = db_customer %>%
   filter(prank <= 0.01) %>% 
   select(customer_id, gender_cd, gender, birth_day, age)
 
-db_result %>% collect() %>%  arrange(customer_id)
+db_result %>% arrange(customer_id)
+
 # Source:     SQL [?? x 5]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: customer_id
 #    customer_id    gender_cd gender birth_day    age
 #    <chr>              <int> <chr>  <date>     <int>
@@ -2518,8 +2518,9 @@ db_result = db_customer %>%
   head(10)
 
 db_result %>% arrange(customer_id)
+
 # Source:     SQL [10 x 5]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: customer_id
 #    customer_id    gender_cd gender birth_day    age
 #    <chr>              <int> <chr>  <date>     <int>
@@ -2529,7 +2530,10 @@ db_result %>% arrange(customer_id)
 #  4 CS015513000041         1 女性   1962-09-01    56
 #  5 CS024313000089         1 女性   1985-07-25    33
 #  6 CS027512000028         1 女性   1967-12-15    51
-#  ...
+#  7 CS027715000080         1 女性   1943-12-15    75
+#  8 CS031312000076         1 女性   1980-04-05    38
+#  9 CS035515000219         1 女性   1960-06-29    58
+# 10 CS051313000008         1 女性   1982-08-28    36
 
 db_result %>% collect()
 df_customer %>% arrange(customer_id)
@@ -2707,16 +2711,15 @@ con %>% dbExecute("SELECT SETSEED(0.5);")
 db_result = db_customer %>%
   mutate(rand = runif(n = n())) %>% 
   group_by(gender_cd) %>%
-  mutate(
-    prank = percent_rank(rand)
-  ) %>%
+  mutate(prank = percent_rank(rand)) %>%
   filter(prank <= 0.1) # 上位10%を選択
 
 db_result %>% select(customer_id, rand, prank) %>% arrange(rand)
 
 db_result %>% arrange(customer_id)
+
 # Source:     SQL [?? x 13]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2//Users/kk/Home/_work/Analysis/100knocks-dp-dev/work/DB/100knocks.duckdb]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Groups:     gender_cd
 # Ordered by: customer_id
 #    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    

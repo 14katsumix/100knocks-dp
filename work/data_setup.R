@@ -39,14 +39,13 @@ my_vroom = function(fname, col_types, .subdir = "data") {
   tictoc::tic(fname)
   on.exit(tictoc::toc())
   on.exit(cat("\n"), add = TRUE)
-  fname %>% 
+  d = fname %>% 
     my_path_join(.subdir = .subdir) %>% 
     { print(.); flush.console(); . } %>% 
     vroom::vroom(col_types = col_types) %>% 
     janitor::clean_names() %>% 
     dplyr::glimpse() %T>% 
-    { cat("\n") } ->
-    d
+    { cat("\n") }
   d
 }
 
