@@ -398,7 +398,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -503,7 +503,7 @@ db_result = db_customer %>%
 db_result %>% collect()
 
 #...............................................................................
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # NOT(REGEXP_MATCHES(customer_id, '^Z'))
 # customer_id NOT LIKE 'Z%'
@@ -735,7 +735,7 @@ db_result %>% collect()
 
 # arrange() + head() の方が slice_max() を使うよりシンプルで速い
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # WITH q01 AS (
 #   SELECT customer_id, sales_ymd, amount
@@ -920,6 +920,7 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上金額（amount）を日付（sales_ymd）ごとに集計し、
 # 前回売上があった日からの売上金額増減を計算せよ。そして結果を10件表示せよ。
 
+# 参考
 df_receipt %>% 
   summarise(amount = sum(amount), .by = sales_ymd) %>% 
   mutate(
@@ -930,6 +931,7 @@ df_receipt %>%
   arrange(sales_ymd) %>% 
   head(10)
 
+# ブログでは以下を採用
 df_receipt %>% 
   summarise(amount = sum(amount), .by = sales_ymd) %>% 
   arrange(sales_ymd) %>% 
@@ -938,7 +940,6 @@ df_receipt %>%
     pre_amount = lag(amount, default = NA)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
-  arrange(sales_ymd) %>% 
   head(10)
 
 # A tibble: 1,034 × 5
@@ -955,14 +956,14 @@ df_receipt %>%
 #...............................................................................
 # dbplyr
 # arrange(sales_ymd) を window_order(sales_ymd) に変更する
+# 最後に arrange(sales_ymd) 
 
 db_result = db_receipt %>% 
-  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
-  # arrange(sales_ymd) %>% 
+  summarise(amount = sum(amount), .by = sales_ymd) %>% 
   window_order(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
-    pre_amount = lag(amount, default = NA), 
+    pre_amount = lag(amount, default = NA)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
@@ -972,38 +973,56 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
+
+# WITH q01 AS (
+#   SELECT sales_ymd, SUM(amount) AS amount
+#   FROM receipt
+#   GROUP BY sales_ymd
+# ),
+# q02 AS (
+#   SELECT
+#     q01.*,
+#     LAG(sales_ymd, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_sales_ymd,
+#     LAG(amount, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_amount
+#   FROM q01
+# )
+# SELECT q01.*, amount - pre_amount AS diff_amount
+# FROM q02 q01
+# ORDER BY sales_ymd
+# LIMIT 10
 
 q = sql("
-with ymd_amount as (
-select 
-  sales_ymd, 
-  sum(amount) as sum_amount
-from
-  receipt
-group by
-  sales_ymd
--- order by
---   sales_ymd
-), 
-tmp as (
-  select
+WITH sales_by_date AS (
+  SELECT 
     sales_ymd, 
-    sum_amount, 
-    LAG(sales_ymd, 1) OVER (order by sales_ymd) as pre_ymd, 
-    LAG(sum_amount, 1) OVER (order by sales_ymd) as pre_amount
-  from
-    ymd_amount
---   order by
---     sales_ymd
+    SUM(amount) AS amount
+  FROM 
+    receipt
+  GROUP BY 
+    sales_ymd
+),
+sales_by_date_with_lag AS (
+  SELECT 
+    sales_ymd, 
+    amount, 
+    LAG(sales_ymd) OVER win AS pre_sales_ymd,
+    LAG(amount) OVER win AS pre_amount
+  FROM 
+    sales_by_date
+  WINDOW win AS (ORDER BY sales_ymd)
 )
-select 
-  *, 
-  sum_amount - pre_amount as diff_amount
-from 
-  tmp
-order by
+SELECT 
+  sales_ymd, 
+  amount, 
+  pre_sales_ymd, 
+  pre_amount, 
+  amount - pre_amount AS diff_amount
+FROM 
+  sales_by_date_with_lag
+ORDER BY 
   sales_ymd
+LIMIT 10;
 "
 )
 q %>% my_select(con)
@@ -1026,19 +1045,31 @@ q %>% my_select(con)
 
 # 
 n_lag = 3L
-d = df_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+# df_sales_by_date_with_lag = df_receipt %>% 
+#   summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+#   mutate(
+#     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd), 
+#     pre_amount = lag(amount, n = n_lag, default = NA, order_by = sales_ymd)
+#   ) %>% 
+#   arrange(sales_ymd)
+
+df_sales_by_date_with_lag = df_receipt %>% 
+  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  arrange(sales_ymd) %>% 
   mutate(
-    lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd), 
-    pre_amount = lag(amount, n = n_lag, default = NA, order_by = sales_ymd)
-  ) %>% 
-  arrange(sales_ymd)
+    lag_ymd = lag(sales_ymd, n = n_lag)
+    # pre_amount = lag(amount, n = n_lag, default = NA)
+  )
 
-d; d %>% tail(6)
+df_sales_by_date_with_lag; df_sales_by_date_with_lag %>% tail(6)
 
-dx = d %>% select(sales_ymd, lag_ymd_x = lag_ymd, amount) %>% 
-  mutate(lag_ymd_x = replace_na(lag_ymd_x, 0))
+dx = df_sales_by_date_with_lag %>% 
+  select(sales_ymd, lag_ymd_x = lag_ymd, amount) %>% 
+  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0L))
+  # replace_na(list(lag_ymd_x = 0L))
 
-dy = d %>% select(lag_ymd = sales_ymd, lag_amount = amount)
+dy = df_sales_by_date_with_lag %>% 
+  select(lag_ymd = sales_ymd, lag_amount = amount)
 
 dx; dx %>% tail(6)
 dy; dy %>% tail(6)
@@ -1053,28 +1084,45 @@ df_result = dx %>%
 
 df_result; df_result %>% tail(7)
 
+# A tibble: 3,096 × 4
+#    sales_ymd amount  lag_ymd lag_amount
+#        <int>  <dbl>    <int>      <dbl>
+#  1  20170102  24165 20170101      33723
+#  2  20170103  27503 20170101      33723
+#  3  20170103  27503 20170102      24165
+#  4  20170104  36165 20170101      33723
+#  5  20170104  36165 20170102      24165
+#  6  20170104  36165 20170103      27503
+#  7  20170105  37830 20170102      24165
+#  8  20170105  37830 20170103      27503
+#  9  20170105  37830 20170104      36165
+# ...
+# 1  20191029  36091 20191028      40161
+# 2  20191030  26602 20191027      37484
+# 3  20191030  26602 20191028      40161
+# 4  20191030  26602 20191029      36091
+# 5  20191031  25216 20191028      40161
+# 6  20191031  25216 20191029      36091
+# 7  20191031  25216 20191030      26602
+
 #...............................................................................
 # dbplyr
 
-# tbl_lazyにおけるlag関数の使用: 
-# order_by オプションがデータベースバックエンドによって正しくサポートされていない場合があります。
-# 特に、このコードはRDBMSでエラーになる可能性があります。
-# 解決策: arrange(sales_ymd) を事前に適用してからlagを使うことで、安全性を高められます。
 
-n_lag = 3L
-d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
-  mutate(
-    lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd)
-  )
-
-d %>% my_show_query()
-d
+#................................................
+# n_lag = 3L
+# d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+#   mutate(
+#     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd)
+#   )
+# d %>% my_show_query()
 
 # 別の記述
+n_lag = 3L
+
 d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   window_order(sales_ymd) %>% 
   mutate(
-    # 共に 'order_by = sales_ymd' 無しでOK!
     lag_ymd = lag(sales_ymd, n = n_lag), 
     lag_amount = lag(amount, n = n_lag)
   )
@@ -1098,7 +1146,7 @@ d %>% my_collect(T)
 
 dx = d %>% 
   select(sales_ymd_x = sales_ymd, lag_ymd_x = lag_ymd, amount_x = amount) %>% 
-  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0))
+  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0L))
   # arrange(sales_ymd) # arrange は最後に記述 (subquery内では書かない)
 
 dx %>% my_show_query()
@@ -1125,14 +1173,49 @@ dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x)
 dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>% show_query()
 
 d.res = dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>% 
-  rename(sales_ymd = sales_ymd_x, amount = amount_x, lag_ymd = sales_ymd, lag_amount = amount)
+  rename(sales_ymd = sales_ymd_x, amount = amount_x, lag_ymd = sales_ymd, lag_amount = amount) %>% 
+  arrange(sales_ymd, lag_ymd)
 
 d.res
 d.res %>% my_show_query()
-d.res %>% my_sql_render(con)
 
 df_result = d.res %>% my_collect()
 df_result; df_result %>% tail(7)
+
+#...............................................................................
+
+q = sql("
+WITH q01 AS (
+  SELECT sales_ymd, SUM(amount) AS amount
+  FROM receipt
+  GROUP BY sales_ymd
+  -- ORDER BY sales_ymd
+),
+q02 AS (
+  SELECT
+    sales_ymd,
+    LAG(sales_ymd, 3, NULL) OVER (ORDER BY sales_ymd) AS lag_ymd_x,
+    amount
+  FROM q01
+),
+q03 AS (
+  SELECT sales_ymd, COALESCE(lag_ymd_x, 0) AS lag_ymd_x, amount
+  FROM q02 q01
+)
+SELECT
+  LHS.sales_ymd AS sales_ymd,
+  LHS.amount AS amount,
+  RHS.sales_ymd AS lag_ymd,
+  RHS.amount AS lag_amount
+FROM q03 LHS
+INNER JOIN q01 RHS
+  ON (LHS.lag_ymd_x <= RHS.sales_ymd AND LHS.sales_ymd > RHS.sales_ymd)
+ORDER BY sales_ymd, lag_ymd
+"
+)
+q %>% my_select(con)
+
+q %>% my_select(con) %>% tail(7)
 
 #...............................................................................
 q = sql("
@@ -1770,7 +1853,7 @@ db_sales_amount %>%
 
 #...............................................................................
 # SQLクエリ
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -2160,7 +2243,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # db_receipt %>% 
 #   mutate(x = amount %>% round(2L), .keep = "used") %>% my_show_query()
@@ -2365,7 +2448,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -2549,7 +2632,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -2665,7 +2748,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -2838,7 +2921,7 @@ db_result = db_customer %>%
   filter(prank <= 0.01) %>% 
   select(customer_id, gender_cd, gender, birth_day, age)
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # set seed すること!!!
 q = sql("
@@ -3030,7 +3113,7 @@ db_result %>% count(gender_cd) %>% collect()
 2 1          1791
 3 9           107
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 #................................................
 
@@ -3054,7 +3137,7 @@ db_result = db_customer %>%
   ) %>%
   filter(prank <= 0.1) # 上位10%を選択
 
-db_result %>% count(gender_cd) %>% show_query(cte = T)
+db_result %>% count(gender_cd) %>% show_query(cte = TRUE)
 
 # 以下、前者の方が再現性が高く、パフォーマンス的にも安定する可能性がある
 
@@ -3256,7 +3339,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # <SQL>
 # WITH q01 AS (
@@ -3561,7 +3644,7 @@ db_result %>% skimr::skim()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -3676,7 +3759,7 @@ db_result %>% filter(is.na(sales_rate))
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
@@ -3996,7 +4079,7 @@ db_customer_n %>%
 
 #...............................................................................
 
-db_customer_n %>% show_query(cte = T)
+db_customer_n %>% show_query(cte = TRUE)
 
 q = sql("
 WITH sales_amount AS (
@@ -4212,7 +4295,7 @@ db_sales_customer %>% collect() %>% arrange(customer_id)
 # db_sales_customer %>% pull(prank) %>% sort() %>% diff()
 # db_sales_customer %>% glimpse()
 # db_sales_customer %>% collect()
-# db_sales_customer %>% show_query(cte = T)
+# db_sales_customer %>% show_query(cte = TRUE)
 
 # データベースに一時テーブルとして保存
 db_sales_customer %>% 
@@ -4239,7 +4322,7 @@ db_customer_train = db_sales_c %>%
 # db_customer_train
 # db_customer_train %>% collect()
 # db_customer_train %>% glimpse()
-# db_customer_train %>% show_query(cte = T)
+# db_customer_train %>% show_query(cte = TRUE)
 
 # データベースに保存
 db_customer_train %>% 
@@ -4272,7 +4355,7 @@ db_customer_test = db_sales_c %>%
 # db_customer_test
 # db_customer_test %>% collect()
 # db_customer_test %>% glimpse()
-# db_customer_test %>% show_query(cte = T)
+# db_customer_test %>% show_query(cte = TRUE)
 
 # データベースに保存
 db_customer_test %>% 
@@ -4325,7 +4408,7 @@ q %>% my_select(con) %>% glimpse()
 
 #................................................
 
-db_sales_customer %>% show_query(cte = T)
+db_sales_customer %>% show_query(cte = TRUE)
 
 q = sql("
 SELECT SETSEED(0.5);
