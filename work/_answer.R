@@ -75,6 +75,8 @@ db_result = db_receipt %>%
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
   head(10)
 
+db_result %>% collect()
+
 db_result
 # Source:   SQL [10 x 4]
 # Database: DuckDB v1.1.3-dev165 [root@Darwin 24.1.0:R 4.4.2/.../DB/100knocks.duckdb]
@@ -156,8 +158,9 @@ db_result = db_receipt %>%
   arrange(desc(n)) %>% 
   head(10)
 
-db_result
+db_result %>% collect()
 
+db_result
 # Source:     SQL [10 x 3]
 # Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: desc(n)
@@ -262,8 +265,23 @@ db_result = db_receipt %>%
   arrange(desc(n)) %>% 
   head(10)
 
-db_result
+db_result %>% collect()
 
+# A tibble: 10 × 3
+#    store_cd product_cd     n
+#    <chr>    <chr>      <dbl>
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S13044   P060303001    96
+#  8 S14024   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13004   P060303001    88
+
+db_result
 #  Source:     SQL [10 x 3]
 # Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
 # Ordered by: desc(n)
@@ -376,9 +394,11 @@ db_result = db_receipt %>%
   filter(sum_amount >= mean(sum_amount)) %>% 
   arrange(desc(sum_amount))
 
-db_result %>% show_query(cte = T)
+db_result %>% collect()
 
 #...............................................................................
+
+db_result %>% show_query(cte = T)
 
 q = sql("
 WITH q01 AS (
@@ -480,23 +500,83 @@ db_result = db_customer %>%
   arrange(customer_id) %>% 
   head(10)
 
-db_result %>% show_query(cte = T)
-db_result
+db_result %>% collect()
 
 #...............................................................................
 db_result %>% show_query(cte = T)
 
-
 # NOT(REGEXP_MATCHES(customer_id, '^Z'))
 # customer_id NOT LIKE 'Z%'
 
-q = sql("
+# WITH q01 AS (
+#   SELECT customer.*
+#   FROM customer
+#   WHERE (gender_cd = '1') AND (NOT(REGEXP_MATCHES(customer_id, '^Z')))
+# ),
+# q02 AS (
+#   SELECT LHS.*, amount
+#   FROM q01 LHS
+#   LEFT JOIN receipt
+#     ON (LHS.customer_id = receipt.customer_id)
+# ),
+# q03 AS (
+#   SELECT customer_id, SUM(amount) AS sum_amount
+#   FROM q02 q01
+#   GROUP BY customer_id
+# )
+# SELECT customer_id, COALESCE(sum_amount, 0.0) AS sum_amount
+# FROM q03 q01
+# ORDER BY customer_id
+# LIMIT 10
 
+q = sql("
+WITH q01 AS (
+  SELECT customer.*
+  FROM customer
+  WHERE (gender_cd = '1') AND (customer_id NOT LIKE 'Z%')
+),
+q02 AS (
+  SELECT LHS.*, amount
+  FROM q01 LHS
+  LEFT JOIN receipt
+    ON (LHS.customer_id = receipt.customer_id)
+),
+q03 AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM q02 q01
+  GROUP BY customer_id
+)
+SELECT customer_id, COALESCE(sum_amount, 0.0) AS sum_amount
+FROM q03 q01
+ORDER BY customer_id
+-- LIMIT 10
 "
 )
 q %>% my_select(con)
+d1 = q %>% my_select(con)
 
-# A tibble: 17,918 × 2
+# WITH 句を削除して1つのクエリに統合
+# customer.* の使用を避け、必要な列 (customer_id) のみを選択
+# LEFT JOIN を直接 customer テーブルに適用
+# SUM(amount) の集計を GROUP BY 句内で直接実施
+# COALESCE を最終的な SUM(amount) に適用
+
+q = sql("
+SELECT c.customer_id, COALESCE(SUM(r.amount), 0.0) AS sum_amount
+FROM customer c
+LEFT JOIN receipt r USING (customer_id)
+WHERE c.gender_cd = '1' AND customer_id NOT LIKE 'Z%'
+GROUP BY c.customer_id
+ORDER BY c.customer_id
+-- LIMIT 10;
+"
+)
+q %>% my_select(con)
+d2 = q %>% my_select(con)
+
+identical(d1, d2)
+
+# A tibble: 10 × 2
 #    customer_id    sum_amount
 #    <chr>               <dbl>
 #  1 CS001112000009          0
@@ -508,7 +588,7 @@ q %>% my_select(con)
 #  7 CS001112000030          0
 #  8 CS001113000004       1298
 #  9 CS001113000010          0
-# ...
+# 10 CS001114000005        626
 
 #-------------------------------------------------------------------------------
 # R-039 ------------
@@ -516,142 +596,222 @@ q %>% my_select(con)
 # 売上金額合計の多い顧客の上位20件を抽出したデータをそれぞれ作成し、さらにその2つを完全外部結合せよ。
 # ただし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
 
-d.rec = df_receipt %>% 
+# sample.1
+
+df_rec = df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   select(customer_id, sales_ymd, amount) %>% 
   group_by(customer_id)
 
-d.date = d.rec %>% 
+df_date = df_rec %>% 
   summarise(n_date = n_distinct(sales_ymd)) %>% 
   slice_max(n_date, n = 20, with_ties = F)
 
-d.amount = d.rec %>% 
+df_amount = df_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
   slice_max(sum_amount, n = 20, with_ties = F)
 
-d.date %>% 
-  full_join(d.amount, by = "customer_id") %>% 
-  arrange(desc(n_date), desc(sum_amount))
+df_result = df_date %>% 
+  full_join(df_amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount), customer_id)
 
-#............................
-d.rec = df_receipt %>% 
-  filter(!str_detect(customer_id, "^Z")) %>% 
-  select(customer_id, sales_ymd, amount)
-
-# sample.1
-d.date = d.rec %>% 
-  summarise(n_date = n_distinct(sales_ymd), .by = customer_id) %>% 
-  slice_max(n_date, n = 20, with_ties = F)
-
-d.amount = d.rec %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
-  slice_max(sum_amount, n = 20, with_ties = F)
-
-d.date %>% 
-  full_join(d.amount, by = "customer_id") %>% 
-  arrange(desc(n_date), desc(sum_amount))
+df_result
+# A tibble: 34 × 3
+#    customer_id    n_date sum_amount
+#    <chr>           <int>      <dbl>
+#  1 CS040214000008     23         NA
+#  2 CS015415000185     22      20153
+#  3 CS010214000010     22      18585
+#  4 CS028415000007     21      19127
+#  5 CS010214000002     21         NA
+#  6 CS017415000097     20      23086
+#  7 CS016415000141     20      18372
+#  8 CS031414000051     19      19202
+#  9 CS014214000023     19         NA
+#  ...
 
 # sample.2
-d.date = d.rec %>% 
-  summarise(n_date = n_distinct(sales_ymd), .by = customer_id) %>% 
-  arrange(desc(n_date), customer_id) %>% head(n = 20)
 
-d.amount = d.rec %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
-  arrange(desc(sum_amount), customer_id) %>% head(n = 20)
+df_rec = df_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  group_by(customer_id)
 
-d.date %>% 
-  full_join(d.amount, by = "customer_id") %>% 
-  arrange(desc(n_date), desc(sum_amount))
+df_date = df_rec %>% 
+  summarise(n_date = n_distinct(sales_ymd)) %>% 
+  arrange(desc(n_date), customer_id) %>% 
+  head(20)
+
+df_amount = df_rec %>% 
+  summarise(sum_amount = sum(amount)) %>% 
+  arrange(desc(sum_amount), customer_id) %>% 
+  head(20)
+
+df_result = df_date %>% 
+  full_join(df_amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount), customer_id)
+
+df_result
 
 #...............................................................................
 # dbplyr
 
-db.rec = db_receipt %>% 
+# sample.1
+
+db_rec = db_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   select(customer_id, sales_ymd, amount) %>% 
   group_by(customer_id)
 
-db.date = db.rec %>% 
-  summarise(n_date = n_distinct(sales_ymd)) %>% 
+db_date = db_rec %>% 
+  summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
   slice_max(n_date, n = 20, with_ties = F)
 
-db.amount = db.rec %>% 
+db_amount = db_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
   slice_max(sum_amount, n = 20, with_ties = F)
 
-db.date %>% 
-  full_join(db.amount, by = "customer_id") %>% 
-  arrange(desc(n_date), desc(sum_amount)) %>% 
-  # my_collect() %>% 
-  my_show_query()
+db_result = db_date %>% 
+  full_join(db_amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount), customer_id)
 
-#......................
+# データフレーム操作の結果と比較
+janitor::compare_df_cols(df_result, db_result %>% collect())
+identical(df_result, db_result %>% collect())
+all.equal(df_result, db_result %>% collect())
+anti_join(df_result, db_result %>% collect())
 
-d.rec = tbl_receipt %>% filter(!str_detect(customer_id, "^Z")) %>% 
-  select(customer_id, sales_ymd, amount)
+pacman::p_load(arsenal)
+d = db_result %>% collect()
+arsenal::comparedf(df_result, d) %>% summary()
+df_result; d
 
-d.rec = tbl_receipt %>% filter(not(customer_id %like% 'Z%')) %>% 
-  select(customer_id, sales_ymd, amount)
+db_result %>% collect()
+# A tibble: 34 × 3
+#    customer_id    n_date sum_amount
+#    <chr>           <int>      <dbl>
+#  1 CS040214000008     23         NA
+#  2 CS015415000185     22      20153
+#  3 CS010214000010     22      18585
+#  4 CS028415000007     21      19127
+#  5 CS010214000002     21         NA
+#  6 CS017415000097     20      23086
+#  7 CS016415000141     20      18372
+#  8 CS031414000051     19      19202
+#  9 CS014214000023     19         NA
+#  ...
 
-# sample.1
-d.date = d.rec %>% 
-  summarise(n_date = n_distinct(sales_ymd), .by = customer_id) %>% 
-  slice_max(n_date, n = 20, with_ties = F)
+#................................................
+# sample.2
 
-d.amount = d.rec %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
-  slice_max(sum_amount, n = 20, with_ties = F)
+db_rec = db_receipt %>% 
+  filter(!str_detect(customer_id, "^Z")) %>% 
+  select(customer_id, sales_ymd, amount) %>% 
+  group_by(customer_id)
 
-d.date %>% full_join(d.amount, by = "customer_id") %>% 
-  arrange(desc(n_date), desc(sum_amount)) %>% 
-  my_collect()
+db_date = db_rec %>% 
+  summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
+  arrange(desc(n_date), customer_id) %>% 
+  head(20)
+
+db_amount = db_rec %>% 
+  summarise(sum_amount = sum(amount)) %>% 
+  arrange(desc(sum_amount), customer_id) %>% 
+  head(20)
+
+db_result = db_date %>% 
+  full_join(db_amount, by = "customer_id") %>% 
+  arrange(desc(n_date), desc(sum_amount), customer_id)
+
+db_result %>% collect()
 
 #...............................................................................
+
+# LIMIT を使うべきケース
+# 最もシンプルで高速な実装が欲しい場合
+# → ORDER BY ... LIMIT 20 のほうが ROW_NUMBER() を使うよりシンプルで速い。
+# TIE (同値の扱い) を考慮しなくてよい場合
+# → n_date が同じ 20 人が選ばれたとき、同順位の他の人が除外されても問題ないなら LIMIT のほうが効率的。
+
+# arrange() + head() の方が slice_max() を使うよりシンプルで速い
+
+db_result %>% show_query(cte = T)
+
+# WITH q01 AS (
+#   SELECT customer_id, sales_ymd, amount
+#   FROM receipt
+#   WHERE (NOT(REGEXP_MATCHES(customer_id, '^Z')))
+# ),
+# q02 AS (
+#   SELECT customer_id, CAST(COUNT(DISTINCT row(sales_ymd)) AS INTEGER) AS n_date
+#   FROM q01
+#   GROUP BY customer_id
+#   ORDER BY n_date DESC, customer_id
+#   LIMIT 20
+# ),
+# q03 AS (
+#   SELECT customer_id, SUM(amount) AS sum_amount
+#   FROM q01
+#   GROUP BY customer_id
+#   ORDER BY sum_amount DESC, customer_id
+#   LIMIT 20
+# ),
+# q04 AS (
+#   SELECT
+#     COALESCE(LHS.customer_id, RHS.customer_id) AS customer_id,
+#     n_date,
+#     sum_amount
+#   FROM q02 LHS
+#   FULL JOIN q03 RHS
+#     ON (LHS.customer_id = RHS.customer_id)
+# )
+# SELECT q01.*
+# FROM q04 q01
+# ORDER BY n_date DESC, sum_amount DESC, customer_id
+
 q = sql("
-with customer_data as (
-  select
-    customer_id, 
-    sales_ymd, 
-    amount
-  from
-    receipt
-  where
+WITH filtered_receipt AS (
+  SELECT 
+    customer_id, sales_ymd, amount 
+  FROM 
+    receipt 
+  WHERE 
     customer_id NOT LIKE 'Z%'
 ), 
-customer_date_n as (
-  select
+top_customers_by_days AS (
+  SELECT 
     customer_id, 
-    count(distinct sales_ymd) as n_date
-  from
-    customer_data
-  group by 
-    customer_id
-  order by 
-    n_date DESC
+    CAST(COUNT(DISTINCT sales_ymd) AS INTEGER) AS n_date 
+  FROM 
+    filtered_receipt 
+  GROUP BY 
+    customer_id 
+  ORDER BY 
+    n_date DESC, customer_id 
   LIMIT 20
 ), 
-customer_amount as (
-  select
+top_customers_by_sales AS (
+  SELECT 
     customer_id, 
-    sum(amount) as sum_amount
-  from
-    customer_data
-  group by 
-    customer_id
-  order by 
-    sum_amount DESC
+    SUM(amount) AS sum_amount 
+  FROM 
+    filtered_receipt 
+  GROUP BY 
+    customer_id 
+  ORDER BY 
+    sum_amount DESC, customer_id 
   LIMIT 20
-)
-select 
-  COALESCE(d.customer_id, a.customer_id) as customer_id, 
+) 
+SELECT 
+  COALESCE(d.customer_id, s.customer_id) AS customer_id, 
   d.n_date, 
-  a.sum_amount
-from
-  customer_date_n as d
-FULL JOIN customer_amount as a
-  ON d.customer_id = a.customer_id
--- order by customer_id
+  s.sum_amount 
+FROM 
+  top_customers_by_days d
+FULL JOIN top_customers_by_sales s 
+USING (customer_id) 
+ORDER BY 
+  n_date DESC, sum_amount DESC, customer_id;
 "
 )
 q %>% my_select(con)
@@ -674,36 +834,86 @@ q %>% my_select(con)
 # R-040 ------------
 # 全ての店舗と全ての商品を組み合わせたデータを作成したい。店舗データ（store）と商品データ（product）を直積し、件数を計算せよ。
 
-store$store_cd %>% crossing(product$product_cd) %>% nrow()
+df_store$store_cd %>% tidyr::crossing(df_product$product_cd) %>% nrow()
+
+df_result = df_store %>% 
+  cross_join(df_product) %>% 
+  select(store_cd, product_cd)
+
+df_result
+
+# A tibble: 531,590 × 2
+#    store_cd product_cd
+#    <chr>    <chr>     
+#  1 S12014   P040101001
+#  2 S12014   P040101002
+#  3 S12014   P040101003
+#  4 S12014   P040101004
+#  5 S12014   P040101005
+#  6 S12014   P040101006
+#  7 S12014   P040101007
+#  8 S12014   P040101008
+#  9 S12014   P040101009
+# 10 S12014   P040101010
+# 11 S12014   P040102001
+# 12 S12014   P040102002
+# 13 S12014   P040102003
+# ...
 
 #...............................................................................
 # dbplyr
 
-tbl_store %>% cross_join(tbl_product) %>% select(store_cd, product_cd) %>% count()
-tbl_store %>% cross_join(tbl_product) %>% select(store_cd, product_cd) %>% count() %>% 
-  my_collect()
+db_result = db_store %>% 
+  cross_join(db_product) %>% 
+  select(store_cd, product_cd)
+
+db_result %>% collect()
+
+db_result %>% count() %>% collect()
 
 #...............................................................................
-q = sql("
-select 
-  s.store_cd, p.product_cd
-from store as s
-CROSS JOIN product as p
-"
-)
-q %>% my_select(con)
+
+db_result %>% show_query()
 
 q = sql("
-select 
-  count(*)
-from store
+SELECT store_cd, product_cd
+FROM store
 CROSS JOIN product
 "
 )
 q %>% my_select(con)
-#   `count(*)`
-#        <int>
-# 1     531590
+
+# A tibble: 531,590 × 2
+#    store_cd product_cd
+#    <chr>    <chr>     
+#  1 S12014   P040101001
+#  2 S12014   P040101002
+#  3 S12014   P040101003
+#  4 S12014   P040101004
+#  5 S12014   P040101005
+#  6 S12014   P040101006
+#  7 S12014   P040101007
+#  8 S12014   P040101008
+#  9 S12014   P040101009
+# 10 S12014   P040101010
+# 11 S12014   P040102001
+# 12 S12014   P040102002
+# 13 S12014   P040102003
+# ...
+
+db_result %>% count() %>% show_query()
+
+q = sql("
+SELECT COUNT(*) AS total_count
+FROM store
+CROSS JOIN product
+"
+)
+q %>% my_select(con)
+
+#   total_count
+#         <dbl>
+# 1      531590
 
 #-------------------------------------------------------------------------------
 # R-041 ------------
@@ -711,13 +921,25 @@ q %>% my_select(con)
 # 前回売上があった日からの売上金額増減を計算せよ。そして結果を10件表示せよ。
 
 df_receipt %>% 
-  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  summarise(amount = sum(amount), .by = sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd, order_by = sales_ymd), 
     pre_amount = lag(amount, default = NA, order_by = sales_ymd)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
-  arrange(sales_ymd)
+  arrange(sales_ymd) %>% 
+  head(10)
+
+df_receipt %>% 
+  summarise(amount = sum(amount), .by = sales_ymd) %>% 
+  arrange(sales_ymd) %>% 
+  mutate(
+    pre_sales_ymd = lag(sales_ymd), 
+    pre_amount = lag(amount, default = NA)
+  ) %>% 
+  mutate(diff_amount = amount - pre_amount) %>% 
+  arrange(sales_ymd) %>% 
+  head(10)
 
 # A tibble: 1,034 × 5
 #    sales_ymd amount pre_sales_ymd pre_amount diff_amount
@@ -732,8 +954,11 @@ df_receipt %>%
 
 #...............................................................................
 # dbplyr
-db_receipt %>% 
+# arrange(sales_ymd) を window_order(sales_ymd) に変更する
+
+db_result = db_receipt %>% 
   summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  # arrange(sales_ymd) %>% 
   window_order(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
@@ -741,9 +966,14 @@ db_receipt %>%
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
-  my_collect()
+  head(10)
+
+db_result %>% collect()
 
 #...............................................................................
+
+db_result %>% show_query(cte = T)
+
 q = sql("
 with ymd_amount as (
 select 
@@ -796,28 +1026,32 @@ q %>% my_select(con)
 
 # 
 n_lag = 3L
-d = receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+d = df_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   mutate(
     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd), 
     pre_amount = lag(amount, n = n_lag, default = NA, order_by = sales_ymd)
   ) %>% 
   arrange(sales_ymd)
 
-d %>% tbl_print(n = 12, n.tail = 5)
+d; d %>% tail(6)
 
 dx = d %>% select(sales_ymd, lag_ymd_x = lag_ymd, amount) %>% 
-  mutate(lag_ymd_x = replace_na(lag_ymd_x, ""))
+  mutate(lag_ymd_x = replace_na(lag_ymd_x, 0))
 
 dy = d %>% select(lag_ymd = sales_ymd, lag_amount = amount)
 
-dx %>% tbl_print(n = 12, n.tail = 5)
-dy %>% tbl_print(n = 12, n.tail = 5)
+dx; dx %>% tail(6)
+dy; dy %>% tail(6)
 
 .by = join_by(
     between(y$lag_ymd, x$lag_ymd_x, x$sales_ymd, bounds = "[)")
   )
-dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>% 
-  tbl_print(n = 12, n.tail = 8)
+
+df_result = dx %>% 
+  inner_join(dy, by = .by) %>% 
+  select(-lag_ymd_x)
+
+df_result; df_result %>% tail(7)
 
 #...............................................................................
 # dbplyr
@@ -828,46 +1062,43 @@ dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>%
 # 解決策: arrange(sales_ymd) を事前に適用してからlagを使うことで、安全性を高められます。
 
 n_lag = 3L
-d = tbl_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   mutate(
     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd)
   )
 
 d %>% my_show_query()
 d
-# Database: sqlite 3.47.0 [...
-#    sales_ymd amount lag_ymd 
-#    <chr>      <dbl> <chr>   
-#  1 20170101   33723 NA      
-#  2 20170102   24165 NA      
-#  3 20170103   27503 NA      
-#  4 20170104   36165 20170101
-# ...
 
 # 別の記述
-d = tbl_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   window_order(sales_ymd) %>% 
   mutate(
     # 共に 'order_by = sales_ymd' 無しでOK!
     lag_ymd = lag(sales_ymd, n = n_lag), 
     lag_amount = lag(amount, n = n_lag)
   )
+
 d
-# Database:   sqlite 3.47.0 [/Users/kk/Home/_work/Analysis/sample/All/R/app/DB/100knocks/100knocks.sqlite]
-# Ordered by: sales_ymd   <<<<<<<<<<<<<<<<< ここが変わる
-#    sales_ymd amount lag_ymd  lag_amount
-#    <chr>      <dbl> <chr>         <dbl>
-#  1 20170101   33723 NA               NA
-#  2 20170102   24165 NA               NA
-#  3 20170103   27503 NA               NA
-#  4 20170104   36165 20170101      33723
+# Source:     SQL [?? x 4]
+# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# Ordered by: sales_ymd
+#    sales_ymd amount  lag_ymd lag_amount
+#        <int>  <dbl>    <int>      <dbl>
+#  1  20170101  33723       NA         NA
+#  2  20170102  24165       NA         NA
+#  3  20170103  27503       NA         NA
+#  4  20170104  36165 20170101      33723
+#  5  20170105  37830 20170102      24165
+#  6  20170106  32387 20170103      27503
 #  ...
 
 d %>% my_show_query()
 d %>% my_collect(T)
 
-dx = d %>% select(sales_ymd_x = sales_ymd, lag_ymd_x = lag_ymd, amount_x = amount) %>% 
-  mutate(lag_ymd_x = coalesce(lag_ymd_x, ""))
+dx = d %>% 
+  select(sales_ymd_x = sales_ymd, lag_ymd_x = lag_ymd, amount_x = amount) %>% 
+  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0))
   # arrange(sales_ymd) # arrange は最後に記述 (subquery内では書かない)
 
 dx %>% my_show_query()
@@ -899,7 +1130,9 @@ d.res = dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>%
 d.res
 d.res %>% my_show_query()
 d.res %>% my_sql_render(con)
-d.res %>% my_collect() %>% tbl_print(10, n.tail = 7)
+
+df_result = d.res %>% my_collect()
+df_result; df_result %>% tail(7)
 
 #...............................................................................
 q = sql("
@@ -913,12 +1146,17 @@ select
 "
 )
 q %>% my_select(con)
+
+# A tibble: 1,034 × 2
 #    sales_ymd amount
-#    <chr>      <dbl>
-#  1 20170101   33723
-#  2 20170102   24165
-#  3 20170103   27503
-#  4 20170104   36165
+#        <int>  <dbl>
+#  1  20190922  50797
+#  2  20170504  22896
+#  3  20170116  34075
+#  4  20180924  37775
+#  5  20190523  53541
+#  6  20190718  27778
+#  7  20170619  28640
 #  ...
 
 q = sql("
@@ -940,17 +1178,18 @@ from
 "
 )
 q %>% my_select(con)
-  #  sales_ymd lag_ymd_3 amount
-#    <chr>     <chr>      <dbl>
-#  1 20170101  NA         33723
-#  2 20170102  NA         24165
-#  3 20170103  NA         27503
-#  4 20170104  20170101   36165
-#  5 20170105  20170102   37830
-#  6 20170106  20170103   32387
-#  7 20170107  20170104   23415
-#  8 20170108  20170105   24737
-#  9 20170109  20170106   26718
+
+# A tibble: 1,034 × 3
+#    sales_ymd lag_ymd_3 amount
+#        <int>     <int>  <dbl>
+#  1  20170101        NA  33723
+#  2  20170102        NA  24165
+#  3  20170103        NA  27503
+#  4  20170104  20170101  36165
+#  5  20170105  20170102  37830
+#  6  20170106  20170103  32387
+#  7  20170107  20170104  23415
+#  8  20170108  20170105  24737
 #  ...
 
 q = sql("
@@ -991,31 +1230,31 @@ order by
   L.sales_ymd, lag_ymd
 "
 )
-q %>% my_select(con) %>% tbl_print(n = 10, n.tail = 7)
+
+q %>% my_select(con) %>% head(10)
+q %>% my_select(con) %>% tail(7)
+
 # dim: 3,096 x 4
-# A tibble: 10 × 4
-#    sales_ymd amount lag_ymd  lag_amount
-#    <chr>      <dbl> <chr>         <dbl>
-#  1 20170102   24165 20170101      33723
-#  2 20170103   27503 20170101      33723
-#  3 20170103   27503 20170102      24165
-#  4 20170104   36165 20170101      33723
-#  5 20170104   36165 20170102      24165
-#  6 20170104   36165 20170103      27503
-#  7 20170105   37830 20170102      24165
-#  8 20170105   37830 20170103      27503
-#  9 20170105   37830 20170104      36165
-# 10 20170106   32387 20170103      27503
-# # A tibble: 7 × 4
-#   sales_ymd amount lag_ymd  lag_amount
-#   <chr>      <dbl> <chr>         <dbl>
-# 1 20191029   36091 20191028      40161
-# 2 20191030   26602 20191027      37484
-# 3 20191030   26602 20191028      40161
-# 4 20191030   26602 20191029      36091
-# 5 20191031   25216 20191028      40161
-# 6 20191031   25216 20191029      36091
-# 7 20191031   25216 20191030      26602
+#    sales_ymd amount  lag_ymd lag_amount
+#        <int>  <dbl>    <int>      <dbl>
+#  1  20170102  24165 20170101      33723
+#  2  20170103  27503 20170101      33723
+#  3  20170103  27503 20170102      24165
+#  4  20170104  36165 20170101      33723
+#  5  20170104  36165 20170102      24165
+#  6  20170104  36165 20170103      27503
+#  7  20170105  37830 20170102      24165
+#  8  20170105  37830 20170103      27503
+#  9  20170105  37830 20170104      36165
+# 10  20170106  32387 20170103      27503
+# ...
+# 1  20191029  36091 20191028      40161
+# 2  20191030  26602 20191027      37484
+# 3  20191030  26602 20191028      40161
+# 4  20191030  26602 20191029      36091
+# 5  20191031  25216 20191028      40161
+# 6  20191031  25216 20191029      36091
+# 7  20191031  25216 20191030      26602
 
 #-------------------------------------------------------------------------------
 # R-043 ------------
@@ -1260,21 +1499,22 @@ df_receipt %>%
 #  6       1112              1 2019-06-05
 #  ...
 
+# dplyr が認識できない関数をエラーにする 
+options(dplyr.strict_sql = FALSE)
+
 db_result = db_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
     sales_ymd = sales_ymd %>% 
-      as.character() %>% 
-      strptime("%Y%m%d") %>% lubridate::as_date()
+      as.character() %>% strptime("%Y%m%d") %>% lubridate::as_date()
       # sales_ymd %>% as.character() %>% strptime("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::parse_date_time(sales_ymd, "%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::as_date()
   ) %>% 
-  head(10) %>% 
-  my_show_query(F)
+  head(10)
 
-db_result
+db_result %>% collect()
 
 db_result %>% show_query()
 
@@ -1486,7 +1726,7 @@ db_sales_pct = db_sales_amount %>%
     p75 = quantile(sum_amount, 0.75, na.rm = TRUE)
   )
 
-db_sales_amount %>% 
+db_result = db_sales_amount %>% 
   cross_join(db_sales_pct) %>% 
   mutate(
     pct_group = case_when(
@@ -1497,10 +1737,11 @@ db_sales_amount %>%
     )
   ) %>% 
   select(customer_id, sum_amount, pct_group) %>% 
-  head(10) -> 
-  db_result
-
+  head(10)
+  
 db_result
+db_result %>% collect()
+
 #   customer_id    sum_amount pct_group
 #    <chr>               <dbl> <chr>    
 #  1 CS003515000195       5412 4        
@@ -1594,15 +1835,26 @@ df_customer %>%
 
 #...............................................................................
 
-db_customer %>% 
+db_result = db_customer %>% 
   mutate(
     age_rng = pmin((floor(age / 10) * 10), 60) %>% as.integer()
   ) %>% 
   select(customer_id, birth_day, age, age_rng) %>% 
-  head(10) -> 
-  db_result
+  head(10)
+  
+db_result %>% collect()
 
-db_result
+# A tibble: 10 × 4
+#    customer_id    birth_day    age age_rng
+#    <chr>          <date>     <int>   <int>
+#  1 CS021313000114 1981-04-29    37      30
+#  2 CS037613000071 1952-04-01    66      60
+#  3 CS031415000172 1976-10-04    42      40
+#  4 CS028811000001 1933-03-27    86      60
+#  5 CS001215000145 1995-03-29    24      20
+#  6 CS020401000016 1974-09-15    44      40
+#  7 CS015414000103 1977-08-09    41      40
+#  ...
 
 #...............................................................................
 
@@ -1747,6 +1999,8 @@ db_result = db_customer %>%
     .keep = "unused"
   )
 
+db_result %>% collect()
+
 #...............................................................................
 
 db_result %>% show_query()
@@ -1821,7 +2075,7 @@ db_result = db_receipt %>%
   select(-c(min_amount, max_amount)) %>% 
   arrange(customer_id)
 
-db_result
+db_result %>% collect()
 
 #...............................................................................
 
@@ -1902,7 +2156,7 @@ db_result = db_receipt %>%
   mutate(sales_rate = amount_07 / amount) %>% 
   arrange(customer_id)
 
-db_result
+db_result %>% collect()
 
 #...............................................................................
 
@@ -2107,7 +2361,7 @@ db_result = db_receipt %>%
   # select(-elapsed_time) %>% 
   arrange(customer_id, sales_ymd)
 
-db_result
+db_result %>% collect()
 
 #...............................................................................
 
@@ -2240,7 +2494,9 @@ db_result = db_receipt %>%
 
 # DATEDIFF('year', start_date, end_date) が年の境界を超えた回数を数えるため、28 ヶ月の差が 3 年とカウントする
 
-db_result
+
+db_result %>% collect()
+
 #    customer_id    sales_ymd application_date elapsed_months
 #    <chr>              <int> <chr>                     <dbl>
 #  1 CS001113000004  20190308 20151105                     40
@@ -2275,10 +2531,9 @@ db_result = db_receipt %>%
   arrange(customer_id, sales_ymd) %>% 
   head(10)
 
-db_result
-# Source:     SQL [10 x 4]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: customer_id, sales_ymd
+db_result %>% collect()
+
+# A tibble: 10 × 4
 #    customer_id    sales_ymd application_date elapsed_months
 #    <chr>              <int> <chr>                     <dbl>
 #  1 CS001113000004  20190308 20151105                     40
@@ -2392,10 +2647,9 @@ db_result = db_receipt %>%
   select(sales_ymd, sales_date, monday_ymd, elapsed_days) %>% 
   head(10)
 
-db_result
+db_result %>% collect()
 
-# Source:   SQL [10 x 4]
-# Database: DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
+# A tibble: 10 × 4
 #    sales_ymd sales_date monday_ymd elapsed_days
 #        <int> <date>     <date>            <int>
 #  1  20181103 2018-11-03 2018-10-29            5
@@ -2509,7 +2763,8 @@ db_result = db_customer %>%
   select(customer_id, gender_cd, gender, birth_day, age)
   # head(10)
 
-db_result %>% arrange(customer_id)
+db_result %>% collect() %>% arrange(customer_id)
+
 db_result %>% show_query()
 
 #................................................
@@ -2522,11 +2777,9 @@ db_result = db_customer %>%
   filter(prank <= 0.01) %>% 
   select(customer_id, gender_cd, gender, birth_day, age)
 
-db_result %>% arrange(customer_id)
+db_result %>% collect() %>% arrange(customer_id)
 
-# Source:     SQL [?? x 5]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: customer_id
+# A tibble: 220 × 5
 #    customer_id    gender_cd gender birth_day    age
 #    <chr>          <chr>     <chr>  <date>     <int>
 #  1 CS001305000005 0         男性   1979-01-02    40
@@ -2555,11 +2808,9 @@ db_result = db_customer %>%
   select(customer_id, gender_cd, gender, birth_day, age) %>% 
   head(10)
 
-db_result %>% arrange(customer_id)
+db_result %>% collect() %>% arrange(customer_id)
 
-# Source:     SQL [10 x 5]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: customer_id
+# A tibble: 10 × 5
 #    customer_id    gender_cd gender birth_day    age
 #    <chr>          <chr>     <chr>  <date>     <int>
 #  1 CS003315000484 1         女性   1988-03-16    31
@@ -2574,7 +2825,7 @@ db_result %>% arrange(customer_id)
 # 10 CS051313000008 1         女性   1982-08-28    36
 
 db_result %>% collect()
-df_customer %>% arrange(customer_id)
+db_result %>% collect() %>% arrange(customer_id)
 
 #...............................................................................
 
@@ -2721,6 +2972,7 @@ db_customer %>%
   select(gender_cd) %>% 
   group_by(gender_cd) %>% 
   mutate(r = runif(n = n())) %>% 
+  ungroup() %>% 
   my_show_query(T)
 
 # 上記コードは、group_by(gender_cd) が効かない
@@ -2736,28 +2988,12 @@ db_result = db_customer %>%
   mutate(rand = runif(n = n())) %>% 
   group_by(gender_cd) %>%
   mutate(prank = percent_rank(rand)) %>%
-  filter(prank <= 0.1) # 上位10%を選択
+  filter(prank <= 0.1) %>%  # 上位10%を選択
+  ungroup()
 
-db_result %>% select(customer_id, rand, prank) %>% arrange(rand)
+db_result %>% arrange(customer_id) %>% collect()
 
-db_result %>% arrange(customer_id)
-
-# Source:     SQL [?? x 13]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Groups:     gender_cd
-# Ordered by: customer_id
-#    customer_id    customer_name gender_cd gender birth_day    age postal_cd address    
-#    <chr>          <chr>         <chr>     <chr>  <date>     <int> <chr>     <chr>      
-#  1 CS001114000005 安 里穂       1         女性   2004-11-22    14 144-0056  東京都大田…
-#  2 CS001205000006 福士 明       0         男性   1993-06-12    25 144-0056  東京都大田…
-#  3 CS001211000018 西脇 真悠子   1         女性   1997-01-16    22 212-0058  神奈川県川…
-#  4 CS001212000045 保坂 ヒカル   1         女性   1994-10-27    24 210-0822  神奈川県川…
-#  5 CS001212000099 宇野 郁恵     1         女性   1990-03-28    29 210-0025  神奈川県川…
-#  6 CS001213000090 板倉 昌代     1         女性   1992-04-07    26 146-0095  東京都大田…
-#  7 CS001213000115 小野 貴美子   1         女性   1995-06-25    23 146-0095  東京都大田…
-#  8 CS001214000009 平尾 奈月     1         女性   1990-05-02    28 144-0056  東京都大田…
-#  9 CS001214000059 若林 奈央     1         女性   1995-08-06    23 144-0055  東京都大田…
-# 10 CS001215000061 伴 綾         1         女性   1989-03-14    30 144-0046  東京都大田…
+db_result %>% select(customer_id, rand, prank) %>% arrange(rand) %>% collect()
 
 db_result %>% count(gender_cd)
 
@@ -2781,20 +3017,18 @@ db_result = db_customer %>%
     cnt = n()
   ) %>%
   # 上位10%を選択
-  filter(row_num <= 0.1 * cnt)
+  filter(row_num <= 0.1 * cnt) %>% 
+  ungroup()
 
-db_result %>% arrange(customer_id)
+db_result %>% arrange(customer_id) %>% collect()
 
-db_result %>% count(gender_cd)
-# Source:     SQL [3 x 2]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Groups:     gender_cd
-# Ordered by: r
-#   gender_cd     n
-#       <int> <dbl>
-# 1         0   298
-# 2         1  1791
-# 3         9   107
+db_result %>% count(gender_cd) %>% collect()
+
+  gender_cd     n
+  <chr>     <dbl>
+1 0           298
+2 1          1791
+3 9           107
 
 db_result %>% show_query(cte = T)
 
@@ -3018,7 +3252,7 @@ db_result = db_sales_amount %>%
   select(customer_id, sum_amount) %>% 
   arrange(desc(sum_amount))
 
-db_result
+db_result %>% collect()
 
 #...............................................................................
 
@@ -3092,7 +3326,7 @@ db_result = db_product %>%
     across(everything(), ~ sum(ifelse(is.na(.), 1, 0)))
   )
 
-db_result
+db_result %>% collect()
 
 #...............................................................................
 
@@ -3171,7 +3405,7 @@ db_stats = db_product %>%
   select(product_cd, starts_with("unit_"))
 
 db_result = db_product %>% rows_patch(db_stats, unmatched = "ignore")
-db_result
+db_result %>% collect()
 db_result %>% skimr::skim()
 
 #................................................
@@ -3321,7 +3555,7 @@ db_result = db_product %>%
     ) %>% 
     select(product_cd, everything(), -starts_with("median"))
 
-db_result
+db_result %>% collect()
 # 確認
 db_result %>% skimr::skim()
 
@@ -3435,7 +3669,7 @@ db_result = db_receipt %>%
   filter(sales_rate > 0.0) %>% 
   arrange(customer_id)
 
-db_result %>% head(10)
+db_result %>% collect()
 db_result %>% skimr::skim()
 
 db_result %>% filter(is.na(sales_rate))
