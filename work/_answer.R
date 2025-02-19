@@ -1043,46 +1043,29 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上金額（amount）を日付（sales_ymd）ごとに集計し、
 # 各日付のデータに対し、前回、前々回、3回前に売上があった日のデータを結合せよ。そして結果を10件表示せよ。
 
-# 
 n_lag = 3L
-# df_sales_by_date_with_lag = df_receipt %>% 
-#   summarise(amount = sum(amount), .by = "sales_ymd") %>% 
-#   mutate(
-#     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd), 
-#     pre_amount = lag(amount, n = n_lag, default = NA, order_by = sales_ymd)
-#   ) %>% 
-#   arrange(sales_ymd)
 
-df_sales_by_date_with_lag = df_receipt %>% 
+df_sales_with_lag = df_receipt %>% 
   summarise(amount = sum(amount), .by = "sales_ymd") %>% 
   arrange(sales_ymd) %>% 
   mutate(
-    lag_ymd = lag(sales_ymd, n = n_lag)
-    # pre_amount = lag(amount, n = n_lag, default = NA)
+    lag_ymd = lag(sales_ymd, n = n_lag, default = -1L)
+    # lag_ymd = lag(sales_ymd, n = n_lag, default = -1, order_by = sales_ymd)
   )
 
-df_sales_by_date_with_lag; df_sales_by_date_with_lag %>% tail(6)
-
-dx = df_sales_by_date_with_lag %>% 
-  select(sales_ymd, lag_ymd_x = lag_ymd, amount) %>% 
-  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0L))
-  # replace_na(list(lag_ymd_x = 0L))
-
-dy = df_sales_by_date_with_lag %>% 
-  select(lag_ymd = sales_ymd, lag_amount = amount)
-
-dx; dx %>% tail(6)
-dy; dy %>% tail(6)
+df_sales_with_lag
 
 .by = join_by(
-    between(y$lag_ymd, x$lag_ymd_x, x$sales_ymd, bounds = "[)")
+    between(y$sales_ymd, x$lag_ymd, x$sales_ymd, bounds = "[)")
   )
 
-df_result = dx %>% 
-  inner_join(dy, by = .by) %>% 
-  select(-lag_ymd_x)
+df_result = df_sales_with_lag %>% 
+  inner_join(df_sales_by_date_with_lag, by = .by, suffix = c("", ".y")) %>% 
+  select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
+  arrange(sales_ymd, lag_sales_ymd)
 
-df_result; df_result %>% tail(7)
+df_result
+df_result %>% tail(7)
 
 # A tibble: 3,096 × 4
 #    sales_ymd amount  lag_ymd lag_amount
@@ -1108,79 +1091,33 @@ df_result; df_result %>% tail(7)
 #...............................................................................
 # dbplyr
 
-
-#................................................
-# n_lag = 3L
-# d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
-#   mutate(
-#     lag_ymd = lag(sales_ymd, n = n_lag, order_by = sales_ymd)
-#   )
-# d %>% my_show_query()
-
-# 別の記述
 n_lag = 3L
 
-d = db_receipt %>% summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+db_sales_with_lag = db_receipt %>% 
+  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  # arrange(sales_ymd) %>% 
   window_order(sales_ymd) %>% 
   mutate(
-    lag_ymd = lag(sales_ymd, n = n_lag), 
-    lag_amount = lag(amount, n = n_lag)
+    lag_ymd = lag(sales_ymd, n = n_lag, default = -1L)
+    # lag_ymd = lag(sales_ymd, n = n_lag, default = -1, order_by = sales_ymd)
   )
 
-d
-# Source:     SQL [?? x 4]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: sales_ymd
-#    sales_ymd amount  lag_ymd lag_amount
-#        <int>  <dbl>    <int>      <dbl>
-#  1  20170101  33723       NA         NA
-#  2  20170102  24165       NA         NA
-#  3  20170103  27503       NA         NA
-#  4  20170104  36165 20170101      33723
-#  5  20170105  37830 20170102      24165
-#  6  20170106  32387 20170103      27503
-#  ...
-
-d %>% my_show_query()
-d %>% my_collect(T)
-
-dx = d %>% 
-  select(sales_ymd_x = sales_ymd, lag_ymd_x = lag_ymd, amount_x = amount) %>% 
-  mutate(lag_ymd_x = coalesce(lag_ymd_x, 0L))
-  # arrange(sales_ymd) # arrange は最後に記述 (subquery内では書かない)
-
-dx %>% my_show_query()
-dx %>% my_collect()
-dx %>% my_collect() %>% pull(sales_ymd_x) %>% range()
-
-# dy = d %>% select(sales_ymd, amount) %>% 
-#   rename(lag_ymd = sales_ymd, lag_amount = amount)
-
-dy = d %>% select(sales_ymd, amount)
-
-dy %>% my_show_query()
-dy %>% my_collect()
-dy %>% my_collect() %>% pull(sales_ymd) %>% range()
-
-dx %>% head(10)
-dy %>% head(10)
+db_sales_with_lag
+# db_sales_with_lag %>% show_query(cte = TRUE)
 
 .by = join_by(
-    between(y$sales_ymd, x$lag_ymd_x, x$sales_ymd_x, bounds = "[)")
+    between(y$sales_ymd, x$lag_ymd, x$sales_ymd, bounds = "[)")
   )
 
-dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x)
-dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>% show_query()
+db_result = db_sales_with_lag %>% 
+  inner_join(db_sales_by_date_with_lag, by = .by, suffix = c("", ".y")) %>% 
+  select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
+  arrange(sales_ymd, lag_sales_ymd)
 
-d.res = dx %>% inner_join(dy, by = .by) %>% select(-lag_ymd_x) %>% 
-  rename(sales_ymd = sales_ymd_x, amount = amount_x, lag_ymd = sales_ymd, lag_amount = amount) %>% 
-  arrange(sales_ymd, lag_ymd)
+db_result %>% collect()
+db_result %>% collect() %>% tail(7)
 
-d.res
-d.res %>% my_show_query()
-
-df_result = d.res %>% my_collect()
-df_result; df_result %>% tail(7)
+db_result %>% show_query(cte = TRUE)
 
 #...............................................................................
 
@@ -1189,155 +1126,78 @@ WITH q01 AS (
   SELECT sales_ymd, SUM(amount) AS amount
   FROM receipt
   GROUP BY sales_ymd
-  -- ORDER BY sales_ymd
 ),
 q02 AS (
-  SELECT
-    sales_ymd,
-    LAG(sales_ymd, 3, NULL) OVER (ORDER BY sales_ymd) AS lag_ymd_x,
-    amount
+  SELECT q01.*, LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
   FROM q01
 ),
 q03 AS (
-  SELECT sales_ymd, COALESCE(lag_ymd_x, 0) AS lag_ymd_x, amount
-  FROM q02 q01
+  SELECT q01.*, LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
+  FROM q01
+),
+q04 AS (
+  SELECT
+    LHS.sales_ymd AS sales_ymd,
+    LHS.amount AS amount,
+    RHS.sales_ymd AS lag_sales_ymd,
+    RHS.amount AS lag_amount
+  FROM q02 LHS
+  INNER JOIN q03 RHS
+    ON (LHS.lag_ymd <= RHS.sales_ymd AND LHS.sales_ymd > RHS.sales_ymd)
 )
-SELECT
-  LHS.sales_ymd AS sales_ymd,
-  LHS.amount AS amount,
-  RHS.sales_ymd AS lag_ymd,
-  RHS.amount AS lag_amount
-FROM q03 LHS
-INNER JOIN q01 RHS
-  ON (LHS.lag_ymd_x <= RHS.sales_ymd AND LHS.sales_ymd > RHS.sales_ymd)
-ORDER BY sales_ymd, lag_ymd
+SELECT q01.*
+FROM q04 q01
+ORDER BY sales_ymd, lag_sales_ymd
 "
 )
-q %>% my_select(con)
 
+q %>% my_select(con)
 q %>% my_select(con) %>% tail(7)
 
-#...............................................................................
 q = sql("
-select
+WITH sales_data AS (
+  SELECT 
     sales_ymd, 
-    sum(amount) as amount
-  from
-    receipt
-  group by 
-    sales_ymd
+    SUM(amount) AS amount,
+    LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
+  FROM receipt
+  GROUP BY sales_ymd
+)
+SELECT 
+  L.sales_ymd,
+  L.amount,
+  R.sales_ymd AS lag_sales_ymd,
+  R.amount AS lag_amount
+FROM sales_data L
+INNER JOIN sales_data R
+  ON (L.lag_ymd <= R.sales_ymd AND L.sales_ymd > R.sales_ymd)
+ORDER BY L.sales_ymd, R.sales_ymd
 "
 )
+
 q %>% my_select(con)
-
-# A tibble: 1,034 × 2
-#    sales_ymd amount
-#        <int>  <dbl>
-#  1  20190922  50797
-#  2  20170504  22896
-#  3  20170116  34075
-#  4  20180924  37775
-#  5  20190523  53541
-#  6  20190718  27778
-#  7  20170619  28640
-#  ...
-
-q = sql("
-with ymd_amount as (
-  select
-    sales_ymd, 
-    sum(amount) as amount
-  from
-    receipt
-  group by 
-    sales_ymd
-)
-select
-  sales_ymd, 
-  LAG(sales_ymd, 3) OVER (order by sales_ymd) as lag_ymd_3, 
-  amount
-from
-  ymd_amount
-"
-)
-q %>% my_select(con)
-
-# A tibble: 1,034 × 3
-#    sales_ymd lag_ymd_3 amount
-#        <int>     <int>  <dbl>
-#  1  20170101        NA  33723
-#  2  20170102        NA  24165
-#  3  20170103        NA  27503
-#  4  20170104  20170101  36165
-#  5  20170105  20170102  37830
-#  6  20170106  20170103  32387
-#  7  20170107  20170104  23415
-#  8  20170108  20170105  24737
-#  ...
-
-q = sql("
-with ymd_amount as (
-  select
-    sales_ymd, 
-    sum(amount) as amount
-  from
-    receipt
-  group by 
-    sales_ymd
-), 
-lag_data as (
-  select
-    sales_ymd, 
-    LAG(sales_ymd, 3) OVER (order by sales_ymd) as lag_ymd_3, 
-    amount
-  from
-    ymd_amount
-  -- order by 
-  --  sales_ymd
-)
-select 
-  L.sales_ymd, 
-  L.amount, 
-  R.sales_ymd as lag_ymd, 
-  R.amount as lag_amount
-from
-  lag_data as L
-inner join lag_data as R
-on
-  (
-    L.lag_ymd_3 IS NULL
-    OR L.lag_ymd_3 <= R.sales_ymd
-  )
-  and R.sales_ymd < L.sales_ymd
-order by
-  L.sales_ymd, lag_ymd
-"
-)
-
-q %>% my_select(con) %>% head(10)
 q %>% my_select(con) %>% tail(7)
 
-# dim: 3,096 x 4
-#    sales_ymd amount  lag_ymd lag_amount
-#        <int>  <dbl>    <int>      <dbl>
-#  1  20170102  24165 20170101      33723
-#  2  20170103  27503 20170101      33723
-#  3  20170103  27503 20170102      24165
-#  4  20170104  36165 20170101      33723
-#  5  20170104  36165 20170102      24165
-#  6  20170104  36165 20170103      27503
-#  7  20170105  37830 20170102      24165
-#  8  20170105  37830 20170103      27503
-#  9  20170105  37830 20170104      36165
-# 10  20170106  32387 20170103      27503
+# A tibble: 3,096 × 4
+#    sales_ymd amount lag_sales_ymd lag_amount
+#        <int>  <dbl>         <int>      <dbl>
+#  1  20170102  24165      20170101      33723
+#  2  20170103  27503      20170101      33723
+#  3  20170103  27503      20170102      24165
+#  4  20170104  36165      20170101      33723
+#  5  20170104  36165      20170102      24165
+#  6  20170104  36165      20170103      27503
+#  7  20170105  37830      20170102      24165
+#  8  20170105  37830      20170103      27503
+#  9  20170105  37830      20170104      36165
 # ...
-# 1  20191029  36091 20191028      40161
-# 2  20191030  26602 20191027      37484
-# 3  20191030  26602 20191028      40161
-# 4  20191030  26602 20191029      36091
-# 5  20191031  25216 20191028      40161
-# 6  20191031  25216 20191029      36091
-# 7  20191031  25216 20191030      26602
+# 1  20191029  36091      20191028      40161
+# 2  20191030  26602      20191027      37484
+# 3  20191030  26602      20191028      40161
+# 4  20191030  26602      20191029      36091
+# 5  20191031  25216      20191028      40161
+# 6  20191031  25216      20191029      36091
+# 7  20191031  25216      20191030      26602
 
 #-------------------------------------------------------------------------------
 # R-043 ------------
@@ -1349,8 +1209,10 @@ q %>% my_select(con) %>% tail(7)
 
 max_age = df_customer$age %>% max(na.rm = T)
 
-d = 
-  df_receipt %>% inner_join(df_customer, by = "customer_id") %>% 
+df_sales = df_customer %>% 
+  inner_join(
+    df_receipt, by = "customer_id"
+  ) %>% 
   mutate(
     age_range = 
       epikit::age_categories(
@@ -1361,128 +1223,184 @@ d =
         by = 10
       )
   ) %>% 
-  summarise(sum_amount = sum(amount), .by = c("gender_cd", "age_range")) %>% 
-  # mutate(gender_cd = gender_cd %>% as.character(.) %>% lvls_revalue(c("男性", "女性", "不明")))
-  mutate(across(gender_cd, ~ forcats::lvls_revalue(.x, c("男性", "女性", "不明"))))
+  summarise(
+    sum_amount = sum(amount), 
+    .by = c("gender_cd", "age_range")
+  ) %>% 
+  mutate(
+    across(
+      gender_cd, 
+      ~ forcats::lvls_revalue(.x, c("male", "female", "unknown"))
+    )
+  )
 
-# d$gender_cd %>% forcats::fct_recode(男性 = "0", 女性 = "1", 不明 = "9")
-# d$gender_cd %<>% forcats::lvls_revalue(c("男性", "女性", "不明"))
+df_sales
+# A tibble: 25 × 3
+#    gender_cd age_range sum_amount
+#    <fct>     <fct>          <dbl>
+#  1 female    40-49        9320791
+#  2 female    20-29        1363724
+#  3 female    50-59        6685192
+#  4 female    30-39         693047
+#  5 unknown   40-49         483512
+#  6 unknown   30-39          50441
+#  7 unknown   20-29          44328
+#  8 male      60-69         272469
+# ...
+# 25 unknown   10-19           4317
 
 # for test
-# d %<>% filter(age_range != "20-29")
-# d$age_range
+# df_sales %<>% filter(age_range != "20-29")
+# df_sales$age_range
+
+# 横長
+df_sales %>% 
+  pivot_wider(
+    id_cols = age_range, 
+    id_expand = TRUE, 
+    names_from = gender_cd, 
+    values_from = sum_amount, 
+    names_sort = TRUE, 
+    names_expand = TRUE, 
+    values_fill = 0.0
+  )
+
+# A tibble: 11 × 4
+#    age_range   male  female unknown
+#    <fct>      <dbl>   <dbl>   <dbl>
+#  1 0-9            0       0       0
+#  2 10-19       1591  149836    4317
+#  3 20-29      72940 1363724   44328
+#  4 30-39     177322  693047   50441
+#  5 40-49      19355 9320791  483512
+#  6 50-59      54320 6685192  342923
+#  7 60-69     272469  987741   71418
+#  8 70-79      13435   29764    2427
+#  9 80-89      46360  262923    5111
+# 10 90-99          0    6260       0
+# 11 100+           0       0       0
 
 # 縦長
-d %>% complete(age_range, gender_cd, fill = list(sum_amount = 0.0))
+df_sales %>% tidyr::complete(
+    age_range, gender_cd, fill = list(sum_amount = 0.0)
+  )
 
 # A tibble: 33 × 3
 #    age_range gender_cd sum_amount
 #    <fct>     <fct>          <dbl>
-#  1 0-9       男性               0
-#  2 0-9       女性               0
-#  3 0-9       不明               0
-#  4 10-19     男性            1591
-#  5 10-19     女性          149836
-#  6 10-19     不明            4317
-#  7 20-29     男性           72940
-#  8 20-29     女性         1363724
-#  9 20-29     不明           44328
-# 10 30-39     男性          177322
-# ...
-# 26 80-89     女性          262923
-# 27 80-89     不明            5111
-# 28 90-99     男性               0
-# 29 90-99     女性            6260
-# 30 90-99     不明               0
-# 31 100+      男性               0
-# 32 100+      女性               0
-# 33 100+      不明               0
-
-# 横長
-d.wide = d %>% pivot_wider(
-    id_cols = age_range, id_expand = T, 
-    names_from = gender_cd, values_from = sum_amount, names_expand = T, values_fill = 0.0
-  )
-
-d.wide
-
-# A tibble: 11 × 4
-#    age_range   男性    女性   不明
-#    <fct>      <dbl>   <dbl>  <dbl>
-#  1 0-9            0       0      0
-#  2 10-19       1591  149836   4317
-#  3 20-29      72940 1363724  44328
-#  4 30-39     177322  693047  50441
-#  5 40-49      19355 9320791 483512
-#  6 50-59      54320 6685192 342923
-#  7 60-69     272469  987741  71418
-#  8 70-79      13435   29764   2427
-#  9 80-89      46360  262923   5111
-# 10 90-99          0    6260      0
-# 11 100+           0       0      0
+#  1 0-9       male               0
+#  2 0-9       female             0
+#  3 0-9       unknown            0
+#  4 10-19     male            1591
+#  5 10-19     female        149836
+#  6 10-19     unknown         4317
+#  7 20-29     male           72940
+#  8 20-29     female       1363724
+#  9 20-29     unknown        44328
+# 10 30-39     male          177322
+# 11 30-39     female        693047
+# 12 30-39     unknown        50441
+# 13 40-49     male           19355
+# 14 40-49     female       9320791
+# 15 40-49     unknown       483512
+# 16 50-59     male           54320
+# 17 50-59     female       6685192
+# 18 50-59     unknown       342923
+# 19 60-69     male          272469
+# 20 60-69     female        987741
+# 21 60-69     unknown        71418
+# 22 70-79     male           13435
+# 23 70-79     female         29764
+# 24 70-79     unknown         2427
+# 25 80-89     male           46360
+# 26 80-89     female        262923
+# 27 80-89     unknown         5111
+# 28 90-99     male               0
+# 29 90-99     female          6260
+# 30 90-99     unknown            0
+# 31 100+      male               0
+# 32 100+      female             0
+# 33 100+      unknown            0
 
 #...............................................................................
 # dbplyr ------------
 
+# sample.1
+db_result = db_customer %>% 
+  # select(customer_id, gender_cd, age) %>% 
+  inner_join(
+    db_receipt, by = "customer_id"
+  ) %>% 
+  mutate(
+    age_range = 
+      (floor(age / 10) * 10) %>% as.integer()
+  ) %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = c("gender_cd", "age_range")
+  ) %>% 
+  pivot_wider(
+    id_cols = age_range, 
+    names_from = gender_cd, 
+    values_from = sum_amount, 
+    names_sort = TRUE, 
+    values_fill = 0.0
+  ) %>% 
+  rename(
+    male = "0", female = "1", unknown = "9"
+  ) %>% 
+  arrange(age_range)
 
+db_result
+db_result %>% collect()
 
+# sample.2
+db_result = db_customer %>%
+  inner_join(db_receipt, by = "customer_id") %>%
+  mutate(
+    age_range = (floor(age / 10) * 10) %>% as.integer()
+  ) %>%
+  group_by(age_range) %>%
+  summarise(
+    male = sum(if_else(gender_cd == "0", amount, 0, 0.0)),
+    female = sum(if_else(gender_cd == "1", amount, 0, 0.0)),
+    unknown = sum(if_else(gender_cd == "9", amount, 0, 0.0))
+  ) %>%
+  arrange(age_range)
 
-
-
+db_result
+db_result %>% collect()
 
 #...............................................................................
+
+db_result %>% show_query(cte = TRUE)
+
 q = sql("
-with customer_amount as (
-  select
-    c.customer_id, 
-    c.gender_cd, 
-    (FLOOR(c.age / 10) * 10) || '代' as age_range, 
-    r.amount
-  from
-    customer as c
-  inner join receipt as r
-  on c.customer_id = r.customer_id
-), 
-sum_amount as (
-  select
-    age_range, 
-    gender_cd, 
-    SUM(amount) as amount
-  from
-    customer_amount
-  group by 
-    age_range, gender_cd
-)
-select 
-  age_range as '年代', 
-  COALESCE(SUM(case when gender_cd = '0' then amount end), 0) as '男性', 
-  COALESCE(SUM(case when gender_cd = '1' then amount end), 0) as '女性', 
-  COALESCE(SUM(case when gender_cd = '9' then amount end), 0) as 'その他'
-from
-  sum_amount
-group by
-  age_range
-order by 
-  age_range
+SELECT
+  CAST(FLOOR(c.age / 10.0) * 10 AS INTEGER) AS age_range,
+  SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
+  SUM(CASE WHEN c.gender_cd = '1' THEN r.amount ELSE 0 END) AS female,
+  SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS unknown
+FROM customer c
+INNER JOIN receipt r USING (customer_id)
+GROUP BY age_range
+ORDER BY age_range
 "
 )
 q %>% my_select(con)
 
 # A tibble: 9 × 4
-#   年代    男性    女性 その他
-#   <chr>  <dbl>   <dbl>  <dbl>
-# 1 10代    1591  149836   4317
-# 2 20代   72940 1363724  44328
-# 3 30代  177322  693047  50441
-# 4 40代   19355 9320791 483512
-# 5 50代   54320 6685192 342923
-# 6 60代  272469  987741  71418
-# 7 70代   13435   29764   2427
-# 8 80代   46360  262923   5111
-# 9 90代       0    6260      0
-
-sales_summary = q %>% my_select(con)
-d.summary = con %>% my_tbl(df = sales_summary, overwrite = T)
+#   age_range   male  female unknown
+#       <int>  <dbl>   <dbl>   <dbl>
+# 1        10   1591  149836    4317
+# 2        20  72940 1363724   44328
+# 3        30 177322  693047   50441
+# 4        40  19355 9320791  483512
+# 5        50  54320 6685192  342923
+# 6        60 272469  987741   71418
+# 7        70  13435   29764    2427
+# 8        80  46360  262923    5111
+# 9        90      0    6260       0
 
 #-------------------------------------------------------------------------------
 # R-044 ------------
@@ -1490,66 +1408,194 @@ d.summary = con %>% my_tbl(df = sales_summary, overwrite = T)
 # このデータから性別を縦持ちさせ、年代、性別コード、売上金額の3項目に変換せよ。
 # ただし、性別コードは男性を"00"、女性を"01"、不明を"99"とする。
 
-d = d.wide %>% 
-  pivot_longer(
-    cols = !age_range, names_to = "gender_cd", values_to = "amount"
+# ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する方法を紹介します。
+
+max_age = df_customer$age %>% max(na.rm = T)
+
+df_sales = df_customer %>% 
+  inner_join(
+    df_receipt, by = "customer_id"
   ) %>% 
-  mutate(across(gender_cd, ~ forcats::lvls_revalue(.x, c("00", "01", "99"))))
+  mutate(
+    age_range = 
+      epikit::age_categories(
+        age, 
+        lower = 0, 
+        upper = floor(max_age / 10) * 10 + 10, 
+        by = 10
+      )
+  ) %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = c("gender_cd", "age_range")
+  ) %>% 
+  mutate(
+    across(
+      gender_cd, 
+      ~ forcats::lvls_revalue(.x, c("00", "01", "99"))
+    )
+  )
 
-# d$gender_cd
-d
+# 縦長
+df_result = df_sales %>% 
+  tidyr::complete(
+    age_range, gender_cd, fill = list(sum_amount = 0.0)
+  ) %>% 
+  arrange(gender_cd, age_range)
+
+df_result
+
 # A tibble: 33 × 3
-#    age_range gender_cd  amount
-#    <fct>     <fct>       <dbl>
-#  1 0-9       01              0
-#  2 0-9       00              0
-#  3 0-9       99              0
-#  4 10-19     01           1591
-#  5 10-19     00         149836
-#  6 10-19     99           4317
-#  7 20-29     01          72940
-#  8 20-29     00        1363724
-#  9 20-29     99          44328
-# ...
-# 25 80-89     01          46360
-# 26 80-89     00         262923
-# 27 80-89     99           5111
-# 28 90-99     01              0
-# 29 90-99     00           6260
-# 30 90-99     99              0
-# 31 100+      01              0
-# 32 100+      00              0
-# 33 100+      99              0
+#    age_range gender_cd sum_amount
+#    <fct>     <fct>          <dbl>
+#  1 0-9       00                 0
+#  2 10-19     00              1591
+#  3 20-29     00             72940
+#  4 30-39     00            177322
+#  5 40-49     00             19355
+#  6 50-59     00             54320
+#  7 60-69     00            272469
+#  8 70-79     00             13435
+#  9 80-89     00             46360
+# 10 90-99     00                 0
+# 11 100+      00                 0
+# 12 0-9       01                 0
+# 13 10-19     01            149836
+# 14 20-29     01           1363724
+# 15 30-39     01            693047
+# 16 40-49     01           9320791
+# 17 50-59     01           6685192
+# 18 60-69     01            987741
+# 19 70-79     01             29764
+# 20 80-89     01            262923
+# 21 90-99     01              6260
+# 22 100+      01                 0
+# 23 0-9       99                 0
+# 24 10-19     99              4317
+# 25 20-29     99             44328
+# 26 30-39     99             50441
+# 27 40-49     99            483512
+# 28 50-59     99            342923
+# 29 60-69     99             71418
+# 30 70-79     99              2427
+# 31 80-89     99              5111
+# 32 90-99     99                 0
+# 33 100+      99                 0
 
-sales_summary
+#...............................................................................
+
+db_result = db_customer %>% 
+  inner_join(
+    db_receipt, by = "customer_id"
+  ) %>% 
+  mutate(
+    age_range = 
+      (floor(age / 10) * 10) %>% as.integer()
+  ) %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = c("gender_cd", "age_range")
+  ) %>% 
+  tidyr::complete(
+    age_range, gender_cd, 
+    fill = list(sum_amount = 0.0)
+  ) %>% 
+  mutate(
+    gender_cd = case_match(
+      gender_cd, 
+      "0" ~ "00", 
+      "1" ~ "01", 
+      .default = "99"
+    )
+  ) %>% 
+  arrange(gender_cd, age_range)
+
+db_result %>% collect()
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
 q = sql("
-select 年代, '00' as 性別コード, `男性` as 売上金額 from sales_summary
-UNION ALL
-select 年代, '01' as 性別コード, `女性` as 売上金額 from sales_summary
-UNION ALL
-select 年代, '99' as 性別コード, `その他` as 売上金額 from sales_summary
+WITH joined_data AS (
+  SELECT
+    c.customer_id,
+    FLOOR(c.age / 10) * 10 AS age_range, 
+    CASE c.gender_cd 
+      WHEN '0' THEN '00'
+      WHEN '1' THEN '01'
+      ELSE '99' 
+    END AS gender_cd,
+    r.amount
+  FROM 
+    customer c
+  INNER JOIN 
+    receipt r USING(customer_id)
+),
+all_combinations AS (
+  SELECT 
+    jd.age_range, g.gender_cd 
+  FROM 
+    (SELECT DISTINCT age_range FROM joined_data) AS jd
+  CROSS JOIN 
+    (VALUES ('00'), ('01'), ('99')) AS g(gender_cd)
+),
+sales_summary AS (
+  SELECT 
+    gender_cd, 
+    age_range, 
+    SUM(amount) AS sum_amount
+  FROM 
+    joined_data
+  GROUP BY 
+    gender_cd, age_range
+)
+SELECT 
+  ac.age_range,
+  ac.gender_cd,
+  COALESCE(ss.sum_amount, 0.0) AS sum_amount
+FROM 
+  all_combinations ac
+LEFT JOIN 
+  sales_summary ss
+USING   
+  (age_range, gender_cd)
+ORDER BY 
+  ac.gender_cd, ac.age_range;
 "
 )
 q %>% my_select(con)
 
 # A tibble: 27 × 3
-#    年代  性別コード 売上金額
-#    <chr> <chr>         <dbl>
-#  1 10代  00             1591
-#  2 20代  00            72940
-#  3 30代  00           177322
-# ...
-#  9 90代  00                0
-# 10 10代  01           149836
-# 11 20代  01          1363724
-# 12 30代  01           693047
-# ...
-# 18 90代  01             6260
-# 19 10代  99             4317
-# 20 20代  99            44328
-# 21 30代  99            50441
-# ...
-# 27 90代  99                0
+#    age_range gender_cd sum_amount
+#        <int> <chr>          <dbl>
+#  1        10 00              1591
+#  2        20 00             72940
+#  3        30 00            177322
+#  4        40 00             19355
+#  5        50 00             54320
+#  6        60 00            272469
+#  7        70 00             13435
+#  8        80 00             46360
+#  9        90 00                 0
+# 10        10 01            149836
+# 11        20 01           1363724
+# 12        30 01            693047
+# 13        40 01           9320791
+# 14        50 01           6685192
+# 15        60 01            987741
+# 16        70 01             29764
+# 17        80 01            262923
+# 18        90 01              6260
+# 19        10 99              4317
+# 20        20 99             44328
+# 21        30 99             50441
+# 22        40 99            483512
+# 23        50 99            342923
+# 24        60 99             71418
+# 25        70 99              2427
+# 26        80 99              5111
+# 27        90 99                 0
 
 #-------------------------------------------------------------------------------
 # R-045 ------------
@@ -3107,11 +3153,11 @@ db_result %>% arrange(customer_id) %>% collect()
 
 db_result %>% count(gender_cd) %>% collect()
 
-  gender_cd     n
-  <chr>     <dbl>
-1 0           298
-2 1          1791
-3 9           107
+#   gender_cd     n
+#   <chr>     <dbl>
+# 1 0           298
+# 2 1          1791
+# 3 9           107
 
 db_result %>% show_query(cte = TRUE)
 
@@ -3592,7 +3638,8 @@ q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-083 ------------
-# 単価（unit_price）と原価（unit_cost）の欠損値について、各商品のカテゴリ小区分コード（category_small_cd）
+# 単価（unit_price）と原価（unit_cost）の欠損値について、各商品のカテゴリ小区分コード
+# （category_small_cd）
 # ごとに算出した中央値で補完した新たな商品データを作成せよ。なお、中央値については1円未満を丸めること
 # （四捨五入または偶数への丸めで良い）。補完実施後、各項目について欠損が生じていないことも確認すること。
 
@@ -3970,6 +4017,7 @@ n.all = nrow(df_customer)
 n.u = nrow(df_customer_u)
 "顧客データの件数: %s\n名寄顧客データの件数: %s\n重複数: %s" %>% 
   sprintf(n.all, n.u, n.all - n.u) %>% cat()
+
 # 顧客データの件数: 21971
 # 名寄顧客データの件数: 21941
 # 重複数: 30
