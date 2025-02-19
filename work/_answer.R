@@ -41,7 +41,7 @@ list(
 ) |> 
   options()
 
-# dplyr が認識できない関数をエラーにする 
+# dplyr が認識できない関数をエラーにする
 options(dplyr.strict_sql = TRUE)
 
 #-------------------------------------------------------------------------------
@@ -1602,8 +1602,52 @@ q %>% my_select(con)
 # 顧客データ（df_customer）の生年月日（birth_day）は日付型でデータを保有している。
 # これをYYYYMMDD形式の文字列に変換し、顧客ID（customer_id）とともに10件表示せよ。
 
+"2025-02-21" %>% as.Date() %>% strftime("%Y%m%d")
 
+df_customer %>% 
+  mutate(birth_day = strftime(birth_day, "%Y%m%d")) %>% 
+  select(customer_id, birth_day) %>% 
+  head(10)
 
+# A tibble: 10 × 2
+#    customer_id    birth_day
+#    <chr>          <chr>    
+#  1 CS021313000114 19810429 
+#  2 CS037613000071 19520401 
+#  3 CS031415000172 19761004 
+#  4 CS028811000001 19330327 
+#  5 CS001215000145 19950329 
+#  6 CS020401000016 19740915 
+#  7 CS015414000103 19770809 
+#  8 CS029403000008 19730817 
+#  9 CS015804000004 19310502 
+# 10 CS033513000180 19620711 
+
+#...............................................................................
+
+# dplyr が認識できない関数をエラーにする
+options(dplyr.strict_sql = FALSE)
+
+db_result = db_customer %>% 
+  mutate(birth_day = STRFTIME(birth_day, "%Y%m%d")) %>% 
+  select(customer_id, birth_day) %>% 
+  head(10)
+
+db_result %>% collect()
+
+#...............................................................................
+
+db_result %>% show_query()
+
+q = sql("
+SELECT 
+  customer_id, 
+  STRFTIME(birth_day, '%Y%m%d') AS birth_day
+FROM customer
+LIMIT 10
+"
+)
+q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-047 ------------
@@ -1614,7 +1658,8 @@ df_receipt %>%
   mutate(
     sales_ymd = sales_ymd %>% 
       as.character() %>% 
-      lubridate::fast_strptime("%Y%m%d") %>% lubridate::as_date()
+      lubridate::fast_strptime("%Y%m%d") %>% 
+      lubridate::as_date()
   )
 
 # A tibble: 104,681 × 3
@@ -1628,6 +1673,8 @@ df_receipt %>%
 #  6       1112              1 2019-06-05
 #  ...
 
+#...............................................................................
+
 # dplyr が認識できない関数をエラーにする 
 options(dplyr.strict_sql = FALSE)
 
@@ -1635,15 +1682,17 @@ db_result = db_receipt %>%
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
     sales_ymd = sales_ymd %>% 
-      as.character() %>% strptime("%Y%m%d") %>% lubridate::as_date()
+      as.character() %>% STRPTIME("%Y%m%d") %>% lubridate::as_date()
       # sales_ymd %>% as.character() %>% strptime("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::fast_strptime("%Y%m%d")
-      # sales_ymd %>% as.character() %>% lubridate::parse_date_time(sales_ymd, "%Y%m%d")
+      # sales_ymd %>% as.character() %>% lubridate::parse_date_time("%Y%m%d")
       # sales_ymd %>% as.character() %>% lubridate::as_date()
   ) %>% 
   head(10)
 
 db_result %>% collect()
+
+#...............................................................................
 
 db_result %>% show_query()
 
@@ -1651,7 +1700,7 @@ q = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
-  CAST(strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE) AS sales_ymd
+  CAST(STRPTIME(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE) AS sales_ymd
 FROM receipt
 LIMIT 10
 "
