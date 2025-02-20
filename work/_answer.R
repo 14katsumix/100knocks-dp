@@ -50,6 +50,8 @@ options(dplyr.strict_sql = TRUE)
 # 商品コード（product_cd）、売上金額（amount）の順に列を指定し、10件表示せよ。
 # ただし、sales_ymdをsales_dateに項目名を変更しながら抽出すること。
 
+# ブログには掲載しない
+
 # [R] データフレームでの処理
 df_receipt %>% 
   select(sales_date = sales_ymd, customer_id, product_cd, amount) %>% 
@@ -1060,7 +1062,7 @@ df_sales_with_lag
   )
 
 df_result = df_sales_with_lag %>% 
-  inner_join(df_sales_by_date_with_lag, by = .by, suffix = c("", ".y")) %>% 
+  inner_join(df_sales_with_lag, by = .by, suffix = c("", ".y")) %>% 
   select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
   arrange(sales_ymd, lag_sales_ymd)
 
@@ -1160,18 +1162,26 @@ WITH sales_data AS (
     sales_ymd, 
     SUM(amount) AS amount,
     LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
-  FROM receipt
-  GROUP BY sales_ymd
+  FROM 
+    receipt
+  GROUP BY 
+    sales_ymd
 )
 SELECT 
   L.sales_ymd,
   L.amount,
   R.sales_ymd AS lag_sales_ymd,
   R.amount AS lag_amount
-FROM sales_data L
-INNER JOIN sales_data R
-  ON (L.lag_ymd <= R.sales_ymd AND L.sales_ymd > R.sales_ymd)
-ORDER BY L.sales_ymd, R.sales_ymd
+FROM 
+  sales_data L
+INNER JOIN 
+  sales_data R
+ON (
+  L.lag_ymd <= R.sales_ymd AND 
+  L.sales_ymd > R.sales_ymd
+)
+ORDER BY 
+  L.sales_ymd, R.sales_ymd
 "
 )
 
@@ -1690,6 +1700,16 @@ db_result = db_receipt %>%
   ) %>% 
   head(10)
 
+db_result = db_receipt %>% 
+  select(receipt_no, receipt_sub_no, sales_ymd) %>% 
+  mutate(
+    sales_ymd = sales_ymd %>% 
+      as.character() %>% 
+      STRPTIME("%Y%m%d") %>% 
+      lubridate::as_date()
+  ) %>% 
+  head(10)
+
 db_result %>% collect()
 
 #...............................................................................
@@ -1712,6 +1732,8 @@ q %>% my_select(con)
 # レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）は数値型のUNIX秒でデータを保有している。
 # これを日付型に変換し、レシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
 
+# ブログには掲載しない
+
 df_receipt %>% 
   mutate(
     sales_date = 
@@ -1720,22 +1742,26 @@ df_receipt %>%
   ) %>% 
   select(receipt_no, receipt_sub_no, sales_date)
 
-db_receipt %>% 
+#...............................................................................
+
+db_result = db_receipt %>% 
   mutate(
-    sales_date = sql("TO_TIMESTAMP(sales_epoch) :: TIMESTAMP"), 
-    sales_date = as_date(sales_date)
+    sales_date = 
+      sql("TO_TIMESTAMP(sales_epoch) :: TIMESTAMP") %>% 
+      as_date()
   ) %>% 
-  select(receipt_no, receipt_sub_no, sales_date) %>% 
-  my_show_query()
+  select(receipt_no, receipt_sub_no, sales_date)
+
+db_result %>% collect()
 
 # TIMESTAMP:	タイムゾーンなしの日時型	'2024-02-13 12:34:56'
 # TIMESTAMP:  WITH TIME ZONE	タイムゾーン情報を含む日時型	'2024-02-13 12:34:56 UTC'
 
 db_receipt %>% 
-  select(receipt_no, receipt_sub_no, sales_ymd, sales_epoch) %>% 
   mutate(
-    sales_ymd_d = lubridate::as_datetime(sales_epoch)
-  )
+    sales_date = lubridate::as_datetime(sales_epoch)
+  ) %>% 
+  select(receipt_no, receipt_sub_no, sales_date)
 
 # Error in `collect()`:
 # ! Failed to collect lazy table.
@@ -1749,14 +1775,43 @@ db_receipt %>%
 1541203200L %>% as.POSIXct(origin = "1970-01-01")
 
 db_receipt %>% 
-  select(receipt_no, receipt_sub_no, sales_ymd, sales_epoch) %>% 
   mutate(
-    sales_ymd_d = as.POSIXct(sales_epoch, origin = "1970-01-01") %>% as.Date()
-  )
+    sales_date = as.POSIXct(sales_epoch, origin = "1970-01-01") %>% as.Date()
+  ) %>% 
+  select(receipt_no, receipt_sub_no, sales_date)
+
+# as.POSIXct(sales_epoch, origin = "1970-01-01") でエラー: 
+#   使われていない引数 (origin = "1970-01-01")
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+SELECT
+  receipt_no,
+  receipt_sub_no,
+  CAST(TO_TIMESTAMP(sales_epoch) :: TIMESTAMP AS DATE) AS sales_date
+FROM receipt
+"
+)
+q %>% my_select(con)
+
+q = sql("
+SELECT
+  receipt_no,
+  receipt_sub_no,
+  TO_TIMESTAMP(sales_epoch) AS sales_date
+FROM receipt
+"
+)
+q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-049 ------------
 # レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）を日付型に変換し、「年」だけ取り出してレシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
+
+# ブログには掲載しない
 
 df_receipt %>% 
   mutate(
@@ -1767,23 +1822,53 @@ df_receipt %>%
   ) %>% 
   select(receipt_no, receipt_sub_no, year)
 
+# A tibble: 104,681 × 3
+#    receipt_no receipt_sub_no  year
+#         <int>          <int> <int>
+#  1        112              1  2018
+#  2       1132              2  2018
+#  3       1102              1  2017
+#  4       1132              1  2019
+#  5       1102              2  2018
+#  6       1112              1  2019
+#  7       1102              2  2018
+#  8       1102              1  2019
+#  9       1112              2  2017
+# 10       1102              1  2019
+
+#...............................................................................
 # 推奨
-db_receipt %>% 
+db_result = db_receipt %>% 
   mutate(
     sales_ymd = sql("TO_TIMESTAMP(sales_epoch) :: TIMESTAMP"), 
     year = sales_ymd %>% lubridate::year() %>% as.integer()
   ) %>% 
-  select(receipt_no, receipt_sub_no, year) %>% 
-  my_show_query(F)
+  select(receipt_no, receipt_sub_no, year)
+
+db_result %>% collect()
 
 # 非推奨
 db_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_epoch) %>% 
   mutate(
     ymd = sql("YEAR(TO_TIMESTAMP(sales_epoch) :: TIMESTAMP)")
-  ) %>% 
-  my_show_query(F)
-  # my_collect()
+  )
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+q = sql("
+SELECT
+  receipt_no,
+  receipt_sub_no,
+  CAST(EXTRACT(year FROM 
+    TO_TIMESTAMP(sales_epoch) :: TIMESTAMP
+  ) AS INTEGER) AS 'year'
+FROM receipt
+"
+)
+q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-053 ------------
@@ -1791,49 +1876,147 @@ db_receipt %>%
 # それ以外のものを0に二値化せよ。
 # さらにレシート明細データ（receipt）と結合し、全期間において売上実績のある顧客数を、作成した二値ごとにカウントせよ。
 
-customer$postal_cd
+# df_customer$postal_cd
 
-d.c = customer %>% select(customer_id, postal_cd) %>% 
-  mutate(postal_3 = str_sub(postal_cd, 1, 3)) %>% 
-  mutate(tokyo = ifelse(postal_3 >= "100" & postal_3 <= "209", 1, 0))
+# d.c = df_customer %>% 
+#   select(customer_id, postal_cd) %>% 
+#   mutate(postal_3 = stringr::str_sub(postal_cd, 1L, 3L)) %>% 
+#   mutate(tokyo = ifelse(between(postal_3, "100", "209"), 1L, 0L))
 
-d.r = receipt %>% select(customer_id, amount) %>% 
-  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
-  filter(sum_amount > 0.0)
+df_cust = df_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = ifelse(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), 
+        "100", "209"
+      ), 
+      1L, 0L
+    )
+  )
 
-d.r %>% inner_join(d.c, by = "customer_id") %>% count(tokyo)
+df_cust
+
+df_rec = df_receipt %>% distinct(customer_id)
+
+# d.r = df_receipt %>% select(customer_id, amount) %>% 
+#   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+#   filter(sum_amount > 0.0)
+
+df_cust %>% 
+  inner_join(df_rec, by = "customer_id") %>% 
+  count(tokyo)
+
+#................................................
+
+df_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = ifelse(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
+      ), 
+      1L, 0L
+    )
+  ) %>% 
+  inner_join(
+    df_receipt %>% distinct(customer_id), 
+    by = "customer_id") %>% 
+  count(tokyo, name = "n_customer")
+
+#   tokyo n_customer
+#   <int>      <int>
+# 1     0       3906
+# 2     1       4400
+
+#...............................................................................
+
+db_result = db_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = ifelse(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
+      ), 
+      1L, 0L
+    )
+  ) %>% 
+  inner_join(
+    db_receipt %>% distinct(customer_id), 
+    by = "customer_id") %>% 
+  count(tokyo, name = "n_customer")
+
+db_result %>% collect()
+
+#   tokyo n_customer
+#   <int>      <dbl>
+# 1     0       3906
+# 2     1       4400
+
+#...............................................................................
+
+db_result %>% show_query(cte = T)
+
+# sample.1
 
 q = sql("
-with cust as (
-  select 
-    customer_id, 
-    postal_cd, 
-    case 
-      when SUBSTR(postal_cd, 1, 3) between '100' and '209' then 1
-      else 0
-    end as postal_flg
-  from
+WITH customer_region AS (
+  SELECT
+    customer_id,
+    postal_cd,
+    CASE 
+      WHEN SUBSTR(postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
+      ELSE 0 
+    END AS tokyo
+  FROM 
     customer
+),
+active_customers AS (
+  SELECT c.*
+  FROM 
+    customer_region c
+  INNER JOIN 
+    (SELECT DISTINCT customer_id FROM receipt) r
+  USING (customer_id)
 )
-select 
-  c.postal_flg, 
-  count(*) as n_customer
-from
-  cust as c
-inner join 
-  (select distinct customer_id as customer_id from receipt) as r
-USING (customer_id)
-group by 
-  postal_flg
+SELECT 
+  tokyo, 
+  COUNT(*) AS n_customer
+FROM 
+  active_customers
+GROUP BY 
+  tokyo
 "
 )
 q %>% my_select(con)
 
-# A tibble: 2 × 2
-#   postal_flg n_customer
-#        <int>      <int>
-# 1          0       3906
-# 2          1       4400
+# sample.2
+
+q = sql("
+SELECT 
+  CASE 
+    WHEN SUBSTR(c.postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
+    ELSE 0 
+  END AS tokyo, 
+  COUNT(*) AS n_customer
+FROM 
+  customer c
+INNER JOIN 
+  (SELECT DISTINCT customer_id FROM receipt) r 
+USING (customer_id)
+GROUP BY 
+  tokyo
+"
+)
+q %>% my_select(con)
+
+# CASE 式で生成した (1,0) の列 tokyo は 集約キー (GROUP BY に含める列) なので、
+# COUNT(*) のような集約関数と同じ SELECT 句に書いても問題ありません。
+
+# ポイント
+# tokyo は GROUP BY の対象になるため、集約関数と共存可能。
+# COUNT(*) は各 tokyo グループごとの行数を数えるため、正しく動作する。
+
 
 #-------------------------------------------------------------------------------
 # R-055 ------------
@@ -1857,9 +2040,8 @@ q %>% my_select(con)
 #     )) %>%
 #     head(10)
 
-df_receipt %>%
-  group_by(customer_id) %>% 
-  summarise(sum_amount = sum(amount), .groups = "drop") %>% 
+df_result = df_receipt %>%
+  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   mutate(
     pct_group = 
       cut(
@@ -1872,7 +2054,24 @@ df_receipt %>%
       ) %>% 
       as.character()
   ) %>% 
+  arrange(customer_id) %>% 
   head(10)
+
+df_result
+
+# A tibble: 10 × 3
+#    customer_id    sum_amount pct_group
+#    <chr>               <dbl> <chr>    
+#  1 CS001113000004       1298 2        
+#  2 CS001114000005        626 2        
+#  3 CS001115000010       3044 3        
+#  4 CS001205000004       1988 3        
+#  5 CS001205000006       3337 3        
+#  6 CS001211000025        456 1        
+#  7 CS001212000027        448 1        
+#  8 CS001212000031        296 1        
+#  9 CS001212000046        228 1        
+# 10 CS001212000070        456 1    
 
 #...............................................................................
 # Rコード (データベース操作)
@@ -1882,27 +2081,36 @@ db_receipt %>%
   mutate(
     p25 = quantile(amount, 0.25, na.rm = T)
   ) %>% 
-  my_show_query()
+  show_query()
 
 q = sql("
 SELECT
-  receipt.*,
+  *,
   PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) OVER () AS p25
 FROM receipt
 "
 )
 q %>% my_select(con)
 
+# Error in `dbSendQuery()`:
+# ! rapi_prepare: Failed to extract statements:
+# Parser Error: ORDER BY is not implemented for window functions!
+
+#................................................
 # answer
-db_sales_amount = db_receipt %>%
+db_sales_amount = db_receipt %>% 
   summarise(sum_amount = sum(amount), .by = customer_id)
+
+db_sales_amount
 
 db_sales_pct = db_sales_amount %>%
   summarise(
-    p25 = quantile(sum_amount, 0.25, na.rm = TRUE), 
-    p50 = quantile(sum_amount, 0.5, na.rm = TRUE), 
-    p75 = quantile(sum_amount, 0.75, na.rm = TRUE)
+    p25 = quantile(sum_amount, 0.25), 
+    p50 = quantile(sum_amount, 0.5), 
+    p75 = quantile(sum_amount, 0.75)
   )
+
+db_sales_pct
 
 db_result = db_sales_amount %>% 
   cross_join(db_sales_pct) %>% 
@@ -1915,18 +2123,10 @@ db_result = db_sales_amount %>%
     )
   ) %>% 
   select(customer_id, sum_amount, pct_group) %>% 
+  arrange(customer_id) %>% 
   head(10)
   
-db_result
 db_result %>% collect()
-
-#   customer_id    sum_amount pct_group
-#    <chr>               <dbl> <chr>    
-#  1 CS003515000195       5412 4        
-#  2 CS014415000077      14076 4        
-#  3 CS026615000085       2885 3        
-#  4 CS015415000120       4106 4        
-#  5 CS008314000069       5293 4        
 
 #................................................
 db_sales_amount %>% 
@@ -1978,10 +2178,52 @@ WHEN ((sum_amount < p75)) THEN '3'
 WHEN ((sum_amount >= p75)) THEN '4'
 END AS pct_group
 FROM q03 q01
+ORDER BY customer_id
 LIMIT 10
 "
 )
 q %>% my_select(con)
+
+q = sql("
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM 
+    receipt
+  GROUP BY 
+    customer_id
+),
+percentiles AS (
+  SELECT
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sum_amount) AS p25,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sum_amount) AS p50,
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sum_amount) AS p75
+  FROM 
+    customer_sales
+)
+SELECT
+  cs.customer_id,
+  cs.sum_amount,
+  CASE
+    WHEN cs.sum_amount < p.p25 THEN '1'
+    WHEN cs.sum_amount < p.p50 THEN '2'
+    WHEN cs.sum_amount < p.p75 THEN '3'
+    ELSE '4'
+  END AS pct_group
+FROM 
+  customer_sales cs
+CROSS JOIN 
+  percentiles p
+ORDER BY 
+  cs.customer_id
+LIMIT 10
+"
+)
+
+q %>% my_select(con)
+
+# 参考: a JOIN b ON 1=1
 
 #-------------------------------------------------------------------------------
 # R-056 ------------
@@ -1992,10 +2234,12 @@ q %>% my_select(con)
 pacman::p_load(epikit)
 
 df_customer %>% 
+  select(customer_id, birth_day, age) %>% 
   mutate(
-    age_rng = epikit::age_categories(age, lower = 0, upper = 60, by = 10)
+    age_rng = epikit::age_categories(
+      age, lower = 0, upper = 60, by = 10
+    )
   ) %>% 
-  select(customer_id, birth_day, age, age_rng) %>% 
   head(10)
 
 # A tibble: 21,971 × 4
@@ -2014,10 +2258,12 @@ df_customer %>%
 #...............................................................................
 
 db_result = db_customer %>% 
+  select(customer_id, birth_day, age) %>% 
   mutate(
-    age_rng = pmin((floor(age / 10) * 10), 60) %>% as.integer()
+    age_rng = 
+      pmin((floor(age / 10) * 10), 60) %>% 
+      as.integer()
   ) %>% 
-  select(customer_id, birth_day, age, age_rng) %>% 
   head(10)
   
 db_result %>% collect()
@@ -2043,8 +2289,11 @@ SELECT
   customer_id,
   birth_day,
   age,
-  CAST(LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER) AS age_rng
-FROM customer
+  CAST(
+    LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER
+  ) AS age_rng
+FROM 
+  customer
 LIMIT 10
 "
 )
@@ -2056,8 +2305,8 @@ q = sql("
 SELECT
   customer_id, 
   birth_day, 
-  LEAST((age / 10) * 10, 60) AS era
-  -- printf('%02d', LEAST((age / 10) * 10, 60)) AS era
+  LEAST(floor(age / 10) * 10, 60) AS era
+  -- printf('%02f', LEAST(floor(age / 10) * 10, 60)) AS era
 FROM customer
 WHERE age IS NOT NULL
 ORDER BY era, customer_id;
@@ -2080,64 +2329,81 @@ q %>% my_select(con)
 # 056の抽出結果と性別コード（gender_cd）により、新たに性別×年代の組み合わせを表すカテゴリデータを作成し、
 # 10件表示せよ。組み合わせを表すカテゴリの値は任意とする。
 
-d.c = df_customer %>% 
-  mutate(age_rng = epikit::age_categories(age, lower = 0, upper = 60, by = 10)) %>% 
-  select(customer_id, birth_day, age, age_rng, gender_cd)
+df_cust = df_customer %>% 
+  select(customer_id, birth_day, gender_cd, age) %>% 
+  mutate(
+    age_rng = epikit::age_categories(
+      age, lower = 0, upper = 60, by = 10
+    )
+  )
 
-d = d.c %>% 
+df_cust %>% 
   unite("gender_age", gender_cd, age_rng, sep = "_", remove = F) %>% 
+  select(-age_rng) %>% 
   # mutate(across(gender_age, ~ as.factor(.x))) %>% 
-  arrange(customer_id)
+  head(10)
 
-d
-# A tibble: 21,971 × 6
-#    customer_id    birth_day    age gender_age age_rng gender_cd
-#    <chr>          <date>     <int> <chr>      <fct>   <chr>    
-#  1 CS001105000001 2000-01-14    19 0_10-19    10-19   0        
-#  2 CS001112000009 2006-08-24    12 1_10-19    10-19   1        
-#  3 CS001112000019 2001-01-31    18 1_10-19    10-19   1        
-#  4 CS001112000021 2001-12-15    17 1_10-19    10-19   1        
-#  5 CS001112000023 2004-01-26    15 1_10-19    10-19   1        
-#  6 CS001112000024 2001-01-16    18 1_10-19    10-19   1        
-#  7 CS001112000029 2005-01-24    14 1_10-19    10-19   1        
-#  8 CS001112000030 2003-03-02    16 1_10-19    10-19   1        
-#  9 CS001113000004 2003-02-22    16 1_10-19    10-19   1        
-# 10 CS001113000010 2005-05-09    13 1_10-19    10-19   1        
-# 11 CS001114000005 2004-11-22    14 1_10-19    10-19   1        
-# 12 CS001115000006 2007-03-02    12 9_10-19    10-19   9   
-# ...
+# A tibble: 10 × 5
+#    customer_id    birth_day  gender_age gender_cd   age
+#    <chr>          <date>     <chr>      <chr>     <int>
+#  1 CS021313000114 1981-04-29 1_30-39    1            37
+#  2 CS037613000071 1952-04-01 9_60+      9            66
+#  3 CS031415000172 1976-10-04 1_40-49    1            42
+#  4 CS028811000001 1933-03-27 1_60+      1            86
+#  5 CS001215000145 1995-03-29 1_20-29    1            24
+#  6 CS020401000016 1974-09-15 0_40-49    0            44
+#  7 CS015414000103 1977-08-09 1_40-49    1            41
+#  8 CS029403000008 1973-08-17 0_40-49    0            45
+#  9 CS015804000004 1931-05-02 0_60+      0            87
+# 10 CS033513000180 1962-07-11 1_50-59    1            56
 
-d$gender_age %>% levels() %>% writeLines(sep = ", ")
-d$gender_age %>% levels() %>% ll.json()
+# d$gender_age %>% levels() %>% writeLines(sep = ", ")
+# d$gender_age %>% levels() %>% ll.json()
 # ["0_10-19", "0_20-29", "0_30-39", "0_40-49", "0_50-59", "0_60+", "1_10-19", "1_20-29", "1_30-39", "1_40-49", "1_50-59", "1_60+", "9_10-19", "9_20-29", "9_30-39", "9_40-49", "9_50-59", "9_60+"] 
 
 #...............................................................................
-# printf(): 頭に0をつけて文字列変換できる.
+
+db_result = db_customer %>% 
+  select(customer_id, birth_day, gender_cd, age) %>% 
+  mutate(
+    # age_rng = 
+    #   sql("LPAD(CAST(LEAST(CAST(FLOOR(age / 10) * 10 AS INTEGER), 60) AS VARCHAR), 2, '0')"),
+    tmp = pmin(FLOOR(age / 10) * 10, 60) %>% as.integer() %>% as.character(), 
+    age_rng = sql("LPAD(tmp, 2, '0')"), 
+    gender_age = stringr::str_c(gender_cd, age_rng, sep = "_")
+  ) %>% 
+  select(-c(tmp, age_rng)) %>% 
+  head(10)
+
+db_result %>% collect()
+
+#...............................................................................
+
+db_result %>% show_query(cte = F)
+
 q = sql("
-select
-  customer_id, 
-  birth_day, 
-  gender_cd || printf('%02d', MIN((age / 10) * 10, 60)) as gender_era
-from
-  customer
-order by 
-  customer_id
+SELECT
+  customer_id,
+  birth_day,
+  CONCAT_WS('_', gender_cd, age_rng) AS gender_age, 
+  gender_cd,
+  age
+FROM (
+  SELECT
+    *, 
+    LPAD(
+      CAST(
+        LEAST(CAST(FLOOR(age / 10.0) * 10.0 AS INTEGER), 60) AS TEXT
+      ), 
+      2, '0'
+    ) AS age_rng
+  FROM 
+    customer
+)
+LIMIT 10
 "
 )
 q %>% my_select(con)
-# A tibble: 21,971 × 3
-#    customer_id    birth_day  gender_era
-#    <chr>          <chr>      <chr>     
-#  1 CS001105000001 2000-01-14 010       
-#  2 CS001112000009 2006-08-24 110       
-#  3 CS001112000019 2001-01-31 110       
-#  4 CS001112000021 2001-12-15 110       
-#  5 CS001112000023 2004-01-26 110       
-#  6 CS001112000024 2001-01-16 110       
-#  7 CS001112000029 2005-01-24 110       
-#  8 CS001112000030 2003-03-02 110       
-#  9 CS001113000004 2003-02-22 110       
-# ...
 
 #-------------------------------------------------------------------------------
 # R-058 ------------
@@ -2147,10 +2413,27 @@ d = df_customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
 d$gender_cd %>% levels()
 
 # d %>% recipes::recipe(~ customer_id + gender_cd, data = .)
-d %>% recipes::recipe() %>% 
+
+df_customer %>% 
+  mutate(across(gender_cd, ~ as.factor(.x))) %>% 
+  recipes::recipe() %>% 
   step_select(customer_id, gender_cd) %>% 
   step_dummy(gender_cd, one_hot = T) %>% 
-  prep() %>% bake(new_data = NULL)
+  prep() %>% 
+  bake(new_data = NULL) %>% 
+  head(10)
+
+d = df_customer
+d$gender_cd %<>% inset(2, NA)
+d %>% 
+  mutate(across(gender_cd, ~ as.factor(.x))) %>% 
+  recipes::recipe() %>% 
+  step_select(customer_id, gender_cd) %>% 
+  step_dummy(gender_cd, one_hot = T) %>% 
+  prep() %>% 
+  bake(new_data = NULL) %>% 
+  head(10)
+
 
 # A tibble: 21,971 × 4
 #    customer_id    gender_cd_X0 gender_cd_X1 gender_cd_X9
@@ -2175,9 +2458,58 @@ db_result = db_customer %>%
     gender_cd_1 = ifelse(gender_cd == "1", 1L, 0L), 
     gender_cd_9 = ifelse(gender_cd == "9", 1L, 0L), 
     .keep = "unused"
-  )
+  ) %>% 
+  head(10)
 
 db_result %>% collect()
+
+# A tibble: 21,971 × 4
+#    customer_id    gender_cd_0 gender_cd_1 gender_cd_9
+#    <chr>                <int>       <int>       <int>
+#  1 CS021313000114           0           1           0
+#  2 CS037613000071           0           0           1
+#  3 CS031415000172           0           1           0
+#  ...
+
+#................................................
+
+# NA を含む場合のチェック
+df = tribble(
+  ~customer_id, ~gender_cd, 
+  "CS021313000114", NA, 
+  "CS037613000071", NA, 
+  "CS031415000172", NA
+)
+d = con %>% my_tbl(df = df, overwrite = T)
+dbReadTable(con, "df")
+db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = F)
+db_customer %>% filter(is.na(gender_cd))
+db_cust %>% filter(is.na(gender_cd))
+
+db_cust %>% 
+  compute(name = "cust_na", temporary = TRUE, overwrite = T)
+dbReadTable(con, "cust_na") %>% filter(is.na(gender_cd))
+
+con %>% DBI::dbListTables()
+
+db_cust %>% 
+  select(
+    customer_id, gender_cd
+  ) %>% 
+  mutate(
+    gender_cd_0 = ifelse(gender_cd == "0", 1L, 0L), 
+    gender_cd_1 = ifelse(gender_cd == "1", 1L, 0L), 
+    gender_cd_9 = ifelse(gender_cd == "9", 1L, 0L), 
+    .keep = "unused"
+  ) %>% 
+  filter(customer_id %in% df$customer_id) %>% 
+  collect()
+
+#   customer_id    gender_cd_0 gender_cd_1 gender_cd_9
+#   <chr>                <int>       <int>       <int>
+# 1 CS021313000114          NA          NA          NA
+# 2 CS037613000071          NA          NA          NA
+# 3 CS031415000172          NA          NA          NA
 
 #...............................................................................
 
@@ -2190,29 +2522,80 @@ SELECT
   CASE WHEN (gender_cd = '1') THEN 1 WHEN NOT (gender_cd = '1') THEN 0 END AS gender_cd_1,
   CASE WHEN (gender_cd = '9') THEN 1 WHEN NOT (gender_cd = '9') THEN 0 END AS gender_cd_9
 FROM customer
+LIMIT 10
 "
 )
 q %>% my_select(con)
 
+# sample.1
 q = sql("
-select
-  customer_id, 
-  case when gender_cd = '0' then 1 else 0 end as gender_cd_0, 
-  case when gender_cd = '1' then 1 else 0 end as gender_cd_1, 
-  case when gender_cd = '9' then 1 else 0 end as gender_cd_9
-from
-  customer
+SELECT
+  customer_id,
+  CASE 
+    WHEN gender_cd = '0' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 
+  END AS gender_cd_0,
+  CASE 
+    WHEN gender_cd = '1' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 
+  END AS gender_cd_1,
+  CASE 
+    WHEN gender_cd = '9' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 
+  END AS gender_cd_9
+FROM customer
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+# sample.2
+# gender_cd に欠損値が含まれない場合は次のように簡略化できる。
+q = sql("
+SELECT
+  customer_id,
+  CASE WHEN gender_cd = '0' THEN 1 ELSE 0 END AS gender_cd_0,
+  CASE WHEN gender_cd = '1' THEN 1 ELSE 0 END AS gender_cd_1,
+  CASE WHEN gender_cd = '9' THEN 1 ELSE 0 END AS gender_cd_9
+FROM customer
+LIMIT 10
 "
 )
 q %>% my_select(con)
 
 # A tibble: 21,971 × 4
-# customer_id	gender_cd_0	gender_cd_1	gender_cd_9
-# CS021313000114	0	1	0
-# CS037613000071	0	0	1
-# CS031415000172	0	1	0
-# CS028811000001	0	1	0
-# ...
+#    customer_id    gender_cd_0 gender_cd_1 gender_cd_9
+#    <chr>                <int>       <int>       <int>
+#  1 CS021313000114           0           1           0
+#  2 CS037613000071           0           0           1
+#  3 CS031415000172           0           1           0
+#  ...
+
+#................................................
+# cust_na テーブルで欠損値を含む場合のテスト
+q = sql("
+select
+  customer_id, 
+  gender_cd, 
+  case when gender_cd = '0' then 1 else 0 end as gender_cd_0, 
+  case when gender_cd = '1' then 1 else 0 end as gender_cd_1, 
+  case when gender_cd = '9' then 1 else 0 end as gender_cd_9
+from
+  cust_na
+"
+)
+q %>% my_select(con) %>% filter(is.na(gender_cd))
+
+q = sql("
+SELECT
+  customer_id,
+  gender_cd,
+  CASE WHEN gender_cd = '0' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 END AS gender_cd_0,
+  CASE WHEN gender_cd = '1' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 END AS gender_cd_1,
+  CASE WHEN gender_cd = '9' THEN 1 WHEN gender_cd IS NULL THEN NULL ELSE 0 END AS gender_cd_9
+FROM 
+  cust_na
+"
+)
+q %>% my_select(con)
+q %>% my_select(con) %>% filter(is.na(gender_cd))
 
 #-------------------------------------------------------------------------------
 # R-060 ------------
@@ -2223,7 +2606,7 @@ q %>% my_select(con)
 df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
-  mutate(norm_amount = scales::rescale(sum_amount,, to = c(0, 1))) %>% 
+  mutate(norm_amount = scales::rescale(sum_amount, to = c(0, 1))) %>% 
   arrange(customer_id)
 
 # A tibble: 8,306 × 3
@@ -2241,49 +2624,126 @@ df_receipt %>%
 db_result = db_receipt %>% 
   # filter(!str_detect(customer_id, "^Z")) %>% 
   filter(!customer_id %LIKE% "Z%") %>% 
-  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+  summarise(sum_amount = sum(amount), .by = "customer_id") %>% 
   mutate(
     min_amount = min(sum_amount), 
-    max_amount = max(sum_amount)
-  ) %>% 
-  mutate(
+    max_amount = max(sum_amount), 
     norm_amount = 
       (sum_amount - min_amount) / (max_amount -  min_amount)
   ) %>% 
   select(-c(min_amount, max_amount)) %>% 
-  arrange(customer_id)
+  arrange(customer_id) %>% 
+  head(10)
 
 db_result %>% collect()
 
+# A tibble: 10 × 3
+#    customer_id    sum_amount norm_amount
+#    <chr>               <dbl>       <dbl>
+#  1 CS001113000004       1298   0.053354 
+#  2 CS001114000005        626   0.024157 
+#  3 CS001115000010       3044   0.12921  
+#  4 CS001205000004       1988   0.083333 
+#  5 CS001205000006       3337   0.14194  
+#  6 CS001211000025        456   0.016771 
+#  7 CS001212000027        448   0.016423 
+#  8 CS001212000031        296   0.0098193
+#  9 CS001212000046        228   0.0068648
+# 10 CS001212000070        456   0.016771 
+
 #...............................................................................
 
-db_result %>% my_show_query()
+db_result %>% show_query(cte = T)
+
+# sample.1
 
 q = sql("
-WITH q01 AS (
-  SELECT receipt.*
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
   FROM receipt
-  -- WHERE (NOT(REGEXP_MATCHES(customer_id, '^Z')))
-  WHERE (NOT(customer_id LIKE 'Z%'))
-),
-q02 AS (
-  SELECT customer_id, SUM(amount) AS sum_amount
-  FROM q01
+  WHERE customer_id NOT LIKE 'Z%'
   GROUP BY customer_id
 ),
-q03 AS (
-  SELECT
-    q01.*,
+customer_sales_with_stats AS (
+  SELECT 
+    customer_id, 
+    sum_amount, 
     MIN(sum_amount) OVER () AS min_amount,
     MAX(sum_amount) OVER () AS max_amount
-  FROM q02 q01
+  FROM customer_sales
 )
 SELECT
   customer_id,
   sum_amount,
   (sum_amount - min_amount) / (max_amount - min_amount) AS norm_amount
-FROM q03 q01
+FROM customer_sales_with_stats
 ORDER BY customer_id
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+# 例外処理の追加
+# 以下のように、ゼロ除算を避ける処理を追加することができます。
+
+q = sql("
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM receipt
+  WHERE customer_id NOT LIKE 'Z%'
+  GROUP BY customer_id
+),
+customer_sales_with_stats AS (
+  SELECT 
+    customer_id, 
+    sum_amount, 
+    MIN(sum_amount) OVER () AS min_amount,
+    MAX(sum_amount) OVER () AS max_amount
+  FROM customer_sales
+)
+SELECT
+  customer_id,
+  sum_amount,
+  CASE 
+    WHEN max_amount - min_amount = 0 THEN 0.5
+    ELSE (sum_amount - min_amount) / (max_amount - min_amount)
+  END AS norm_amount
+FROM customer_sales_with_stats
+ORDER BY customer_id
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+# ブログには掲載しない
+# sample.2
+q = sql("
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM receipt
+  WHERE customer_id NOT LIKE 'Z%'
+  GROUP BY customer_id
+),
+normalized_sales AS (
+  SELECT
+    customer_id,
+    sum_amount,
+    (
+    sum_amount - MIN(sum_amount) OVER ()) / 
+    (MAX(sum_amount) OVER () - MIN(sum_amount) OVER ()
+    ) AS norm_amount
+  FROM customer_sales
+)
+SELECT *
+FROM normalized_sales
+ORDER BY customer_id
+LIMIT 10
 "
 )
 q %>% my_select(con)
