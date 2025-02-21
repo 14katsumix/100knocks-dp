@@ -2995,6 +2995,7 @@ db_receipt %>%
 # Error in `lubridate::interval()`:
 # ! No known SQL translation
 
+#................................................
 # dplyr が認識できない関数をエラーにする 
 options(dplyr.strict_sql = FALSE)
 
@@ -3006,16 +3007,13 @@ db_result = db_receipt %>%
   ) %>% 
   mutate(
     elapsed_days = 
-      strptime(
-        as.character(sales_ymd), "%Y%m%d") - 
-          strptime(application_date, "%Y%m%d"
-      )
+      STRPTIME(as.character(sales_ymd), "%Y%m%d") - 
+        STRPTIME(application_date, "%Y%m%d")
   ) %>% 
   mutate(
     elapsed_days = sql("EXTRACT(DAY FROM elapsed_days)")
     # elapsed_days = as.integer(elapsed_days)
   ) %>% 
-  # select(-elapsed_time) %>% 
   arrange(customer_id, sales_ymd)
 
 db_result %>% collect()
@@ -3025,29 +3023,27 @@ db_result %>% collect()
 db_result %>% show_query(cte = TRUE)
 
 q = sql("
-WITH q01 AS (
-  SELECT DISTINCT customer_id, sales_ymd
+WITH receipt_distinct AS (
+  SELECT DISTINCT 
+    customer_id, sales_ymd
   FROM receipt
-),
-q02 AS (
-  SELECT LHS.*, application_date
-  FROM q01 LHS
-  INNER JOIN customer
-    ON (LHS.customer_id = customer.customer_id)
-),
-q03 AS (
-  SELECT
-    q01.*,
-    strptime(CAST(sales_ymd AS TEXT), '%Y%m%d') - strptime(application_date, '%Y%m%d') AS elapsed_days
-  FROM q02 q01
 )
-SELECT
-  customer_id,
-  sales_ymd,
-  application_date,
-  EXTRACT(DAY FROM elapsed_days) AS elapsed_days
-FROM q03 q01
-ORDER BY customer_id, sales_ymd
+SELECT 
+  c.customer_id, 
+  r.sales_ymd, 
+  c.application_date,
+  EXTRACT(DAY FROM (
+      STRPTIME(CAST(r.sales_ymd AS TEXT), '%Y%m%d') - 
+        STRPTIME(c.application_date, '%Y%m%d')
+    )
+  ) AS elapsed_days
+FROM 
+  receipt_distinct r
+INNER JOIN 
+  customer c
+USING (customer_id)
+ORDER BY 
+  customer_id, sales_ymd
 "
 )
 q %>% my_select(con)
@@ -3090,25 +3086,23 @@ q %>% my_select(con)
 # R-071 ------------
 # レシート明細データ（df_receipt）の売上日（sales_ymd）に対し、顧客データ（df_customer）の会員申込日
 # （application_date）からの経過月数を計算し、顧客ID（customer_id）、売上日、会員申込日とともに10件表示せよ
-# （sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。1ヶ月未満は切り捨てること。
+# （sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。
+# 1ヶ月未満は切り捨てること。
 
 df_receipt %>%
   distinct(customer_id, sales_ymd) %>% 
   inner_join(
-      df_customer %>% select(customer_id, application_date), 
-      by = "customer_id"
+    df_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
   ) %>% 
   mutate(
-      intrval = 
-        lubridate::interval(
-          strptime(application_date, "%Y%m%d"), 
-          strptime(as.character(sales_ymd), "%Y%m%d")
-        ), 
-      elapsed_months = (intrval %/% months(1)) %>% as.integer()
-      # time_age = as.period(intrval) %>% year()
-  ) %>%
-  select(
-      customer_id, sales_ymd, application_date, elapsed_months
+    elapsed_months = lubridate::interval(
+      strptime(application_date, "%Y%m%d"), 
+      strptime(as.character(sales_ymd), "%Y%m%d")
+    ) %>% 
+    lubridate::time_length("month") %>% 
+    floor() %>% 
+    as.integer()
   ) %>% 
   arrange(customer_id, sales_ymd) %>% 
   head(10)
@@ -3127,6 +3121,24 @@ df_receipt %>%
 #  9 CS001205000004  20180904 20160615                     26
 # 10 CS001205000004  20190312 20160615                     32
 
+# 参考
+df_receipt %>%
+  distinct(customer_id, sales_ymd) %>% 
+  inner_join(
+    df_customer %>% select(customer_id, application_date), 
+    by = "customer_id"
+  ) %>% 
+  mutate(
+    intrval = lubridate::interval(
+      strptime(application_date, "%Y%m%d"), 
+      strptime(as.character(sales_ymd), "%Y%m%d")
+    ), 
+    elapsed_months = (intrval %/% months(1L)) %>% as.integer()
+  ) %>%
+  select(-intrval) %>% 
+  arrange(customer_id, sales_ymd) %>% 
+  head(10)
+
 #...............................................................................
 # dplyr が認識できない関数をエラーにする 
 options(dplyr.strict_sql = FALSE)
@@ -3138,8 +3150,8 @@ db_result = db_receipt %>%
     by = "customer_id"
   ) %>% 
   mutate(
-    sales_ymd_d = strptime(as.character(sales_ymd), "%Y%m%d"), 
-    application_date_d = strptime(application_date, "%Y%m%d")
+    sales_ymd_d = STRPTIME(as.character(sales_ymd), "%Y%m%d"), 
+    application_date_d = STRPTIME(application_date, "%Y%m%d")
   ) %>% 
   mutate(
     elapsed_months = DATEDIFF('month', application_date_d, sales_ymd_d)
@@ -3149,8 +3161,7 @@ db_result = db_receipt %>%
   arrange(customer_id, sales_ymd) %>% 
   head(10)
 
-# DATEDIFF('year', start_date, end_date) が年の境界を超えた回数を数えるため、28 ヶ月の差が 3 年とカウントする
-
+# DATEDIFF('year', start_date, end_date) が年の境界を超えた回数を数えるため、28 ヶ月の差を 3 年とカウントする
 
 db_result %>% collect()
 
@@ -3246,7 +3257,7 @@ q %>% my_select(con)
 # R-074 ------------
 
 # 月曜日を求め、経過日数を計算
-df_result = df_receipt %>%
+df_result = df_receipt %>% 
   mutate(
     sales_date = 
       strptime(as.character(sales_ymd), "%Y%m%d") %>% 
