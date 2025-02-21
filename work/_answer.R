@@ -2621,6 +2621,9 @@ df_receipt %>%
 
 #...............................................................................
 
+# 例外処理の追加
+# ゼロ除算を避ける処理を追加する
+
 db_result = db_receipt %>% 
   # filter(!str_detect(customer_id, "^Z")) %>% 
   filter(!customer_id %LIKE% "Z%") %>% 
@@ -2630,6 +2633,22 @@ db_result = db_receipt %>%
     max_amount = max(sum_amount), 
     norm_amount = 
       (sum_amount - min_amount) / (max_amount -  min_amount)
+  ) %>% 
+  select(-c(min_amount, max_amount)) %>% 
+  arrange(customer_id) %>% 
+  head(10)
+
+db_result = db_receipt %>% 
+  filter(!customer_id %LIKE% "Z%") %>% 
+  summarise(sum_amount = sum(amount), .by = "customer_id") %>% 
+  mutate(
+    min_amount = min(sum_amount), 
+    max_amount = max(sum_amount), 
+    norm_amount = case_when(
+      (max_amount -  min_amount) > 0.0 ~ 
+      (sum_amount - min_amount) / (max_amount -  min_amount), 
+      .default = 0.5
+    )
   ) %>% 
   select(-c(min_amount, max_amount)) %>% 
   arrange(customer_id) %>% 
@@ -2655,6 +2674,9 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = T)
 
+# 例外処理の追加
+# ゼロ除算を避ける処理を追加する
+
 # sample.1
 
 q = sql("
@@ -2662,9 +2684,12 @@ WITH customer_sales AS (
   SELECT 
     customer_id, 
     SUM(amount) AS sum_amount
-  FROM receipt
-  WHERE customer_id NOT LIKE 'Z%'
-  GROUP BY customer_id
+  FROM 
+    receipt
+  WHERE 
+    customer_id NOT LIKE 'Z%'
+  GROUP BY 
+    customer_id
 ),
 customer_sales_with_stats AS (
   SELECT 
@@ -2672,48 +2697,21 @@ customer_sales_with_stats AS (
     sum_amount, 
     MIN(sum_amount) OVER () AS min_amount,
     MAX(sum_amount) OVER () AS max_amount
-  FROM customer_sales
-)
-SELECT
-  customer_id,
-  sum_amount,
-  (sum_amount - min_amount) / (max_amount - min_amount) AS norm_amount
-FROM customer_sales_with_stats
-ORDER BY customer_id
-LIMIT 10
-"
-)
-q %>% my_select(con)
-
-# 例外処理の追加
-# 以下のように、ゼロ除算を避ける処理を追加することができます。
-
-q = sql("
-WITH customer_sales AS (
-  SELECT 
-    customer_id, 
-    SUM(amount) AS sum_amount
-  FROM receipt
-  WHERE customer_id NOT LIKE 'Z%'
-  GROUP BY customer_id
-),
-customer_sales_with_stats AS (
-  SELECT 
-    customer_id, 
-    sum_amount, 
-    MIN(sum_amount) OVER () AS min_amount,
-    MAX(sum_amount) OVER () AS max_amount
-  FROM customer_sales
+  FROM 
+    customer_sales
 )
 SELECT
   customer_id,
   sum_amount,
   CASE 
-    WHEN max_amount - min_amount = 0 THEN 0.5
-    ELSE (sum_amount - min_amount) / (max_amount - min_amount)
+    WHEN max_amount - min_amount > 0.0 THEN 
+      (sum_amount - min_amount) / (max_amount - min_amount)
+    ELSE 0.5
   END AS norm_amount
-FROM customer_sales_with_stats
-ORDER BY customer_id
+FROM 
+  customer_sales_with_stats
+ORDER BY 
+  customer_id
 LIMIT 10
 "
 )
@@ -2765,15 +2763,28 @@ q %>% my_select(con)
 # 抽出対象はカテゴリ大区分コード"07"（瓶詰缶詰）の売上実績がある顧客のみとし、結果を10件表示せよ。
 
 df_receipt %>% 
-  inner_join(df_product, by = "product_cd") %>% 
-  select(customer_id, category_major_cd, amount) %>% 
-  mutate(amount_07 = ifelse(category_major_cd == "07", amount, 0.0)) %>% 
-  summarise(across(c(amount, amount_07), ~ sum(.x, na.rm = T)), .by = "customer_id") %>% 
+  inner_join(
+    df_product, by = "product_cd"
+  ) %>% 
+  select(
+    customer_id, category_major_cd, amount
+  ) %>% 
+  mutate(
+    amount_07 = ifelse(
+      category_major_cd == "07", amount, 0.0
+    )
+  ) %>% 
+  summarise(
+    across(c(amount, amount_07), 
+    ~ sum(.x, na.rm = T)), 
+    .by = "customer_id"
+  ) %>% 
   filter(amount_07 > 0.0) %>% 
   mutate(sales_rate = amount_07 / amount) %>% 
-  arrange(customer_id)
+  arrange(customer_id) %>% 
+  head(10)
 
-# A tibble: 6,865 × 4
+# A tibble: 10 × 4
 #    customer_id    amount amount_07 sales_rate
 #    <chr>           <dbl>     <dbl>      <dbl>
 #  1 CS001113000004   1298      1298    1      
@@ -2781,18 +2792,35 @@ df_receipt %>%
 #  3 CS001115000010   3044      2694    0.88502
 #  4 CS001205000004   1988       346    0.17404
 #  5 CS001205000006   3337      2004    0.60054
-#  ...
+#  6 CS001212000027    448       200    0.44643
+#  7 CS001212000031    296       296    1      
+#  8 CS001212000046    228       108    0.47368
+#  9 CS001212000070    456       308    0.67544
+# 10 CS001213000018    243       145    0.59671
 
 #...............................................................................
 
-db_result = db_receipt %>% 
-  inner_join(db_product, by = "product_cd") %>% 
-  select(customer_id, category_major_cd, amount) %>% 
-  mutate(amount_07 = ifelse(category_major_cd == "07", amount, 0.0)) %>% 
-  summarise(across(c(amount, amount_07), ~ sum(.x, na.rm = T)), .by = "customer_id") %>% 
+db_receipt %>% 
+  inner_join(
+    db_product, by = "product_cd"
+  ) %>% 
+  select(
+    customer_id, category_major_cd, amount
+  ) %>% 
+  mutate(
+    amount_07 = ifelse(
+      category_major_cd == "07", amount, 0.0
+    )
+  ) %>% 
+  summarise(
+    across(c(amount, amount_07), 
+    ~ sum(.x, na.rm = T)), 
+    .by = "customer_id"
+  ) %>% 
   filter(amount_07 > 0.0) %>% 
   mutate(sales_rate = amount_07 / amount) %>% 
-  arrange(customer_id)
+  arrange(customer_id) %>% 
+  head(10)
 
 db_result %>% collect()
 
@@ -2825,49 +2853,40 @@ q03 AS (
 SELECT q01.*, amount_07 / amount AS sales_rate
 FROM q03 q01
 ORDER BY customer_id
+LIMIT 10
 "
 )
 q %>% my_select(con)
 
-#................................................
 q = sql("
-with rec as (
-  select
-    r.customer_id, 
-    r.amount, 
-    p.category_major_cd
-  from
-    receipt as r
-  inner join product as p
-  USING (product_cd)
-), 
-cust as (
-select 
-  distinct customer_id
-from
-  rec
-where 
-  category_major_cd = '07'
-), 
-customer_amount as (
-  select 
-    customer_id, 
-    SUM(amount) as sum_amount, 
-    SUM(case when category_major_cd = '07' then amount end) as major_amount
-  from
-    rec
-  where 
-    customer_id IN cust
-  group by
-    customer_id
+WITH customer_sales AS (
+SELECT 
+  r.customer_id,
+  SUM(r.amount) AS amount,
+  SUM(
+    CASE 
+      WHEN p.category_major_cd = '07' THEN r.amount 
+      ELSE 0.0 
+    END
+  ) AS amount_07
+FROM 
+  receipt r
+INNER JOIN 
+  product p 
+USING (product_cd)
+GROUP BY 
+  r.customer_id
+HAVING 
+  amount_07 > 0.0
 )
-select
+SELECT 
   *, 
-  ROUND(major_amount / sum_amount, 2) as ratio
-  -- チェック用
-  -- , MIN(major_amount)
-from
-  customer_amount
+  amount_07 / amount AS sales_rate
+FROM 
+  customer_sales
+ORDER BY 
+  customer_id
+LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -3642,6 +3661,8 @@ db_result %>% count(gender_cd)
 # 3         9   108
 
 #................................................
+# 以下は、ブログには掲載しない
+
 # customer をランダムに並び替えてからグループ内で順番付けをする
 
 # ランダムシードを設定
@@ -4010,6 +4031,7 @@ df_result2
 rm(avg_price, avg_cost)
 
 #................................................
+# rows_patch()を使用する方法
 
 df_stats = df_product %>% 
   mutate(
@@ -4021,6 +4043,7 @@ df_stats = df_product %>%
 df_stats
 df_result3 = df_product %>% rows_patch(df_stats)
 df_result3 %>% skimr::skim()
+# df_product %>% skimr::skim()
 
 # A tibble: 10,030 × 6
 #    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
@@ -4085,6 +4108,26 @@ SELECT
 FROM q01
 -- チェック用
 -- where unit_price IS NULL
+"
+)
+q %>% my_select(con)
+
+q = sql("
+WITH q01 AS (
+  SELECT
+    product.*,
+    ROUND_EVEN(AVG(unit_price) OVER (), 0) AS avg_price,
+    ROUND_EVEN(AVG(unit_cost) OVER (), 0) AS avg_cost
+  FROM product
+)
+SELECT
+  product_cd,
+  category_major_cd,
+  category_medium_cd,
+  category_small_cd,
+  COALESCE(unit_price, avg_price) AS unit_price,
+  COALESCE(unit_cost, avg_cost) AS unit_cost
+FROM q01
 "
 )
 q %>% my_select(con)
