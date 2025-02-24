@@ -154,25 +154,27 @@ lf
 lf %>% summarise(x = sd(b, na.rm = TRUE))
 lf %>% summarise(y = cor(b, c), z = cov(b, c))
 
-db_customer %>% 
+db_result = db_customer %>% 
   left_join(
-    db_receipt %>% select(customer_id, amount), by = "customer_id"
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
   ) %>% 
   group_by(customer_id) %>% 
-  summarise(sum_amount = sum(amount, na.rm = T)) %>% 
-  arrange(customer_id) -> 
-  db_result
+  summarise(sum_amount = sum(amount, na.rm = TRUE)) %>% 
+  arrange(customer_id)
+
+db_result
 
 db_result %>% sql_render(
     con = simulate_mysql(), 
-    sql_options = sql_options(cte = T)
+    sql_options = sql_options(cte = TRUE)
   )
 
 db_result %>% 
-  my_sql_render(con = simulate_mysql(), cte = T)
+  my_sql_render(con = simulate_mysql(), cte = TRUE)
 
 db_result %>% my_sql_render(
-    con = simulate_mysql(), cte = T, 
+    con = simulate_mysql(), cte = TRUE, 
     replacement = "\""
   )
 
@@ -180,11 +182,11 @@ db_result %>% my_sql_render(
 db_result %>% 
   sql_render(
     sql_options = 
-      sql_options(cte = T, use_star = F, qualify_all_columns = F)
+      sql_options(cte = TRUE, use_star = FALSE, qualify_all_columns = FALSE)
   )
 # my_sql_render
 db_result %>% 
-  my_sql_render(cte = T, use_star = F, qualify_all_columns = F)
+  my_sql_render(cte = TRUE, use_star = FALSE, qualify_all_columns = FALSE)
 
 # options(dbplyr.sql_translator = dbplyr::simulate_mssql())
 # db_result %>% sql_render()

@@ -13,8 +13,8 @@ if (!require("pacman")) {
 pacman::p_load(
   rstudioapi,  # ローカルファイルパスの取得向け
   tictoc,      # 処理時間の計測向け
-  install = T, # 存在しないパッケージをインストールする
-  update = F   # 古いパッケージを更新しない
+  install = TRUE,  # 存在しないパッケージをインストールする
+  update = FALSE   # 古いパッケージを更新しない
 )
 
 # .R ファイルの実行関数

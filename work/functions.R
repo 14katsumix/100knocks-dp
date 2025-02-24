@@ -11,36 +11,14 @@ my_path_join = function(..., .dir = getwd(), .subdir = "data") {
     fs::path_norm()
 }
 
-# my_show_query ------------
-# dplyr::show_query のラッパー
-# e: FALSE の場合は query をそのまま返す
-my_show_query = function(
-    query, e = TRUE, 
-    cte = TRUE, 
-    qualify_all_columns = FALSE, 
-    use_star = TRUE, 
-    sql_op = 
-      dbplyr::sql_options(
-        cte = cte, 
-        qualify_all_columns = qualify_all_columns, 
-        use_star = use_star
-      )
-  ) {
-  if (e) {
-    query %>% dplyr::show_query(sql_options = sql_op)
-  } else {
-    query
-  }
-}
-
 # my_sql_render ------------
 # dbplyr::sql_render のラッパー
 # デフォルトでは, バッククォート(`)を削除する. 
 my_sql_render = function(
     query, con = NULL, 
-    cte = T, 
-    qualify_all_columns = T, 
-    use_star = T, 
+    cte = TRUE, 
+    qualify_all_columns = TRUE, 
+    use_star = TRUE, 
     sql_op = 
       dbplyr::sql_options(
         cte = cte, 
@@ -102,6 +80,30 @@ my_tbl = function(
   con %>% dplyr::tbl(name)
 }
 
+#-------------------------------------------------------------------------------
+
+# my_show_query ------------
+# dplyr::show_query のラッパー
+# e: FALSE の場合は query をそのまま返す
+my_show_query = function(
+    query, e = TRUE, 
+    cte = TRUE, 
+    qualify_all_columns = FALSE, 
+    use_star = TRUE, 
+    sql_op = 
+      dbplyr::sql_options(
+        cte = cte, 
+        qualify_all_columns = qualify_all_columns, 
+        use_star = use_star
+      )
+  ) {
+  if (e) {
+    query %>% dplyr::show_query(sql_options = sql_op)
+  } else {
+    query
+  }
+}
+
 # my_with_seed ------------
 # withr::with_seed のラッパー
 my_with_seed = function(
@@ -117,9 +119,6 @@ my_with_seed = function(
     .rng_sample_kind = .rng_sample_kind
   )
 }
-
-#-------------------------------------------------------------------------------
-
 
 # my_collect ------------
 # dplyr::collect のラッパー

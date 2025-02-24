@@ -11,8 +11,8 @@ pacman::p_load(
   httr, xfun, # for download
   vroom, withr, janitor, jsonlite, skimr, 
   rsample, recipes, themis, # tidymodels
-  install = T, # 存在しないパッケージをインストールする
-  update = F   # 古いパッケージを更新しない
+  install = TRUE,  # 存在しないパッケージをインストールする
+  update = FALSE   # 古いパッケージを更新しない
 )
 
 # ロード済みのパッケージの出力

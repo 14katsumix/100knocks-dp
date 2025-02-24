@@ -88,12 +88,12 @@ cat("\n")
 
 # テーブルが既に存在する場合は上書きする
 # (エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない)
-db_receipt = con %>% my_tbl(df = df_receipt, overwrite = T)
-db_customer = con %>% my_tbl(df = df_customer, overwrite = T)
-db_product = con %>% my_tbl(df = df_product, overwrite = T)
-db_category = con %>% my_tbl(df = df_category, overwrite = T)
-db_store = con %>% my_tbl(df = df_store, overwrite = T)
-db_geocode = con %>% my_tbl(df = df_geocode, overwrite = T)
+db_receipt = con %>% my_tbl(df = df_receipt, overwrite = TRUE)
+db_customer = con %>% my_tbl(df = df_customer, overwrite = TRUE)
+db_product = con %>% my_tbl(df = df_product, overwrite = TRUE)
+db_category = con %>% my_tbl(df = df_category, overwrite = TRUE)
+db_store = con %>% my_tbl(df = df_store, overwrite = TRUE)
+db_geocode = con %>% my_tbl(df = df_geocode, overwrite = TRUE)
 
 # DB上に作成したテーブルのリスト
 con %>% DBI::dbListTables() %>% print()
