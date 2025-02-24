@@ -122,6 +122,12 @@ db_result %>% my_show_query()
 # R-029 ------------
 # レシート明細データ（df_receipt）に対し、店舗コード（store_cd）ごとに商品コード（product_cd）の最頻値を求め、10件表示させよ。
 
+# tag: 
+# 統計量, 集約関数, ランキング関数, ウィンドウ関数, グループ化, フィルタリング
+
+# 結果がたまたま store_cd で ソートされる場合もありますが、順序は保証されないため、
+# 確実にソートしたい場合は arrange()を使うべきです。
+
 # 以下は、最頻値が複数ある場合は全てを表示する解答例です。
 
 # sample.1 ------------
@@ -130,6 +136,17 @@ db_result %>% my_show_query()
 df_result = df_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+df_result
+
+# sample.2 ------------
+
+# [R] データフレームでの処理
+df_result = df_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
   arrange(desc(n)) %>% 
   head(10)
 
@@ -149,11 +166,11 @@ df_result
 #  9 S12029   P060303001    92
 # 10 S13004   P060303001    88
 
-# 結果がたまたま store_cd で ソートされる場合もありますが、順序は保証されないため、
-# 確実にソートしたい場合は arrange()を使うべきです。
-
 #...............................................................................
 # [R] データベース・バックエンドでの処理
+
+# sample.1 ------------
+
 db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
@@ -162,10 +179,31 @@ db_result = db_receipt %>%
 
 db_result %>% collect()
 
-db_result
-# Source:     SQL [10 x 3]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: desc(n)
+# A tibble: 10 × 3
+#    store_cd product_cd     n
+#    <chr>    <chr>      <dbl>
+#  1 S14027   P060303001   152
+#  2 S14012   P060303001   142
+#  3 S14028   P060303001   140
+#  4 S12030   P060303001   115
+#  5 S13031   P060303001   115
+#  6 S12013   P060303001   107
+#  7 S14024   P060303001    96
+#  8 S13044   P060303001    96
+#  9 S12029   P060303001    92
+# 10 S13004   P060303001    88
+
+# sample.2 ------------
+
+db_result = db_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+db_result %>% collect()
+
+# A tibble: 10 × 3
 #    store_cd product_cd     n
 #    <chr>    <chr>      <dbl>
 #  1 S14027   P060303001   152
@@ -177,11 +215,13 @@ db_result
 #  7 S13044   P060303001    96
 #  8 S14024   P060303001    96
 #  9 S12029   P060303001    92
-# 10 S13037   P060303001    88
+# 10 S13004   P060303001    88
 
 #...............................................................................
 # SQLクエリ
 db_result %>% my_show_query()
+
+# sample.1 ------------
 
 # <SQL>
 # WITH q01 AS (
@@ -234,74 +274,7 @@ q %>% my_select(con)
 # col01: 中間列名
 # エイリアス名を直接指定する方法はありません。
 
-#...............................................................................
 # sample.2 ------------
-
-# [R] データフレームでの処理
-df_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(desc(n)) %>% 
-  head(10)
-
-# A tibble: 10 × 3
-#    store_cd product_cd     n
-#    <chr>    <chr>      <int>
-#  1 S14027   P060303001   152
-#  2 S14012   P060303001   142
-#  3 S14028   P060303001   140
-#  4 S12030   P060303001   115
-#  5 S13031   P060303001   115
-#  6 S12013   P060303001   107
-#  7 S13044   P060303001    96
-#  8 S14024   P060303001    96
-#  9 S12029   P060303001    92
-# 10 S13004   P060303001    88
-
-#...............................................................................
-# [R] データベース・バックエンドでの処理
-
-db_result = db_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
-  arrange(desc(n)) %>% 
-  head(10)
-
-db_result %>% collect()
-
-# A tibble: 10 × 3
-#    store_cd product_cd     n
-#    <chr>    <chr>      <dbl>
-#  1 S14027   P060303001   152
-#  2 S14012   P060303001   142
-#  3 S14028   P060303001   140
-#  4 S12030   P060303001   115
-#  5 S13031   P060303001   115
-#  6 S12013   P060303001   107
-#  7 S13044   P060303001    96
-#  8 S14024   P060303001    96
-#  9 S12029   P060303001    92
-# 10 S13004   P060303001    88
-
-db_result
-#  Source:     SQL [10 x 3]
-# Database:   DuckDB v1.1.3-dev165 [root@Darwin 24.3.0:R 4.4.2/.../DB/100knocks.duckdb]
-# Ordered by: desc(n)
-#    store_cd product_cd     n
-#    <chr>    <chr>      <dbl>
-#  1 S14027   P060303001   152
-#  2 S14012   P060303001   142
-#  3 S14028   P060303001   140
-#  4 S12030   P060303001   115
-#  5 S13031   P060303001   115
-#  6 S12013   P060303001   107
-#  7 S14024   P060303001    96
-#  8 S13044   P060303001    96
-#  9 S12029   P060303001    92
-# 10 S13004   P060303001    88
-
-#...............................................................................
-# SQLクエリ
 
 db_result %>% my_show_query()
 
@@ -362,6 +335,9 @@ q %>% my_select(con)
 # レシート明細データ（receipt）に対し、顧客ID（customer_id）ごとに売上金額（amount）を合計して
 # 全顧客の平均を求め、平均以上に買い物をしている顧客を抽出し、10件表示せよ。
 # ただし、顧客IDが"Z"から始まるものは非会員を表すため、除外して計算すること。
+
+# tag: 
+# 統計量, 集約関数, ウィンドウ関数, グループ化, パターンマッチング, フィルタリング
 
 df_receipt %>% glimpse()
 
@@ -463,6 +439,9 @@ q %>% my_select(con)
 # ただし、売上実績がない顧客については売上金額を0として表示させること。
 # また、顧客は性別コード（gender_cd）が女性（1）であるものを対象とし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
 
+# tag: 
+# 集約関数, 欠損値処理, グループ化, データ結合, パターンマッチング, フィルタリング
+
 df_customer %>% 
   filter(gender_cd == "1", !str_detect(customer_id, "^Z")) %>% 
   left_join(
@@ -489,6 +468,19 @@ df_customer %>%
 
 #...............................................................................
 # dbplyr
+
+# amount が全て NA の場合は sum() の結果が NA となるため、次の処理を追加する。
+# replace_na(list(sum_amount = 0.0))
+
+# df_product %>% 
+#   filter(is.na(unit_cost)) %>% 
+#   summarise(s = sum(unit_cost, na.rm = T))
+# => 0
+
+# db_product %>% 
+#   filter(is.na(unit_cost)) %>% 
+#   summarise(s = sum(unit_cost))
+# => NA
 
 db_result = db_customer %>% 
   # filter(gender_cd == "1", not(customer_id %LIKE% "%Z")) %>% 
@@ -597,6 +589,9 @@ identical(d1, d2)
 # レシート明細データ（receipt）から、売上日数の多い顧客の上位20件を抽出したデータと、
 # 売上金額合計の多い顧客の上位20件を抽出したデータをそれぞれ作成し、さらにその2つを完全外部結合せよ。
 # ただし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
+
+# tag: 
+# 集約関数, グループ化, データ結合, パターンマッチング, フィルタリング
 
 # sample.1
 
@@ -836,6 +831,9 @@ q %>% my_select(con)
 # R-040 ------------
 # 全ての店舗と全ての商品を組み合わせたデータを作成したい。店舗データ（store）と商品データ（product）を直積し、件数を計算せよ。
 
+# tag: 
+# 集約関数, 全組み合わせ, データ結合
+
 df_store$store_cd %>% tidyr::crossing(df_product$product_cd) %>% nrow()
 
 df_result = df_store %>% 
@@ -843,6 +841,7 @@ df_result = df_store %>%
   select(store_cd, product_cd)
 
 df_result
+df_result %>% count()
 
 # A tibble: 531,590 × 2
 #    store_cd product_cd
@@ -922,9 +921,13 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上金額（amount）を日付（sales_ymd）ごとに集計し、
 # 前回売上があった日からの売上金額増減を計算せよ。そして結果を10件表示せよ。
 
+# tag: 
+# 集約関数, シフト関数, ウィンドウ関数, 欠損値処理, グループ化
+
 # 参考
 df_receipt %>% 
   summarise(amount = sum(amount), .by = sales_ymd) %>% 
+  filter(amount > 0.0) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd, order_by = sales_ymd), 
     pre_amount = lag(amount, default = NA, order_by = sales_ymd)
@@ -935,7 +938,7 @@ df_receipt %>%
 
 # ブログでは以下を採用
 df_receipt %>% 
-  summarise(amount = sum(amount), .by = sales_ymd) %>% 
+  summarise(amount = sum(amount, na.rm = T), .by = sales_ymd) %>% 
   arrange(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
@@ -959,9 +962,13 @@ df_receipt %>%
 # dbplyr
 # arrange(sales_ymd) を window_order(sales_ymd) に変更する
 # 最後に arrange(sales_ymd) 
+# replace_na(list(amount = 0.0)) を追記
+
+# filter(!is.na(amount)) に変更。
 
 db_result = db_receipt %>% 
   summarise(amount = sum(amount), .by = sales_ymd) %>% 
+  filter(!is.na(amount)) %>% 
   window_order(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
@@ -981,16 +988,21 @@ db_result %>% show_query(cte = TRUE)
 #   SELECT sales_ymd, SUM(amount) AS amount
 #   FROM receipt
 #   GROUP BY sales_ymd
+#   HAVING (NOT(((SUM(amount)) IS NULL)))
 # ),
 # q02 AS (
+#   SELECT sales_ymd, COALESCE(amount, 0.0) AS amount
+#   FROM q01
+# ),
+# q03 AS (
 #   SELECT
 #     q01.*,
 #     LAG(sales_ymd, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_sales_ymd,
 #     LAG(amount, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_amount
-#   FROM q01
+#   FROM q02 q01
 # )
 # SELECT q01.*, amount - pre_amount AS diff_amount
-# FROM q02 q01
+# FROM q03 q01
 # ORDER BY sales_ymd
 # LIMIT 10
 
@@ -1003,6 +1015,8 @@ WITH sales_by_date AS (
     receipt
   GROUP BY 
     sales_ymd
+  HAVING 
+    SUM(amount) IS NOT NULL
 ),
 sales_by_date_with_lag AS (
   SELECT 
@@ -1045,10 +1059,14 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上金額（amount）を日付（sales_ymd）ごとに集計し、
 # 各日付のデータに対し、前回、前々回、3回前に売上があった日のデータを結合せよ。そして結果を10件表示せよ。
 
+# tag: 
+# 集約関数, シフト関数, ウィンドウ関数, 欠損値処理, グループ化, 自己結合
+
 n_lag = 3L
 
 df_sales_with_lag = df_receipt %>% 
-  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  summarise(amount = sum(amount, na.rm = T), .by = "sales_ymd") %>% 
+  filter(!is.na(amount)) %>% 
   arrange(sales_ymd) %>% 
   mutate(
     lag_ymd = lag(sales_ymd, n = n_lag, default = -1L)
@@ -1097,6 +1115,7 @@ n_lag = 3L
 
 db_sales_with_lag = db_receipt %>% 
   summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  filter(!is.na(amount)) %>% 
   # arrange(sales_ymd) %>% 
   window_order(sales_ymd) %>% 
   mutate(
@@ -1112,22 +1131,23 @@ db_sales_with_lag
   )
 
 db_result = db_sales_with_lag %>% 
-  inner_join(db_sales_by_date_with_lag, by = .by, suffix = c("", ".y")) %>% 
+  inner_join(db_sales_with_lag, by = .by, suffix = c("", ".y")) %>% 
   select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
   arrange(sales_ymd, lag_sales_ymd)
 
 db_result %>% collect()
 db_result %>% collect() %>% tail(7)
 
-db_result %>% show_query(cte = TRUE)
-
 #...............................................................................
+
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
   SELECT sales_ymd, SUM(amount) AS amount
   FROM receipt
   GROUP BY sales_ymd
+  HAVING (NOT(((SUM(amount)) IS NULL)))
 ),
 q02 AS (
   SELECT q01.*, LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
@@ -1166,6 +1186,7 @@ WITH sales_data AS (
     receipt
   GROUP BY 
     sales_ymd
+  HAVING SUM(amount) IS NOT NULL
 )
 SELECT 
   L.sales_ymd,
@@ -1216,6 +1237,9 @@ q %>% my_select(con) %>% tail(7)
 # 性別コードは0が男性、1が女性、9が不明を表すものとする。
 # ただし、項目構成は年代、女性の売上金額、男性の売上金額、性別不明の売上金額の4項目とすること
 # （縦に年代、横に性別のクロス集計）。また、年代は10歳ごとの階級とすること。
+
+# tag: 
+# カテゴリ変換, CASE式, 集約関数, 縦横変換, グループ化, データ結合
 
 max_age = df_customer$age %>% max(na.rm = T)
 
@@ -1391,10 +1415,15 @@ SELECT
   SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
   SUM(CASE WHEN c.gender_cd = '1' THEN r.amount ELSE 0 END) AS female,
   SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS unknown
-FROM customer c
-INNER JOIN receipt r USING (customer_id)
-GROUP BY age_range
-ORDER BY age_range
+FROM 
+  customer c
+INNER JOIN 
+  receipt r 
+USING (customer_id)
+GROUP BY 
+  age_range
+ORDER BY 
+  age_range
 "
 )
 q %>% my_select(con)
@@ -1417,6 +1446,9 @@ q %>% my_select(con)
 # 043で作成した売上サマリデータ（sales_summary）は性別の売上を横持ちさせたものであった。
 # このデータから性別を縦持ちさせ、年代、性別コード、売上金額の3項目に変換せよ。
 # ただし、性別コードは男性を"00"、女性を"01"、不明を"99"とする。
+
+# tag: 
+# カテゴリ変換, CASE式, 集約関数, 全組み合わせ, グループ化, データ結合
 
 # ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する方法を紹介します。
 
@@ -1524,7 +1556,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH joined_data AS (
@@ -1612,6 +1644,9 @@ q %>% my_select(con)
 # 顧客データ（df_customer）の生年月日（birth_day）は日付型でデータを保有している。
 # これをYYYYMMDD形式の文字列に変換し、顧客ID（customer_id）とともに10件表示せよ。
 
+# tag: 
+# 日付処理
+
 "2025-02-21" %>% as.Date() %>% strftime("%Y%m%d")
 
 df_customer %>% 
@@ -1663,6 +1698,10 @@ q %>% my_select(con)
 # R-047 ------------
 # レシート明細データ（df_receipt）の売上日（sales_ymd）はYYYYMMDD形式の数値型でデータを保有している。
 # これを日付型に変換し、レシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
+
+# tag: 
+# 日付処理
+
 df_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
@@ -1785,7 +1824,7 @@ db_receipt %>%
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 SELECT
@@ -1856,7 +1895,7 @@ db_receipt %>%
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 SELECT
@@ -1875,6 +1914,8 @@ q %>% my_select(con)
 # 顧客データ（customer）の郵便番号（postal_cd）に対し、東京（先頭3桁が100〜209のもの）を1、
 # それ以外のものを0に二値化せよ。
 # さらにレシート明細データ（receipt）と結合し、全期間において売上実績のある顧客数を、作成した二値ごとにカウントせよ。
+
+# tag: カテゴリ変換, 文字列処理, CASE式, 重複データ処理, 集約関数, グループ化, フィルタリング, データ結合
 
 # df_customer$postal_cd
 
@@ -1897,7 +1938,9 @@ df_cust = df_customer %>%
 
 df_cust
 
-df_rec = df_receipt %>% distinct(customer_id)
+df_rec = df_receipt %>% 
+  filter(amount > 0.0) %>% 
+  distinct(customer_id)
 
 # d.r = df_receipt %>% select(customer_id, amount) %>% 
 #   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
@@ -1908,6 +1951,8 @@ df_cust %>%
   count(tokyo)
 
 #................................................
+
+# sample.1
 
 df_customer %>% 
   select(customer_id, postal_cd) %>% 
@@ -1920,8 +1965,11 @@ df_customer %>%
     )
   ) %>% 
   inner_join(
-    df_receipt %>% distinct(customer_id), 
-    by = "customer_id") %>% 
+    df_receipt %>% 
+      filter(amount > 0.0) %>% 
+      distinct(customer_id), 
+    by = "customer_id"
+  ) %>% 
   count(tokyo, name = "n_customer")
 
 #   tokyo n_customer
@@ -1929,7 +1977,29 @@ df_customer %>%
 # 1     0       3906
 # 2     1       4400
 
+# sample.2
+
+df_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = ifelse(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
+      ), 
+      1L, 0L
+    )
+  ) %>% 
+  semi_join(
+    df_receipt %>% 
+      filter(amount > 0.0) %>% 
+      distinct(customer_id), 
+    by = "customer_id"
+  ) %>% 
+  count(tokyo, name = "n_customer")
+
 #...............................................................................
+
+# sample.1
 
 db_result = db_customer %>% 
   select(customer_id, postal_cd) %>% 
@@ -1942,8 +2012,11 @@ db_result = db_customer %>%
     )
   ) %>% 
   inner_join(
-    db_receipt %>% distinct(customer_id), 
-    by = "customer_id") %>% 
+    db_receipt %>% 
+      filter(amount > 0.0) %>% 
+      distinct(customer_id), 
+    by = "customer_id"
+  ) %>% 
   count(tokyo, name = "n_customer")
 
 db_result %>% collect()
@@ -1953,17 +2026,38 @@ db_result %>% collect()
 # 1     0       3906
 # 2     1       4400
 
+# sample.2
+
+db_result = db_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = ifelse(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
+      ), 
+      1L, 0L
+    )
+  ) %>% 
+  semi_join(
+    db_receipt %>% 
+      filter(amount > 0.0) %>% 
+      distinct(customer_id), 
+    by = "customer_id"
+  ) %>% 
+  count(tokyo, name = "n_customer")
+
+db_result %>% collect()
+
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
-# sample.1
+# sample.1-1
 
 q = sql("
 WITH customer_region AS (
   SELECT
     customer_id,
-    postal_cd,
     CASE 
       WHEN SUBSTR(postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
       ELSE 0 
@@ -1990,7 +2084,7 @@ GROUP BY
 )
 q %>% my_select(con)
 
-# sample.2
+# sample.1-2
 
 q = sql("
 SELECT 
@@ -2010,6 +2104,62 @@ GROUP BY
 )
 q %>% my_select(con)
 
+# sample.2-1
+
+q = sql("
+WITH customer_region AS (
+  SELECT
+    customer_id,
+    CASE 
+      WHEN SUBSTR(postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
+      ELSE 0 
+    END AS tokyo
+  FROM 
+    customer
+),
+active_customers AS (
+  SELECT c.*
+  FROM 
+    customer_region c
+  WHERE EXISTS (
+    SELECT 1 
+    FROM (SELECT DISTINCT customer_id FROM receipt) r
+    WHERE (c.customer_id = r.customer_id)
+  )
+)
+SELECT 
+  tokyo, 
+  COUNT(*) AS n_customer
+FROM 
+  active_customers
+GROUP BY 
+  tokyo
+"
+)
+q %>% my_select(con)
+
+# sample.2-2
+
+q = sql("
+SELECT 
+  CASE 
+    WHEN SUBSTR(c.postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
+    ELSE 0 
+  END AS tokyo, 
+  COUNT(*) AS n_customer
+FROM 
+  customer c
+WHERE EXISTS (
+    SELECT 1 
+    FROM (SELECT DISTINCT customer_id FROM receipt) r
+    WHERE (c.customer_id = r.customer_id)
+  )
+GROUP BY 
+  tokyo
+"
+)
+q %>% my_select(con)
+
 # CASE 式で生成した (1,0) の列 tokyo は 集約キー (GROUP BY に含める列) なので、
 # COUNT(*) のような集約関数と同じ SELECT 句に書いても問題ありません。
 
@@ -2020,12 +2170,17 @@ q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-055 ------------
-# レシート明細（df_receipt）データの売上金額（amount）を顧客ID（customer_id）ごとに合計し、その合計金額の四分位点を求めよ。その上で、顧客ごとの売上金額合計に対して以下の基準でカテゴリ値を作成し、顧客ID、売上金額合計とともに10件表示せよ。カテゴリ値は順に1〜4とする。
+# レシート明細（df_receipt）データの売上金額（amount）を顧客ID（customer_id）ごとに合計し、
+# その合計金額の四分位点を求めよ。その上で、顧客ごとの売上金額合計に対して以下の基準でカテゴリ値を作成し、
+# 顧客ID、売上金額合計とともに10件表示せよ。カテゴリ値は順に1〜4とする。
 # 
 # 最小値以上第1四分位未満 ・・・ 1を付与
 # 第1四分位以上第2四分位未満 ・・・ 2を付与
 # 第2四分位以上第3四分位未満 ・・・ 3を付与
 # 第3四分位以上 ・・・ 4を付与
+
+# tag: 
+# カテゴリ変換, 欠損値処理, 統計量, 集約関数, グループ化, フィルタリング, データ結合
 
 # Rコード (データフレーム操作)
 
@@ -2041,7 +2196,11 @@ q %>% my_select(con)
 #     head(10)
 
 df_result = df_receipt %>%
-  summarise(sum_amount = sum(amount), .by = customer_id) %>% 
+  summarise(
+    sum_amount = sum(amount, na.rm = T), 
+    .by = customer_id
+  ) %>% 
+  filter(sum_amount > 0.0) %>% 
   mutate(
     pct_group = 
       cut(
@@ -2099,7 +2258,11 @@ q %>% my_select(con)
 #................................................
 # answer
 db_sales_amount = db_receipt %>% 
-  summarise(sum_amount = sum(amount), .by = customer_id)
+  summarise(
+    sum_amount = sum(amount), 
+    .by = customer_id
+  ) %>% 
+  filter(!is.na(sum_amount))
 
 db_sales_amount
 
@@ -2155,6 +2318,7 @@ WITH q01 AS (
   SELECT customer_id, SUM(amount) AS sum_amount
   FROM receipt
   GROUP BY customer_id
+  HAVING (NOT(((SUM(amount)) IS NULL)))
 ),
 q02 AS (
   SELECT
@@ -2193,6 +2357,8 @@ WITH customer_sales AS (
     receipt
   GROUP BY 
     customer_id
+  HAVING
+    SUM(amount) IS NOT NULL
 ),
 percentiles AS (
   SELECT
@@ -2231,6 +2397,9 @@ q %>% my_select(con)
 # 顧客ID（customer_id）、生年月日（birth_day）とともに10件表示せよ。
 # ただし、60歳以上は全て60歳代とすること。年代を表すカテゴリ名は任意とする。
 
+# tag: 
+# カテゴリ変換
+
 pacman::p_load(epikit)
 
 df_customer %>% 
@@ -2257,15 +2426,27 @@ df_customer %>%
 
 #...............................................................................
 
+# db_result = db_customer %>% 
+#   select(customer_id, birth_day, age) %>% 
+#   mutate(
+#     age_rng = 
+#       pmin((floor(age / 10) * 10), 60) %>% 
+#       as.integer()
+#   ) %>% 
+#   head(10)
+
 db_result = db_customer %>% 
   select(customer_id, birth_day, age) %>% 
   mutate(
     age_rng = 
-      pmin((floor(age / 10) * 10), 60) %>% 
-      as.integer()
+      ifelse(
+        is.na(age), 
+        NA, 
+        pmin((floor(age / 10) * 10), 60) %>% as.integer()
+      )
   ) %>% 
   head(10)
-  
+
 db_result %>% collect()
 
 # A tibble: 10 × 4
@@ -2280,18 +2461,74 @@ db_result %>% collect()
 #  7 CS015414000103 1977-08-09    41      40
 #  ...
 
+#................................................
+# age が NA を含む場合のチェック
+df = tribble(
+  ~customer_id, ~age, ~gender_cd, 
+  "CS021313000114", NA, "1", 
+  "CS037613000071", NA, "9", 
+  "CS031415000172", NA, "1", 
+  "CS001215000145", 24, NA
+)
+d = con %>% my_tbl(df = df, overwrite = T)
+dbReadTable(con, "df")
+db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = F)
+db_customer %>% filter(is.na(age))
+db_cust %>% filter(is.na(age) | is.na(gender_cd))
+
+db_cust %>% 
+  compute(name = "cust_na", temporary = TRUE, overwrite = T)
+dbReadTable(con, "cust_na") %>% filter(is.na(age))
+
+db_cust %>% 
+  select(customer_id, birth_day, gender_cd, age) %>% 
+  mutate(
+    age_rng = 
+      pmin((floor(age / 10) * 10), 60) %>% 
+      as.integer()
+  ) %>% 
+  filter(is.na(age) | is.na(gender_cd))
+
+#   customer_id    birth_day  gender_cd   age age_rng
+#   <chr>          <date>     <chr>     <dbl>   <int>
+# 1 CS021313000114 1981-04-29 1            NA      60
+# 2 CS037613000071 1952-04-01 9            NA      60
+# 3 CS031415000172 1976-10-04 1            NA      60
+# 4 CS001215000145 1995-03-29 NA           24      20
+
+db_cust %>% 
+  select(customer_id, birth_day, gender_cd, age) %>% 
+  mutate(
+    age_rng = ifelse(
+      is.na(age), 
+      NA, 
+      pmin((floor(age / 10) * 10), 60) %>% as.integer()
+    )
+  ) %>% 
+  filter(is.na(age) | is.na(gender_cd))
+
+#   customer_id    birth_day  gender_cd   age age_rng
+#   <chr>          <date>     <chr>     <dbl>   <int>
+# 1 CS021313000114 1981-04-29 1            NA      NA
+# 2 CS037613000071 1952-04-01 9            NA      NA
+# 3 CS031415000172 1976-10-04 1            NA      NA
+# 4 CS001215000145 1995-03-29 NA           24      20
+
 #...............................................................................
 
 db_result %>% my_show_query()
+
+# pmin(1, 2, NA, na.rm = FALSE) => NA
 
 q = sql("
 SELECT
   customer_id,
   birth_day,
   age,
-  CAST(
-    LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER
-  ) AS age_rng
+  CASE 
+    WHEN age IS NULL THEN NULL 
+    ELSE CAST(LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER)
+  END AS age_rng
 FROM 
   customer
 LIMIT 10
@@ -2299,35 +2536,42 @@ LIMIT 10
 )
 q %>% my_select(con)
 
-# printf(): 頭に0をつけて文字列変換できる.
+#................................................
+
+# cust_na でテスト
 
 q = sql("
 SELECT
-  customer_id, 
-  birth_day, 
-  LEAST(floor(age / 10) * 10, 60) AS era
-  -- printf('%02f', LEAST(floor(age / 10) * 10, 60)) AS era
-FROM customer
-WHERE age IS NOT NULL
-ORDER BY era, customer_id;
+  customer_id,
+  birth_day,
+  age,
+  CASE 
+    WHEN age IS NULL THEN NULL 
+    ELSE CAST(LEAST((FLOOR(age / 10.0) * 10.0), 60.0) AS INTEGER)
+  END AS age_rng
+FROM 
+  cust_na
+-- LIMIT 10
 "
 )
 q %>% my_select(con)
+q %>% my_select(con) %>% filter(is.na(age))
 
-# A tibble: 21,971 × 3
-#    customer_id    birth_day    era
-#    <chr>          <chr>      <int>
-#  1 CS001105000001 2000-01-14    10
-#  2 CS001112000009 2006-08-24    10
-#  3 CS001112000019 2001-01-31    10
-#  4 CS001112000021 2001-12-15    10
-#  5 CS001112000023 2004-01-26    10
-#  6 CS001112000024 2001-01-16    10
+#   customer_id    birth_day    age age_rng
+#   <chr>          <date>     <dbl>   <int>
+# 1 CS021313000114 1981-04-29    NA      NA
+# 2 CS037613000071 1952-04-01    NA      NA
+# 3 CS031415000172 1976-10-04    NA      NA
 
 #-------------------------------------------------------------------------------
 # R-057 ------------
 # 056の抽出結果と性別コード（gender_cd）により、新たに性別×年代の組み合わせを表すカテゴリデータを作成し、
 # 10件表示せよ。組み合わせを表すカテゴリの値は任意とする。
+
+# tag: 
+# カテゴリ変換, 文字列処理, CASE式, 欠損値処理
+
+pacman::p_load(epikit)
 
 df_cust = df_customer %>% 
   select(customer_id, birth_day, gender_cd, age) %>% 
@@ -2337,10 +2581,20 @@ df_cust = df_customer %>%
     )
   )
 
+# df_cust[2, "gender_cd"] = NA
+# df_cust[3, "age"] = NA
+
 df_cust %>% 
   unite("gender_age", gender_cd, age_rng, sep = "_", remove = F) %>% 
+  mutate(
+    gender_age = 
+      ifelse(
+        is.na(gender_cd) | is.na(age), 
+        NA, 
+        gender_age
+      )
+  ) %>% 
   select(-age_rng) %>% 
-  # mutate(across(gender_age, ~ as.factor(.x))) %>% 
   head(10)
 
 # A tibble: 10 × 5
@@ -2366,48 +2620,125 @@ df_cust %>%
 db_result = db_customer %>% 
   select(customer_id, birth_day, gender_cd, age) %>% 
   mutate(
-    # age_rng = 
-    #   sql("LPAD(CAST(LEAST(CAST(FLOOR(age / 10) * 10 AS INTEGER), 60) AS VARCHAR), 2, '0')"),
     tmp = pmin(FLOOR(age / 10) * 10, 60) %>% as.integer() %>% as.character(), 
     age_rng = sql("LPAD(tmp, 2, '0')"), 
-    gender_age = stringr::str_c(gender_cd, age_rng, sep = "_")
+    gender_age = 
+      ifelse(
+        is.na(gender_cd) | is.na(age), 
+        NA, 
+        stringr::str_c(gender_cd, age_rng, sep = "_")
+      )
   ) %>% 
   select(-c(tmp, age_rng)) %>% 
   head(10)
 
 db_result %>% collect()
 
+# A tibble: 10 × 5
+#    customer_id    birth_day  gender_cd   age gender_age
+#    <chr>          <date>     <chr>     <int> <chr>     
+#  1 CS021313000114 1981-04-29 1            37 1_30      
+#  2 CS037613000071 1952-04-01 9            66 9_60      
+#  3 CS031415000172 1976-10-04 1            42 1_40      
+#  4 CS028811000001 1933-03-27 1            86 1_60      
+#  5 CS001215000145 1995-03-29 1            24 1_20      
+#  6 CS020401000016 1974-09-15 0            44 0_40      
+#  7 CS015414000103 1977-08-09 1            41 1_40      
+#  8 CS029403000008 1973-08-17 0            45 0_40      
+#  9 CS015804000004 1931-05-02 0            87 0_60      
+# 10 CS033513000180 1962-07-11 1            56 1_50      
+
+#................................................
+# db_cust でテスト
+
+db_cust %>% 
+  select(customer_id, birth_day, gender_cd, age) %>% 
+  mutate(
+    tmp = pmin(FLOOR(age / 10) * 10, 60) %>% as.integer() %>% as.character(), 
+    age_rng = sql("LPAD(tmp, 2, '0')"), 
+    gender_age = 
+      ifelse(
+        is.na(gender_cd) | is.na(age), 
+        NA, 
+        stringr::str_c(gender_cd, age_rng, sep = "_")
+      )
+  ) %>% 
+  select(-c(tmp, age_rng)) %>% 
+  filter(is.na(gender_cd) | is.na(age))
+
+#   customer_id    birth_day  gender_cd   age gender_age
+#   <chr>          <date>     <chr>     <dbl> <chr>     
+# 1 CS021313000114 1981-04-29 1            NA NA        
+# 2 CS037613000071 1952-04-01 9            NA NA        
+# 3 CS031415000172 1976-10-04 1            NA NA        
+# 4 CS001215000145 1995-03-29 NA           24 NA      
+
 #...............................................................................
 
 db_result %>% show_query(cte = F)
 
+# q = sql("
+# SELECT
+#   customer_id,
+#   birth_day, 
+#   CONCAT_WS('_', gender_cd, age_rng) AS gender_age, 
+#   gender_cd,
+#   age
+# FROM (
+#   SELECT
+#     *, 
+#     LPAD(
+#       CAST(
+#         LEAST(CAST(FLOOR(age / 10.0) * 10.0 AS INTEGER), 60) AS TEXT
+#       ), 
+#       2, '0'
+#     ) AS age_rng
+#   FROM 
+#     customer
+# )
+# LIMIT 10
+# "
+# )
+# q %>% my_select(con)
+
 q = sql("
 SELECT
   customer_id,
-  birth_day,
-  CONCAT_WS('_', gender_cd, age_rng) AS gender_age, 
+  birth_day, 
   gender_cd,
-  age
+  age, 
+  CASE 
+    WHEN gender_cd IS NULL OR age_rng IS NULL THEN NULL
+    ELSE CONCAT_WS('_', gender_cd, age_rng) 
+  END AS gender_age
 FROM (
   SELECT
     *, 
-    LPAD(
-      CAST(
-        LEAST(CAST(FLOOR(age / 10.0) * 10.0 AS INTEGER), 60) AS TEXT
-      ), 
-      2, '0'
-    ) AS age_rng
+    CASE 
+      WHEN age IS NULL THEN NULL 
+      ELSE 
+        LPAD(
+          CAST(
+            LEAST(CAST(FLOOR(age / 10.0) * 10.0 AS INTEGER), 60) AS TEXT
+          ), 
+          2, '0'
+        )
+    END AS age_rng
   FROM 
     customer
 )
 LIMIT 10
 "
 )
+
 q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-058 ------------
 # 顧客データ（customer）の性別コード（gender_cd）をダミー変数化し、顧客ID（customer_id）とともに10件表示せよ。
+
+# tag: 
+# カテゴリ変換, 欠損値処理, CASE式
 
 d = df_customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
 d$gender_cd %>% levels()
@@ -2570,6 +2901,7 @@ q %>% my_select(con)
 
 #................................................
 # cust_na テーブルで欠損値を含む場合のテスト
+
 q = sql("
 select
   customer_id, 
@@ -2603,10 +2935,18 @@ q %>% my_select(con) %>% filter(is.na(gender_cd))
 # 売上金額合計を最小値0、最大値1に正規化して顧客ID、売上金額合計とともに10件表示せよ。
 # ただし、顧客IDが"Z"から始まるのものは非会員を表すため、除外して計算すること。
 
+# tag: 
+# 正規化, 集約関数, ウィンドウ関数, CASE式, グループ化, パターンマッチング, フィルタリング
+
 df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
-  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
-  mutate(norm_amount = scales::rescale(sum_amount, to = c(0, 1))) %>% 
+  summarise(
+    sum_amount = sum(amount, na.rm = T), 
+    .by = "customer_id"
+  ) %>% 
+  mutate(
+    norm_amount = scales::rescale(sum_amount, to = c(0, 1))
+  ) %>% 
   arrange(customer_id)
 
 # A tibble: 8,306 × 3
@@ -2640,7 +2980,10 @@ db_result = db_receipt %>%
 
 db_result = db_receipt %>% 
   filter(!customer_id %LIKE% "Z%") %>% 
-  summarise(sum_amount = sum(amount), .by = "customer_id") %>% 
+  summarise(
+    sum_amount = sum(amount), 
+    .by = "customer_id"
+  ) %>% 
   mutate(
     min_amount = min(sum_amount), 
     max_amount = max(sum_amount), 
@@ -2672,7 +3015,7 @@ db_result %>% collect()
 
 #...............................................................................
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # 例外処理の追加
 # ゼロ除算を避ける処理を追加する
@@ -2761,6 +3104,9 @@ q %>% my_select(con)
 # レシート明細データ（receipt）と商品データ（product）を結合し、顧客毎に全商品の売上金額合計と、
 # カテゴリ大区分コード（category_major_cd）が"07"（瓶詰缶詰）の売上金額合計を計算の上、両者の比率を求めよ。
 # 抽出対象はカテゴリ大区分コード"07"（瓶詰缶詰）の売上実績がある顧客のみとし、結果を10件表示せよ。
+
+# tag: 
+# CASE式, 集約関数, グループ化, データ結合
 
 df_receipt %>% 
   inner_join(
@@ -2895,6 +3241,9 @@ q %>% my_select(con)
 # レシート明細データ（receipt）の売上日（sales_ymd）に対し、顧客データ（customer）の会員申込日
 # （application_date）からの経過日数を計算し、顧客ID（customer_id）、売上日、会員申込日とともに
 # 10件表示せよ（sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。
+
+# tag: 
+# 日付処理, 重複データ処理, データ結合
 
 # 経過日数
 "20170322" %>% lubridate::parse_date_time("%Y%m%d")
@@ -3122,6 +3471,9 @@ q %>% my_select(con)
 # （sales_ymdは数値、application_dateは文字列でデータを保持している点に注意）。
 # 1ヶ月未満は切り捨てること。
 
+# tag: 
+# 日付処理, 重複データ処理, データ結合
+
 # sample.1
 df_receipt %>%
   distinct(customer_id, sales_ymd) %>% 
@@ -3310,6 +3662,9 @@ q %>% my_select(con)
 
 # R-074: レシート明細データ（df_receipt）の売上日（sales_ymd）に対し、当該週の月曜日からの経過日数を
 # 計算し、売上日、直前の月曜日付とともに10件表示せよ（sales_ymdは数値でデータを保持している点に注意）。
+
+# tag: 
+# 日付処理
 
 # 経過日数を計算し、月曜日を求める
 df_result = df_receipt %>% 
@@ -3575,6 +3930,9 @@ q %>% my_select(con)
 # R-075 ------------
 # 顧客データ（customer）からランダムに1%のデータを抽出し、先頭から10件表示せよ。
 
+# tag: 
+# 乱数, サンプリング, ランキング関数, ウィンドウ関数, フィルタリング
+
 df_customer %>% 
   slice_sample(prop = 0.01) %>% 
   withr::with_seed(14, .) %>% 
@@ -3690,17 +4048,26 @@ WITH rand_customers AS (
   SELECT 
     *, 
     RANDOM() AS rand
-  FROM customer
+  FROM 
+    customer
 ),
 ranked_customers AS (
   SELECT
     *,
     PERCENT_RANK() OVER (ORDER BY rand) AS prank
-  FROM rand_customers
+  FROM 
+    rand_customers
 )
-SELECT customer_id, gender_cd, gender, birth_day, age
-FROM ranked_customers
-WHERE (prank <= 0.01)
+SELECT 
+  customer_id, 
+  gender_cd, 
+  gender, 
+  birth_day, 
+  age
+FROM 
+  ranked_customers
+WHERE 
+  prank <= 0.01
 "
 )
 
@@ -3788,6 +4155,9 @@ q %>% my_select(con) %>% arrange(customer_id)
 # R-076 ------------
 # 顧客データ（customer）から性別コード（gender_cd）の割合に基づきランダムに10%のデータを層化抽出し、
 # 性別コードごとに件数を集計せよ。
+
+# tag: 
+# 乱数, サンプリング, ランキング関数, ウィンドウ関数, グループ化, フィルタリング
 
 # 層別サンプリング
 df_customer %>% 
@@ -3920,18 +4290,27 @@ WITH rand_customers AS (
   SELECT 
     *, 
     RANDOM() AS rand
-  FROM customer
+  FROM 
+    customer
 ),
 ranked_customers AS (
   SELECT
     *,
-    PERCENT_RANK() OVER (partition by gender_cd ORDER BY rand) AS prank
-  FROM rand_customers
+    PERCENT_RANK() OVER (
+      partition by gender_cd ORDER BY rand
+    ) AS prank
+  FROM 
+    rand_customers
 )
-SELECT gender_cd, COUNT(*) AS n
-FROM ranked_customers
-WHERE prank <= 0.1
-GROUP BY gender_cd
+SELECT 
+  gender_cd, 
+  COUNT(*) AS n
+FROM 
+  ranked_customers
+WHERE 
+  prank <= 0.1
+GROUP BY 
+  gender_cd
 "
 )
 
@@ -5437,6 +5816,7 @@ q %>% my_select(con) %>% glimpse()
 
 db_sales_customer %>% show_query(cte = TRUE)
 
+# PERCENT_RANK()
 q = sql("
 SELECT SETSEED(0.5);
 WITH q01 AS (
@@ -5676,6 +6056,8 @@ con %>% dbReadTable("customer_test") %>% as_tibble() %>% arrange(customer_id)
 # レシート明細データ（receipt）は2017年1月1日〜2019年10月31日までのデータを有している。
 # 売上金額（amount）を月次で集計し、学習用に12ヶ月、テスト用に6ヶ月の時系列モデル構築用データを3セット作成せよ。
 
+# ブログに掲載しない
+
 d = receipt %>% mutate(ym = my.date_format(sales_ymd, fmt2 = "%Y-%m")) %>% 
   summarise(sum_amount = sum(amount), .by = ym) %>% 
   arrange(ym)
@@ -5777,6 +6159,8 @@ q %>% my_select(con)
 # R-091 ------------
 # 顧客データ（customer）の各顧客に対し、売上実績がある顧客数と売上実績がない顧客数が 1:1 と
 # なるようにアンダーサンプリングで抽出せよ。
+
+# ブログに掲載しない
 
 d = customer %>% mutate(
     sales_flg = ifelse(customer_id %in% unique(receipt$customer_id), T, F) %>% as.factor()
