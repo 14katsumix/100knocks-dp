@@ -146,7 +146,7 @@ df_result
 # [R] データフレームでの処理
 df_result = df_receipt %>% 
   count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
   arrange(desc(n)) %>% 
   head(10)
 
@@ -197,7 +197,7 @@ db_result %>% collect()
 
 db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = T, by = store_cd) %>% 
+  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
   arrange(desc(n)) %>% 
   head(10)
 
@@ -448,7 +448,7 @@ df_customer %>%
     df_receipt %>% select(customer_id, amount), 
     by = "customer_id"
   ) %>% 
-  summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+  summarise(sum_amount = sum(amount, na.rm = TRUE), .by = "customer_id") %>% 
   arrange(customer_id) %>% 
   head(10)
 
@@ -474,7 +474,7 @@ df_customer %>%
 
 # df_product %>% 
 #   filter(is.na(unit_cost)) %>% 
-#   summarise(s = sum(unit_cost, na.rm = T))
+#   summarise(s = sum(unit_cost, na.rm = TRUE))
 # => 0
 
 # db_product %>% 
@@ -602,11 +602,11 @@ df_rec = df_receipt %>%
 
 df_date = df_rec %>% 
   summarise(n_date = n_distinct(sales_ymd)) %>% 
-  slice_max(n_date, n = 20, with_ties = F)
+  slice_max(n_date, n = 20, with_ties = FALSE)
 
 df_amount = df_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
-  slice_max(sum_amount, n = 20, with_ties = F)
+  slice_max(sum_amount, n = 20, with_ties = FALSE)
 
 df_result = df_date %>% 
   full_join(df_amount, by = "customer_id") %>% 
@@ -662,11 +662,11 @@ db_rec = db_receipt %>%
 
 db_date = db_rec %>% 
   summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
-  slice_max(n_date, n = 20, with_ties = F)
+  slice_max(n_date, n = 20, with_ties = FALSE)
 
 db_amount = db_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
-  slice_max(sum_amount, n = 20, with_ties = F)
+  slice_max(sum_amount, n = 20, with_ties = FALSE)
 
 db_result = db_date %>% 
   full_join(db_amount, by = "customer_id") %>% 
@@ -938,7 +938,7 @@ df_receipt %>%
 
 # ブログでは以下を採用
 df_receipt %>% 
-  summarise(amount = sum(amount, na.rm = T), .by = sales_ymd) %>% 
+  summarise(amount = sum(amount, na.rm = TRUE), .by = sales_ymd) %>% 
   arrange(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
@@ -1065,7 +1065,7 @@ q %>% my_select(con)
 n_lag = 3L
 
 df_sales_with_lag = df_receipt %>% 
-  summarise(amount = sum(amount, na.rm = T), .by = "sales_ymd") %>% 
+  summarise(amount = sum(amount, na.rm = TRUE), .by = "sales_ymd") %>% 
   filter(!is.na(amount)) %>% 
   arrange(sales_ymd) %>% 
   mutate(
@@ -1241,7 +1241,7 @@ q %>% my_select(con) %>% tail(7)
 # tag: 
 # カテゴリ変換, CASE式, 集約関数, 縦横変換, グループ化, データ結合
 
-max_age = df_customer$age %>% max(na.rm = T)
+max_age = df_customer$age %>% max(na.rm = TRUE)
 
 df_sales = df_customer %>% 
   inner_join(
@@ -1252,7 +1252,7 @@ df_sales = df_customer %>%
       epikit::age_categories(
         age, 
         lower = 0, 
-        # upper = round(max_age, -1) - ifelse(mod(max_age, 10) == 0, 0L, 1L), 
+        # upper = round(max_age, -1) - if_else(mod(max_age, 10) == 0, 0L, 1L), 
         upper = floor(max_age / 10) * 10 + 10, 
         by = 10
       )
@@ -1357,7 +1357,7 @@ df_sales %>% tidyr::complete(
 # 33 100+      unknown            0
 
 #...............................................................................
-# dbplyr ------------
+# dbplyr
 
 # sample.1
 db_result = db_customer %>% 
@@ -1388,6 +1388,19 @@ db_result = db_customer %>%
 db_result
 db_result %>% collect()
 
+# A tibble: 9 × 4
+#   age_range   male  female unknown
+#       <int>  <dbl>   <dbl>   <dbl>
+# 1        10   1591  149836    4317
+# 2        20  72940 1363724   44328
+# 3        30 177322  693047   50441
+# 4        40  19355 9320791  483512
+# 5        50  54320 6685192  342923
+# 6        60 272469  987741   71418
+# 7        70  13435   29764    2427
+# 8        80  46360  262923    5111
+# 9        90      0    6260       0
+
 # sample.2
 db_result = db_customer %>%
   inner_join(db_receipt, by = "customer_id") %>%
@@ -1396,9 +1409,9 @@ db_result = db_customer %>%
   ) %>%
   group_by(age_range) %>%
   summarise(
-    male = sum(if_else(gender_cd == "0", amount, 0, 0.0)),
-    female = sum(if_else(gender_cd == "1", amount, 0, 0.0)),
-    unknown = sum(if_else(gender_cd == "9", amount, 0, 0.0))
+    male = sum(if_else(gender_cd == "0", amount, 0.0)),
+    female = sum(if_else(gender_cd == "1", amount, 0.0)),
+    unknown = sum(if_else(gender_cd == "9", amount, 0.0))
   ) %>%
   arrange(age_range)
 
@@ -1452,7 +1465,7 @@ q %>% my_select(con)
 
 # ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する方法を紹介します。
 
-max_age = df_customer$age %>% max(na.rm = T)
+max_age = df_customer$age %>% max(na.rm = TRUE)
 
 df_sales = df_customer %>% 
   inner_join(
@@ -1922,12 +1935,12 @@ q %>% my_select(con)
 # d.c = df_customer %>% 
 #   select(customer_id, postal_cd) %>% 
 #   mutate(postal_3 = stringr::str_sub(postal_cd, 1L, 3L)) %>% 
-#   mutate(tokyo = ifelse(between(postal_3, "100", "209"), 1L, 0L))
+#   mutate(tokyo = if_else(between(postal_3, "100", "209"), 1L, 0L))
 
 df_cust = df_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
-    tokyo = ifelse(
+    tokyo = if_else(
       between(
         stringr::str_sub(postal_cd, 1L, 3L), 
         "100", "209"
@@ -1943,7 +1956,7 @@ df_rec = df_receipt %>%
   distinct(customer_id)
 
 # d.r = df_receipt %>% select(customer_id, amount) %>% 
-#   summarise(sum_amount = sum(amount, na.rm = T), .by = "customer_id") %>% 
+#   summarise(sum_amount = sum(amount, na.rm = TRUE), .by = "customer_id") %>% 
 #   filter(sum_amount > 0.0)
 
 df_cust %>% 
@@ -1957,7 +1970,7 @@ df_cust %>%
 df_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
-    tokyo = ifelse(
+    tokyo = if_else(
       between(
         stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
       ), 
@@ -1982,7 +1995,7 @@ df_customer %>%
 df_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
-    tokyo = ifelse(
+    tokyo = if_else(
       between(
         stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
       ), 
@@ -2004,7 +2017,7 @@ df_customer %>%
 db_result = db_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
-    tokyo = ifelse(
+    tokyo = if_else(
       between(
         stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
       ), 
@@ -2031,7 +2044,7 @@ db_result %>% collect()
 db_result = db_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
-    tokyo = ifelse(
+    tokyo = if_else(
       between(
         stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
       ), 
@@ -2197,7 +2210,7 @@ q %>% my_select(con)
 
 df_result = df_receipt %>%
   summarise(
-    sum_amount = sum(amount, na.rm = T), 
+    sum_amount = sum(amount, na.rm = TRUE), 
     .by = customer_id
   ) %>% 
   filter(sum_amount > 0.0) %>% 
@@ -2238,7 +2251,7 @@ df_result
 # PERCENTILE_CONT() はウィンドウ関数 (OVER ()) として使えない!
 db_receipt %>% 
   mutate(
-    p25 = quantile(amount, 0.25, na.rm = T)
+    p25 = quantile(amount, 0.25, na.rm = TRUE)
   ) %>% 
   show_query()
 
@@ -2439,9 +2452,8 @@ db_result = db_customer %>%
   select(customer_id, birth_day, age) %>% 
   mutate(
     age_rng = 
-      ifelse(
-        is.na(age), 
-        NA, 
+      case_when(
+        !is.na(age) ~ 
         pmin((floor(age / 10) * 10), 60) %>% as.integer()
       )
   ) %>% 
@@ -2470,14 +2482,14 @@ df = tribble(
   "CS031415000172", NA, "1", 
   "CS001215000145", 24, NA
 )
-d = con %>% my_tbl(df = df, overwrite = T)
+d = con %>% my_tbl(df = df, overwrite = TRUE)
 dbReadTable(con, "df")
-db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = F)
+db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = FALSE)
 db_customer %>% filter(is.na(age))
 db_cust %>% filter(is.na(age) | is.na(gender_cd))
 
 db_cust %>% 
-  compute(name = "cust_na", temporary = TRUE, overwrite = T)
+  compute(name = "cust_na", temporary = TRUE, overwrite = TRUE)
 dbReadTable(con, "cust_na") %>% filter(is.na(age))
 
 db_cust %>% 
@@ -2499,11 +2511,11 @@ db_cust %>%
 db_cust %>% 
   select(customer_id, birth_day, gender_cd, age) %>% 
   mutate(
-    age_rng = ifelse(
-      is.na(age), 
-      NA, 
-      pmin((floor(age / 10) * 10), 60) %>% as.integer()
-    )
+    age_rng = 
+      case_when(
+        !is.na(age) ~ 
+        pmin((floor(age / 10) * 10), 60) %>% as.integer()
+      )
   ) %>% 
   filter(is.na(age) | is.na(gender_cd))
 
@@ -2585,10 +2597,10 @@ df_cust = df_customer %>%
 # df_cust[3, "age"] = NA
 
 df_cust %>% 
-  unite("gender_age", gender_cd, age_rng, sep = "_", remove = F) %>% 
+  unite("gender_age", gender_cd, age_rng, sep = "_", remove = FALSE) %>% 
   mutate(
     gender_age = 
-      ifelse(
+      if_else(
         is.na(gender_cd) | is.na(age), 
         NA, 
         gender_age
@@ -2623,7 +2635,7 @@ db_result = db_customer %>%
     tmp = pmin(FLOOR(age / 10) * 10, 60) %>% as.integer() %>% as.character(), 
     age_rng = sql("LPAD(tmp, 2, '0')"), 
     gender_age = 
-      ifelse(
+      if_else(
         is.na(gender_cd) | is.na(age), 
         NA, 
         stringr::str_c(gender_cd, age_rng, sep = "_")
@@ -2657,7 +2669,7 @@ db_cust %>%
     tmp = pmin(FLOOR(age / 10) * 10, 60) %>% as.integer() %>% as.character(), 
     age_rng = sql("LPAD(tmp, 2, '0')"), 
     gender_age = 
-      ifelse(
+      if_else(
         is.na(gender_cd) | is.na(age), 
         NA, 
         stringr::str_c(gender_cd, age_rng, sep = "_")
@@ -2675,7 +2687,7 @@ db_cust %>%
 
 #...............................................................................
 
-db_result %>% show_query(cte = F)
+db_result %>% show_query(cte = FALSE)
 
 # q = sql("
 # SELECT
@@ -2749,7 +2761,7 @@ df_customer %>%
   mutate(across(gender_cd, ~ as.factor(.x))) %>% 
   recipes::recipe() %>% 
   step_select(customer_id, gender_cd) %>% 
-  step_dummy(gender_cd, one_hot = T) %>% 
+  step_dummy(gender_cd, one_hot = TRUE) %>% 
   prep() %>% 
   bake(new_data = NULL) %>% 
   head(10)
@@ -2760,11 +2772,10 @@ d %>%
   mutate(across(gender_cd, ~ as.factor(.x))) %>% 
   recipes::recipe() %>% 
   step_select(customer_id, gender_cd) %>% 
-  step_dummy(gender_cd, one_hot = T) %>% 
+  step_dummy(gender_cd, one_hot = TRUE) %>% 
   prep() %>% 
   bake(new_data = NULL) %>% 
   head(10)
-
 
 # A tibble: 21,971 × 4
 #    customer_id    gender_cd_X0 gender_cd_X1 gender_cd_X9
@@ -2785,9 +2796,9 @@ db_result = db_customer %>%
     customer_id, gender_cd
   ) %>% 
   mutate(
-    gender_cd_0 = ifelse(gender_cd == "0", 1L, 0L), 
-    gender_cd_1 = ifelse(gender_cd == "1", 1L, 0L), 
-    gender_cd_9 = ifelse(gender_cd == "9", 1L, 0L), 
+    gender_cd_0 = if_else(gender_cd == "0", 1L, 0L), 
+    gender_cd_1 = if_else(gender_cd == "1", 1L, 0L), 
+    gender_cd_9 = if_else(gender_cd == "9", 1L, 0L), 
     .keep = "unused"
   ) %>% 
   head(10)
@@ -2811,14 +2822,14 @@ df = tribble(
   "CS037613000071", NA, 
   "CS031415000172", NA
 )
-d = con %>% my_tbl(df = df, overwrite = T)
+d = con %>% my_tbl(df = df, overwrite = TRUE)
 dbReadTable(con, "df")
-db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = F)
+db_cust = rows_update(db_customer, d, by = "customer_id", unmatched = "ignore", in_place = FALSE)
 db_customer %>% filter(is.na(gender_cd))
 db_cust %>% filter(is.na(gender_cd))
 
 db_cust %>% 
-  compute(name = "cust_na", temporary = TRUE, overwrite = T)
+  compute(name = "cust_na", temporary = TRUE, overwrite = TRUE)
 dbReadTable(con, "cust_na") %>% filter(is.na(gender_cd))
 
 con %>% DBI::dbListTables()
@@ -2828,9 +2839,9 @@ db_cust %>%
     customer_id, gender_cd
   ) %>% 
   mutate(
-    gender_cd_0 = ifelse(gender_cd == "0", 1L, 0L), 
-    gender_cd_1 = ifelse(gender_cd == "1", 1L, 0L), 
-    gender_cd_9 = ifelse(gender_cd == "9", 1L, 0L), 
+    gender_cd_0 = if_else(gender_cd == "0", 1L, 0L), 
+    gender_cd_1 = if_else(gender_cd == "1", 1L, 0L), 
+    gender_cd_9 = if_else(gender_cd == "9", 1L, 0L), 
     .keep = "unused"
   ) %>% 
   filter(customer_id %in% df$customer_id) %>% 
@@ -2941,7 +2952,7 @@ q %>% my_select(con) %>% filter(is.na(gender_cd))
 df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(
-    sum_amount = sum(amount, na.rm = T), 
+    sum_amount = sum(amount, na.rm = TRUE), 
     .by = "customer_id"
   ) %>% 
   mutate(
@@ -3106,7 +3117,7 @@ q %>% my_select(con)
 # 抽出対象はカテゴリ大区分コード"07"（瓶詰缶詰）の売上実績がある顧客のみとし、結果を10件表示せよ。
 
 # tag: 
-# CASE式, 集約関数, グループ化, データ結合
+# CASE式, 集約関数, グループ化, フィルタリング, データ結合
 
 df_receipt %>% 
   inner_join(
@@ -3116,13 +3127,13 @@ df_receipt %>%
     customer_id, category_major_cd, amount
   ) %>% 
   mutate(
-    amount_07 = ifelse(
+    amount_07 = if_else(
       category_major_cd == "07", amount, 0.0
     )
   ) %>% 
   summarise(
     across(c(amount, amount_07), 
-    ~ sum(.x, na.rm = T)), 
+    ~ sum(.x, na.rm = TRUE)), 
     .by = "customer_id"
   ) %>% 
   filter(amount_07 > 0.0) %>% 
@@ -3154,7 +3165,7 @@ db_result = db_receipt %>%
     customer_id, category_major_cd, amount
   ) %>% 
   mutate(
-    amount_07 = ifelse(
+    amount_07 = if_else(
       category_major_cd == "07", amount, 0.0
     )
   ) %>% 
@@ -4189,7 +4200,7 @@ db_customer %>%
   group_by(gender_cd) %>% 
   mutate(r = runif(n = n())) %>% 
   ungroup() %>% 
-  my_show_query(T)
+  my_show_query(TRUE)
 
 # 上記コードは、group_by(gender_cd) が効かない
 # SELECT gender_cd, RANDOM() AS r
@@ -4416,11 +4427,15 @@ q %>% my_select(con)
 # なお、ここでは外れ値を第1四分位と第3四分位の差であるIQRを用いて、「第1四分位数-1.5×IQR」を下回るもの、
 # または「第3四分位数+1.5×IQR」を超えるものとする。結果は10件表示せよ。
 
+# tag: 
+# 
+
+
 # 計算の対象となる amount が全て NA の場合、sum_amount は NA になる。
 df_result = df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(
-    sum_amount = sum(amount, na.rm = T), 
+    sum_amount = sum(amount, na.rm = TRUE), 
     .by = customer_id
   ) %>% 
   drop_na(sum_amount) %>% 
@@ -4457,7 +4472,7 @@ df_result
 # R-055: PERCENTILE_CONT() はウィンドウ関数 (OVER ()) として使えない!
 db_receipt %>% 
   mutate(
-    p25 = quantile(amount, 0.25, na.rm = T)
+    p25 = quantile(amount, 0.25, na.rm = TRUE)
   )
 
 #................................................
@@ -4565,7 +4580,7 @@ df_product %>%
 # パフォーマンスは下がる
 df_product %>% 
   summarise(
-    across(everything(), ~ sum(ifelse(is.na(.x), 1L, 0L)))
+    across(everything(), ~ sum(if_else(is.na(.x), 1L, 0L)))
   )
 
 # A tibble: 1 × 6
@@ -4579,7 +4594,7 @@ db_product %>% skimr::skim()
 
 db_result = db_product %>% 
   summarise(
-    across(everything(), ~ sum(ifelse(is.na(.), 1L, 0L)))
+    across(everything(), ~ sum(if_else(is.na(.), 1L, 0L)))
   )
 
 db_result %>% collect()
@@ -4673,8 +4688,8 @@ rm(avg_price, avg_cost)
 
 df_stats = df_product %>% 
   mutate(
-    unit_price = mean(unit_price, na.rm = T) %>% round(), 
-    unit_cost = mean(unit_cost, na.rm = T) %>% round()
+    unit_price = mean(unit_price, na.rm = TRUE) %>% round(), 
+    unit_cost = mean(unit_cost, na.rm = TRUE) %>% round()
   ) %>% 
   select(product_cd, starts_with("unit_"))
 
@@ -4752,7 +4767,7 @@ db_result %>% skimr::skim()
 
 # sample.1
 
-db_result %>% show_query(T)
+db_result %>% show_query(cte = TRUE)
 
 # ROUND_EVEN を ROUND に変更する.
 
@@ -4866,8 +4881,8 @@ q %>% my_select(con)
 
 df_result = df_product %>% 
   mutate(
-    median_price = median(unit_price, na.rm = T) %>% round(), 
-    median_cost = median(unit_cost, na.rm = T) %>% round(), 
+    median_price = median(unit_price, na.rm = TRUE) %>% round(), 
+    median_cost = median(unit_cost, na.rm = TRUE) %>% round(), 
     .by = category_small_cd
   ) %>% 
   mutate(
@@ -4986,16 +5001,16 @@ df_sales_rate = df_receipt %>%
     by = "customer_id"
   ) %>% 
   mutate(
-    amount_2019 = ifelse(sales_year == 2019L, amount, 0.0)
+    amount_2019 = if_else(sales_year == 2019L, amount, 0.0)
   ) %>% 
   summarise(
     across(starts_with("amount"), 
-    ~ sum(.x, na.rm = T), 
+    ~ sum(.x, na.rm = TRUE), 
     .names = "sales_{.col}"), 
     .by = customer_id
   ) %>% 
   mutate(
-    sales_rate = ifelse(
+    sales_rate = if_else(
       sales_amount == 0.0, 
       0.0, 
       sales_amount_2019 / sales_amount
@@ -5014,6 +5029,7 @@ df_sales_rate %>%
 
 df_sales_rate %>% 
   filter(sales_rate > 0.0) %>% 
+  arrange(customer_id) %>% 
   head(10)
 
 # A tibble: 10 × 4
@@ -5049,7 +5065,7 @@ db_sales_rate = db_receipt %>%
     by = "customer_id"
   ) %>% 
   mutate(
-    amount_2019 = ifelse(sales_year == 2019L, amount, 0.0)
+    amount_2019 = if_else(sales_year == 2019L, amount, 0.0)
   ) %>% 
   summarise(
     across(starts_with("amount"), 
@@ -5060,7 +5076,7 @@ db_sales_rate = db_receipt %>%
   mutate(
     sales_amount = coalesce(sales_amount, 0.0), 
     sales_amount_2019 = coalesce(sales_amount_2019, 0.0), 
-    sales_rate = ifelse(
+    sales_rate = if_else(
       sales_amount == 0.0, 
       0.0, 
       sales_amount_2019 / sales_amount
@@ -5072,13 +5088,14 @@ db_sales_rate %>% collect()
 db_sales_rate %>% 
   filter(sales_rate > 0.0) %>% 
   arrange(customer_id) %>% 
-  head(10)
+  head(10) %>% 
+  collect()
 
 db_sales_rate %>% skimr::skim()
 
 db_sales_rate %>% 
   summarise(
-    across(everything(), ~ sum(ifelse(is.na(.), 1L, 0L)))
+    across(everything(), ~ sum(if_else(is.na(.), 1L, 0L)))
   ) %>% 
   collect()
 
@@ -5281,7 +5298,7 @@ df_cust = df_customer %>%
     n = n()
   ) %>% 
   mutate(
-    integration_id = max(ifelse(rank == 1L, customer_id, "")), 
+    integration_id = max(if_else(rank == 1L, customer_id, "")), 
     .before = 1
   ) %>% 
   ungroup()
@@ -5400,7 +5417,7 @@ db_cust = db_customer %>%
     n = n()
   ) %>% 
   mutate(
-    integration_id = max(ifelse(rank == 1L, customer_id, "")), 
+    integration_id = max(if_else(rank == 1L, customer_id, "")), 
     .before = 1
   ) %>% 
   ungroup()
@@ -5761,7 +5778,7 @@ db_customer_test = db_sales_c %>%
 
 # データベースに保存
 db_customer_test %>% 
-  compute(name = "customer_test", temporary = FALSE, overwrite = T)
+  compute(name = "customer_test", temporary = FALSE, overwrite = TRUE)
 # テーブルの確認
 dbReadTable(con, "customer_test") %>% glimpse()
 
@@ -6064,7 +6081,7 @@ d = receipt %>% mutate(ym = my.date_format(sales_ymd, fmt2 = "%Y-%m")) %>%
 
 # index: 1-18, 9-25, 16-34
 obj.ro = d %>% rsample::rolling_origin(
-    initial = 12, assess = 6, cumulative = F, skip = 7
+    initial = 12, assess = 6, cumulative = FALSE, skip = 7
   )
 
 obj.ro
@@ -6162,8 +6179,11 @@ q %>% my_select(con)
 
 # ブログに掲載しない
 
-d = customer %>% mutate(
-    sales_flg = ifelse(customer_id %in% unique(receipt$customer_id), T, F) %>% as.factor()
+d = customer %>% 
+  mutate(
+    sales_flg = 
+      if_else(customer_id %in% unique(receipt$customer_id), TRUE, FALSE) %>% 
+      as.factor()
   )
 
 d %>% glimpse()
@@ -6177,8 +6197,9 @@ d.cust
 d.cust %>% count(sales_flg)
 
 #...............................................................................
-d = customer %>% mutate(
-    sales_flg = ifelse(customer_id %in% unique(receipt$customer_id), T, F)
+d = customer %>% 
+  mutate(
+    sales_flg = if_else(customer_id %in% unique(receipt$customer_id), TRUE, FALSE)
   )
 
 d.t = d %>% filter(sales_flg)
