@@ -71,7 +71,6 @@ R+SQL(演習問題)
 
 * tags:
 
-書籍レビュー
 R
 SQL
 CASE式
@@ -115,6 +114,7 @@ CASE式
 CTE
 (共通テーブル式)
 ファイル入出力
+書籍レビュー
 
 * カスタムドメイン, https, 14katsumix.com
 
