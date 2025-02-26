@@ -438,7 +438,7 @@ WHERE
     SELECT AVG(sum_amount) FROM customer_sales
   )
 ORDER BY 
-  sum_amount DESC;
+  sum_amount DESC
 "
 )
 q %>% my_select(con)
@@ -576,7 +576,7 @@ LEFT JOIN receipt r USING (customer_id)
 WHERE c.gender_cd = '1' AND customer_id NOT LIKE 'Z%'
 GROUP BY c.customer_id
 ORDER BY c.customer_id
--- LIMIT 10;
+-- LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -826,7 +826,7 @@ FROM
 FULL JOIN top_customers_by_sales s 
 USING (customer_id) 
 ORDER BY 
-  n_date DESC, sum_amount DESC, customer_id;
+  n_date DESC, sum_amount DESC, customer_id
 "
 )
 q %>% my_select(con)
@@ -1064,7 +1064,7 @@ FROM
   sales_by_date_with_lag
 ORDER BY 
   sales_ymd
-LIMIT 10;
+LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -1654,7 +1654,7 @@ LEFT JOIN
 USING   
   (age_range, gender_cd)
 ORDER BY 
-  ac.gender_cd, ac.age_range;
+  ac.gender_cd, ac.age_range
 "
 )
 q %>% my_select(con)
@@ -4048,7 +4048,7 @@ db_customer %>%
 
 #................................................
 # シードを設定
-dbExecute(con, "SELECT SETSEED(0.5);")
+dbExecute(con, "SELECT SETSEED(0.5)")
 
 db_result = db_customer %>% 
   mutate(r = runif(n = n())) %>% 
@@ -4062,7 +4062,7 @@ db_result %>% show_query()
 
 #................................................
 # シードを設定
-dbExecute(con, "SELECT SETSEED(0.5);")
+dbExecute(con, "SELECT SETSEED(0.5)")
 db_result = db_customer %>% 
   # mutate(prank = percent_rank(runif(n = n()))) %>% 
   mutate(r = runif(n = n())) %>% 
@@ -4091,7 +4091,7 @@ db_result %>% collect() %>% arrange(customer_id)
 
 # ランダムな行番号を生成する方法
 # 列の一部を出力
-dbExecute(con, "SELECT SETSEED(0.5);")
+dbExecute(con, "SELECT SETSEED(0.5)")
 db_result = db_customer %>% 
   mutate(r = runif(n = n())) %>% 
   mutate(
@@ -4125,7 +4125,7 @@ db_result %>% collect() %>% arrange(customer_id)
 
 # PERCENT_RANK() を使用
 
-dbExecute(con, "SELECT SETSEED(0.5);")
+dbExecute(con, "SELECT SETSEED(0.5)")
 db_result = db_customer %>% 
   mutate(r = runif(n = n())) %>% 
   mutate(prank = percent_rank(r)) %>% 
@@ -4295,7 +4295,7 @@ db_customer %>%
 #................................................
 
 # ランダムシードを設定
-con %>% dbExecute("SELECT SETSEED(0.5);")
+con %>% dbExecute("SELECT SETSEED(0.5)")
 
 # 上位10%を選択
 db_result = db_customer %>%
@@ -4333,7 +4333,7 @@ db_result %>% count(gender_cd)
 # customer をランダムに並び替えてからグループ内で順番付けをする
 
 # ランダムシードを設定
-con %>% dbExecute("SELECT SETSEED(0.5);")
+con %>% dbExecute("SELECT SETSEED(0.5)")
 
 db_result = db_customer %>%
   mutate(rand = runif(n = n())) %>% 
@@ -4370,7 +4370,7 @@ df_customer %>% arrange(customer_id)
 
 #...............................................................................
 
-con %>% dbExecute("SELECT SETSEED(0.5);")
+con %>% dbExecute("SELECT SETSEED(0.5)")
 
 db_result = db_customer %>%
   mutate(rand = runif(n = n())) %>% 
@@ -5831,7 +5831,7 @@ df_test
 # 一意な識別子である customer_id を使い、SQL MD5関数(ハッシュ関数) でランダムな文字列を生成し、
 # その辞書順によりランダムな番号付けをする
 
-con %>% dbExecute("SELECT SETSEED(0.5);")
+con %>% dbExecute("SELECT SETSEED(0.5)")
 
 db_sales_customer = db_customer %>% 
   select(customer_id) %>% 
@@ -6092,7 +6092,7 @@ con %>% dbReadTable("sales_customer") %>% as_tibble() %>% arrange(customer_id)
 
 con %>% dbExecute("DROP TABLE IF EXISTS sales_customer")
 
-con %>% dbExecute("SELECT SETSEED(0.5);")
+con %>% dbExecute("SELECT SETSEED(0.5)")
 
 q = sql("
 CREATE TEMP TABLE sales_customer AS 
