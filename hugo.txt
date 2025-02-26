@@ -43,8 +43,9 @@ title: katsuのブログ
 theme: hugo-theme-stack
 # theme: PaperMod
 
-* サンプル記事を作成
-hugo new content/100k/r-030.md
+* 標準編の記事を作成
+
+hugo new content --kind standard 100knocks/standard/r-029.md
 
 * 出力先ディレクトリ（public/）をクリアして再ビルド
 hugo --cleanDestinationDir
