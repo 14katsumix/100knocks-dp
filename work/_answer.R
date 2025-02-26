@@ -357,9 +357,10 @@ df_receipt %>%
   # mutate(.mean = mean(sum_amount)) %>% 
   # filter(sum_amount >= .mean) %>% 
   filter(sum_amount >= mean(sum_amount)) %>% 
-  arrange(desc(sum_amount))
+  arrange(desc(sum_amount), customer_id) %>% 
+  head(10)
 
-# A tibble: 2,996 × 2
+# A tibble: 10 × 2
 #    customer_id    sum_amount
 #    <chr>               <dbl>
 #  1 CS017415000097      23086
@@ -367,20 +368,25 @@ df_receipt %>%
 #  3 CS031414000051      19202
 #  4 CS028415000007      19127
 #  5 CS001605000009      18925
-#  ...
+#  6 CS010214000010      18585
+#  7 CS006515000023      18372
+#  8 CS016415000141      18372
+#  9 CS011414000106      18338
+# 10 CS038415000104      17847
 
 #...............................................................................
 # dbplyr
 db_receipt %>% glimpse()
 
 db_result = db_receipt %>% 
-  # filter(not(customer_id %LIKE% "Z%")) %>% 
-  filter(!str_detect(customer_id, "^Z")) %>% 
+  filter(!(customer_id %LIKE% "Z%")) %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
   summarise(sum_amount = sum(amount), .by = customer_id) %>% 
   # mutate(.mean = mean(sum_amount)) %>% 
   # filter(sum_amount >= .mean) %>% 
   filter(sum_amount >= mean(sum_amount)) %>% 
-  arrange(desc(sum_amount))
+  arrange(desc(sum_amount), customer_id) %>% 
+  head(10)
 
 db_result %>% collect()
 
@@ -390,9 +396,9 @@ db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH q01 AS (
-  SELECT *
+  SELECT receipt.*
   FROM receipt
-  WHERE customer_id NOT LIKE 'Z%'
+  WHERE (NOT((customer_id LIKE 'Z%')))
 ),
 q02 AS (
   SELECT customer_id, SUM(amount) AS sum_amount
@@ -400,13 +406,14 @@ q02 AS (
   GROUP BY customer_id
 ),
 q03 AS (
-  SELECT *, AVG(sum_amount) OVER () AS avg_amount
-  FROM q02
+  SELECT q01.*, AVG(sum_amount) OVER () AS col01
+  FROM q02 q01
 )
 SELECT customer_id, sum_amount
-FROM q03
-WHERE (sum_amount >= avg_amount)
-ORDER BY sum_amount DESC
+FROM q03 q01
+WHERE (sum_amount >= col01)
+ORDER BY sum_amount DESC, customer_id
+LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -439,9 +446,24 @@ WHERE
   )
 ORDER BY 
   sum_amount DESC
+LIMIT 10
 "
 )
 q %>% my_select(con)
+
+# A tibble: 10 × 2
+#    customer_id    sum_amount
+#    <chr>               <dbl>
+#  1 CS017415000097      23086
+#  2 CS015415000185      20153
+#  3 CS031414000051      19202
+#  4 CS028415000007      19127
+#  5 CS001605000009      18925
+#  6 CS010214000010      18585
+#  7 CS006515000023      18372
+#  8 CS016415000141      18372
+#  9 CS011414000106      18338
+# 10 CS038415000104      17847
 
 #-------------------------------------------------------------------------------
 # R-038 ------------
