@@ -140,7 +140,7 @@ db_result %>% my_show_query()
 df_result = df_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
-  arrange(desc(n)) %>% 
+  arrange(desc(n), store_cd) %>% 
   head(10)
 
 df_result
@@ -151,7 +151,7 @@ df_result
 df_result = df_receipt %>% 
   count(store_cd, product_cd) %>% 
   slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
-  arrange(desc(n)) %>% 
+  arrange(desc(n), store_cd) %>% 
   head(10)
 
 df_result
@@ -178,7 +178,7 @@ df_result
 db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
   filter(n == max(n), .by = store_cd) %>% 
-  arrange(desc(n)) %>% 
+  arrange(desc(n), store_cd) %>% 
   head(10)
 
 db_result %>% collect()
@@ -202,7 +202,7 @@ db_result %>% collect()
 db_result = db_receipt %>% 
   count(store_cd, product_cd) %>% 
   slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
-  arrange(desc(n)) %>% 
+  arrange(desc(n), store_cd) %>% 
   head(10)
 
 db_result %>% collect()
@@ -223,7 +223,8 @@ db_result %>% collect()
 
 #...............................................................................
 # SQLクエリ
-db_result %>% my_show_query()
+
+db_result %>% show_query(cte = T)
 
 # sample.1 ------------
 
@@ -240,11 +241,11 @@ db_result %>% my_show_query()
 # SELECT store_cd, product_cd, n
 # FROM q02 q01
 # WHERE (n = col01)
-# ORDER BY n DESC
+# ORDER BY n DESC, store_cd
 # LIMIT 10
 
 q = sql("
-WITH q01 AS (
+WITH product_num AS (
   SELECT 
     store_cd, 
     product_cd, 
@@ -254,20 +255,22 @@ WITH q01 AS (
   GROUP BY 
     store_cd, product_cd
 ),
-q02 AS (
+product_max AS (
   SELECT 
     *, 
-    MAX(n) OVER (PARTITION BY store_cd) AS col01
-  FROM q01
+    MAX(n) OVER (PARTITION BY store_cd) AS max_n
+  FROM product_num
 )
 SELECT 
-  store_cd, product_cd, n
+  store_cd, 
+  product_cd, 
+  n
 FROM 
-  q02
+  product_max
 WHERE 
-  n = col01
+  n = max_n
 ORDER BY 
-  n DESC
+  n DESC, store_cd
 LIMIT 10
 "
 )
@@ -294,7 +297,7 @@ db_result %>% my_show_query()
 # SELECT store_cd, product_cd, n
 # FROM q02 q01
 # WHERE (col01 <= 1)
-# ORDER BY n DESC
+# ORDER BY n DESC, store_cd
 # LIMIT 10
 
 # リライト
@@ -327,9 +330,8 @@ FROM
   product_rank
 WHERE
   rank = 1
-ORDER BY n DESC
+ORDER BY n DESC, store_cd
 LIMIT 10
-;
 "
 )
 q %>% my_select(con)
@@ -4990,7 +4992,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 欠損値処理, データ補完, 統計量, 集約関数, ウィンドウ関数, グループ化, データ結合, 
+# 欠損値処理, データ補完, 統計量, 集約関数, ウィンドウ関数, グループ化, データ結合
 
 df_result = df_product %>% 
   mutate(
