@@ -607,7 +607,7 @@ identical(d1, d2)
 # level: 1
 
 # tag: 
-# 集約関数, グループ化, データ結合, パターンマッチング, フィルタリング
+# 集約関数, データ型変換, パターンマッチング, グループ化, フィルタリング, データ結合, 
 
 # sample.1
 
@@ -1271,7 +1271,7 @@ q %>% my_select(con) %>% tail(7)
 # level: 3
 
 # tag: 
-# カテゴリ変換, CASE式, 集約関数, 縦横変換, グループ化, データ結合
+# カテゴリ変換, CASE式, データ型変換, 集約関数, 縦横変換, グループ化, データ結合
 
 max_age = df_customer$age %>% max(na.rm = TRUE)
 
@@ -1497,7 +1497,7 @@ q %>% my_select(con)
 # level: 3
 
 # tag: 
-# カテゴリ変換, CASE式, 集約関数, 全組み合わせ, グループ化, データ結合
+# カテゴリ変換, CASE式, データ型変換, 集約関数, 全組み合わせ, グループ化, データ結合
 
 # ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する方法を紹介します。
 
@@ -1611,7 +1611,7 @@ q = sql("
 WITH joined_data AS (
   SELECT
     c.customer_id,
-    FLOOR(c.age / 10) * 10 AS age_range, 
+    CAST((FLOOR(age / 10.0) * 10.0) AS INTEGER) AS age_range, 
     CASE c.gender_cd 
       WHEN '0' THEN '00'
       WHEN '1' THEN '01'
@@ -1698,7 +1698,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# 日付処理
+# 日付処理, データ型変換
 
 "2025-02-21" %>% as.Date() %>% strftime("%Y%m%d")
 
@@ -1757,7 +1757,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# 日付処理
+# 日付処理, データ型変換
 
 df_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
@@ -2251,7 +2251,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# カテゴリ変換, 欠損値処理, 統計量, 集約関数, グループ化, フィルタリング, データ結合
+# カテゴリ変換, 欠損値処理, データ型変換, 統計量, 集約関数, グループ化, フィルタリング, データ結合
 
 # Rコード (データフレーム操作)
 
@@ -2473,7 +2473,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# カテゴリ変換
+# カテゴリ変換, データ型変換
 
 pacman::p_load(epikit)
 
@@ -2647,7 +2647,7 @@ q %>% my_select(con) %>% filter(is.na(age))
 # level: 2
 
 # tag: 
-# カテゴリ変換, 文字列処理, CASE式, 欠損値処理
+# カテゴリ変換, 文字列処理, CASE式, データ型変換, 欠損値処理
 
 pacman::p_load(epikit)
 
@@ -2820,7 +2820,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# カテゴリ変換, 欠損値処理, CASE式
+# カテゴリ変換, 欠損値処理, CASE式, データ型変換
 
 d = df_customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
 d$gender_cd %>% levels()
@@ -3181,7 +3181,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# CASE式, 集約関数, グループ化, フィルタリング, データ結合
+# CASE式, データ型変換, 集約関数, グループ化, フィルタリング, データ結合
 
 df_receipt %>% 
   inner_join(
@@ -3322,7 +3322,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 日付処理, 重複データ処理, データ結合
+# 日付処理, データ型変換, 重複データ処理, データ結合
 
 # 経過日数
 "20170322" %>% lubridate::parse_date_time("%Y%m%d")
@@ -3555,7 +3555,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 日付処理, 重複データ処理, データ結合
+# 日付処理, データ型変換, 重複データ処理, データ結合
 
 # sample.1
 df_receipt %>%
@@ -3751,7 +3751,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 日付処理
+# 日付処理, データ型変換
 
 # 経過日数を計算し、月曜日を求める
 df_result = df_receipt %>% 
@@ -4761,7 +4761,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 欠損値処理, 統計量, 集約関数, ウィンドウ関数, データ結合
+# 欠損値処理, データ補完, 統計量, 集約関数, ウィンドウ関数, データ結合
 
 df_product %>% skimr::skim()
 
@@ -4990,7 +4990,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 欠損値処理, 統計量, 集約関数, ウィンドウ関数, グループ化, データ結合, 
+# 欠損値処理, データ補完, 統計量, 集約関数, ウィンドウ関数, グループ化, データ結合, 
 
 df_result = df_product %>% 
   mutate(
@@ -5098,7 +5098,7 @@ q %>% my_select(con) %>% skimr::skim()
 # level: 3
 
 # tag: 
-# 日付処理, CASE式, 集約関数, グループ化, フィルタリング, データ結合, 
+# 日付処理, CASE式, データ型変換, 集約関数, グループ化, フィルタリング, データ結合, 
 
 # df_receipt %>% select(customer_id) %>% 
 #   anti_join(df_customer, by = "customer_id") %>% 
