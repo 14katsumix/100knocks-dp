@@ -479,12 +479,17 @@ q %>% my_select(con)
 # 集約関数, 欠損値処理, グループ化, データ結合, パターンマッチング, フィルタリング
 
 df_customer %>% 
-  filter(gender_cd == "1", !str_detect(customer_id, "^Z")) %>% 
+  filter(
+    gender_cd == "1" & !str_detect(customer_id, "^Z")
+  ) %>% 
   left_join(
     df_receipt %>% select(customer_id, amount), 
     by = "customer_id"
   ) %>% 
-  summarise(sum_amount = sum(amount, na.rm = TRUE), .by = "customer_id") %>% 
+  summarise(
+    sum_amount = sum(amount, na.rm = TRUE), 
+    .by = "customer_id"
+  ) %>% 
   arrange(customer_id) %>% 
   head(10)
 
@@ -519,13 +524,17 @@ df_customer %>%
 # => NA
 
 db_result = db_customer %>% 
-  # filter(gender_cd == "1", not(customer_id %LIKE% "%Z")) %>% 
-  filter(gender_cd == "1", !str_detect(customer_id, "^Z")) %>% 
+  filter(
+    gender_cd == "1" & !(customer_id %LIKE% "%Z")
+  ) %>% 
   left_join(
     db_receipt %>% select(customer_id, amount), 
     by = "customer_id"
   ) %>% 
-  summarise(sum_amount = sum(amount), .by = "customer_id") %>% 
+  summarise(
+    sum_amount = sum(amount, na.rm = TRUE), 
+    .by = "customer_id"
+  ) %>% 
   replace_na(list(sum_amount = 0.0)) %>% 
   arrange(customer_id) %>% 
   head(10)
@@ -535,35 +544,11 @@ db_result %>% collect()
 #...............................................................................
 db_result %>% show_query(cte = TRUE)
 
-# NOT(REGEXP_MATCHES(customer_id, '^Z'))
-# customer_id NOT LIKE 'Z%'
-
-# WITH q01 AS (
-#   SELECT customer.*
-#   FROM customer
-#   WHERE (gender_cd = '1') AND (NOT(REGEXP_MATCHES(customer_id, '^Z')))
-# ),
-# q02 AS (
-#   SELECT LHS.*, amount
-#   FROM q01 LHS
-#   LEFT JOIN receipt
-#     ON (LHS.customer_id = receipt.customer_id)
-# ),
-# q03 AS (
-#   SELECT customer_id, SUM(amount) AS sum_amount
-#   FROM q02 q01
-#   GROUP BY customer_id
-# )
-# SELECT customer_id, COALESCE(sum_amount, 0.0) AS sum_amount
-# FROM q03 q01
-# ORDER BY customer_id
-# LIMIT 10
-
 q = sql("
 WITH q01 AS (
   SELECT customer.*
   FROM customer
-  WHERE (gender_cd = '1') AND (customer_id NOT LIKE 'Z%')
+  WHERE (gender_cd = '1' AND NOT((customer_id LIKE '%Z')))
 ),
 q02 AS (
   SELECT LHS.*, amount
@@ -579,7 +564,7 @@ q03 AS (
 SELECT customer_id, COALESCE(sum_amount, 0.0) AS sum_amount
 FROM q03 q01
 ORDER BY customer_id
--- LIMIT 10
+LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -592,13 +577,22 @@ d1 = q %>% my_select(con)
 # COALESCE を最終的な SUM(amount) に適用
 
 q = sql("
-SELECT c.customer_id, COALESCE(SUM(r.amount), 0.0) AS sum_amount
-FROM customer c
-LEFT JOIN receipt r USING (customer_id)
-WHERE c.gender_cd = '1' AND customer_id NOT LIKE 'Z%'
-GROUP BY c.customer_id
-ORDER BY c.customer_id
--- LIMIT 10
+SELECT 
+  c.customer_id, 
+  COALESCE(SUM(r.amount), 0.0) AS sum_amount
+FROM 
+  customer c 
+LEFT JOIN 
+  receipt r 
+USING (customer_id)
+WHERE 
+  c.gender_cd = '1' 
+  AND customer_id NOT LIKE 'Z%' 
+GROUP BY 
+  c.customer_id 
+ORDER BY 
+  c.customer_id 
+LIMIT 10
 "
 )
 q %>% my_select(con)
@@ -696,7 +690,8 @@ df_result
 # sample.1
 
 db_rec = db_receipt %>% 
-  filter(!str_detect(customer_id, "^Z")) %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
+  filter(!(customer_id %LIKE% "Z%")) %>% 
   select(customer_id, sales_ymd, amount) %>% 
   group_by(customer_id)
 
@@ -742,7 +737,8 @@ db_result %>% collect()
 # sample.2
 
 db_rec = db_receipt %>% 
-  filter(!str_detect(customer_id, "^Z")) %>% 
+  # filter(!str_detect(customer_id, "^Z")) %>% 
+  filter(!(customer_id %LIKE% "Z%")) %>% 
   select(customer_id, sales_ymd, amount) %>% 
   group_by(customer_id)
 
@@ -5495,7 +5491,7 @@ df_cust %>%
 
 # 名寄顧客データ
 df_customer_u = df_cust %>% 
-  filter(rank == 1) %>% 
+  filter(rank == 1L) %>% 
   select(-c(sum_amount, rank, n))
 
 # 名寄顧客データ
@@ -5511,7 +5507,7 @@ df_customer_n = df_customer %>%
     df_cust %>% select(integration_id, customer_id), 
     by = "customer_id"
   ) %>% 
-  relocate(integration_id, .before = 1)
+  relocate(integration_id, .before = 1L)
 
 df_customer_n %>% glimpse()
 df_customer_n
