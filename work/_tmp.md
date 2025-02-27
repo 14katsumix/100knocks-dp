@@ -1,27 +1,192 @@
-このコードは、`df_receipt` テーブルから特定の条件を満たす顧客の売上合計を計算し、上位10名を抽出するものです。  
-
-### **処理の流れ**
-
-1. `filter(!str_detect(customer_id, "^Z"))`  
-   - `customer_id` が `"Z"` で始まるデータ（法人顧客）を除外する。
-   
-2. `summarise(sum_amount = sum(amount), .by = customer_id)`  
-   - `customer_id` ごとに `amount` の合計を求め、新しい列 `sum_amount` を作成する。
-
-3. `filter(sum_amount >= mean(sum_amount))`  
-   - 計算した `sum_amount` の平均以上の顧客を抽出する。
-
-4. `arrange(desc(sum_amount), customer_id)`  
-   - `sum_amount` の降順で並べ、同じ `sum_amount` の場合は `customer_id` の昇順にソートする。
-
-5. `head(10)`  
-   - 上位10件を取得する。
+以下のように日本語の表現をブラッシュアップしました。改善点として、文の流れを自然にし、冗長な部分を簡潔にしています。  
 
 ---
 
-### **考慮点**
-- `summarise(.by = customer_id)` を使っているので、`group_by(customer_id) %>% summarise(...)` の代わりにシンプルに書けています。
-- `mean(sum_amount)` の計算時、`summarise()` の結果が対象なので、意図した平均値になっているか確認が必要です。
-- `arrange(desc(sum_amount), customer_id)` の `customer_id` を昇順にしているのは、同じ `sum_amount` の場合に一貫した並び順を確保するためです。
+## 設問概要
 
-この処理で、売上上位の「個人顧客（法人を除く）」のトップ10を取得できます。
+{{< k100/question >}}
+
+---
+
+最頻値が複数存在する場合、それらをすべて抽出する解答例を示します。
+
+## Rコード (データフレーム操作)
+
+### 解答例(1){#r-df1}
+
+```r
+df_result = df_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  filter(n == max(n), .by = store_cd) %>% 
+  arrange(desc(n), store_cd) %>% 
+  head(10)
+```
+
+```text
+# A tibble: 10 × 3
+   store_cd product_cd     n
+   <chr>    <chr>      <int>
+ 1 S14027   P060303001   152
+ 2 S14012   P060303001   142
+ 3 S14028   P060303001   140
+ 4 S12030   P060303001   115
+ 5 S13031   P060303001   115
+ 6 S12013   P060303001   107
+ 7 S13044   P060303001    96
+ 8 S14024   P060303001    96
+ 9 S12029   P060303001    92
+10 S13004   P060303001    88
+```
+
+- `df_receipt` に対し `count()` を使用し、店舗 (`store_cd`) と商品 (`product_cd`) の組み合わせごとに販売数 (`n`) を集計します。  
+- `filter(n == max(n), .by = store_cd)` により、各店舗で最も売れた商品を抽出します。  
+  販売数が最大のものが複数ある場合、それらをすべて含みます。
+
+### 解答例(2){#r-df2}
+
+`filter()` の代わりに `slice_max()` を使用した解答例です。
+
+```r
+df_result = df_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
+  arrange(desc(n), store_cd) %>% 
+  head(10)
+```
+
+```text
+# A tibble: 10 × 3
+   store_cd product_cd     n
+   <chr>    <chr>      <int>
+ 1 S14027   P060303001   152
+ 2 S14012   P060303001   142
+ 3 S14028   P060303001   140
+ 4 S12030   P060303001   115
+ 5 S13031   P060303001   115
+ 6 S12013   P060303001   107
+ 7 S13044   P060303001    96
+ 8 S14024   P060303001    96
+ 9 S12029   P060303001    92
+10 S13004   P060303001    88
+```
+
+`slice_max(n, n = 1, with_ties = TRUE, by = store_cd)` を用いることで、  
+各店舗 (`store_cd`) ごとに `n` が最大の `product_cd` を抽出します。  
+`with_ties = TRUE` を指定することで、最大値が複数ある場合はすべて含まれます。
+
+## Rコード (データベース操作)
+
+### 解答例(1){#r-db1}
+
+データフレーム操作の [解答例(1)]({{< ref "#r-df1" >}}) はデータベース操作でも適用できるため、  
+`df_receipt` をテーブル参照 `db_receipt` に置き換えて同様の処理を実行します。
+
+```r
+db_result = db_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  filter(n == max(n), .by = store_cd) %>% 
+  arrange(desc(n), store_cd) %>% 
+  head(10)
+
+db_result %>% collect()
+```
+
+```text
+# A tibble: 10 × 3
+   store_cd product_cd     n
+   <chr>    <chr>      <dbl>
+ 1 S14027   P060303001   152
+ 2 S14012   P060303001   142
+ 3 S14028   P060303001   140
+ 4 S12030   P060303001   115
+ 5 S13031   P060303001   115
+ 6 S12013   P060303001   107
+ 7 S13044   P060303001    96
+ 8 S14024   P060303001    96
+ 9 S12029   P060303001    92
+10 S13004   P060303001    88
+```
+
+### 解答例(2){#r-db2}
+
+データフレーム操作の [解答例(2)]({{< ref "#r-df2" >}}) をデータベース操作に適用します。
+
+```r
+db_result = db_receipt %>% 
+  count(store_cd, product_cd) %>% 
+  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
+  arrange(desc(n), store_cd) %>% 
+  head(10)
+
+db_result %>% collect()
+```
+
+## SQLクエリ
+
+### 解答例(1)
+
+データベース操作の [解答例(1)]({{< ref "#r-db1" >}}) に基づき、自動生成された SQLクエリを `show_query()` で確認できます。
+
+```r
+db_result %>% show_query(cte = T)
+```
+
+```sql
+WITH product_num AS (
+  SELECT store_cd, product_cd, COUNT(*) AS n
+  FROM receipt
+  GROUP BY store_cd, product_cd
+),
+product_max AS (
+  SELECT *, MAX(n) OVER (PARTITION BY store_cd) AS max_n
+  FROM product_num
+)
+SELECT store_cd, product_cd, n
+FROM product_max
+WHERE n = max_n
+ORDER BY n DESC, store_cd
+LIMIT 10
+```
+
+- **`product_num`** CTE では、`receipt` テーブルから各店舗 (`store_cd`) における各商品の販売数 (`n`) を集計します。
+- **`product_max`** CTE では、`MAX(n) OVER (PARTITION BY store_cd)` により、各店舗ごとの最大販売数 (`max_n`) を計算します。
+- 最後の `SELECT` 文で、`n = max_n` の条件により、各店舗で最も売れた商品を取得します。
+
+この SQL を R から実行する場合、以下のように `sql()` を使用します。
+
+```r
+q = sql("
+WITH product_num AS (
+  SELECT store_cd, product_cd, COUNT(*) AS n
+  FROM receipt
+  GROUP BY store_cd, product_cd
+),
+product_max AS (
+  SELECT *, MAX(n) OVER (PARTITION BY store_cd) AS max_n
+  FROM product_num
+)
+SELECT store_cd, product_cd, n
+FROM product_max
+WHERE n = max_n
+ORDER BY n DESC, store_cd
+LIMIT 10
+")
+
+q %>% my_select(con)
+```
+
+```text
+# A tibble: 10 × 3
+   store_cd product_cd     n
+   <chr>    <chr>      <dbl>
+ 1 S14027   P060303001   152
+ 2 S14012   P060303001   142
+ 3 S14028   P060303001   140
+ 4 S12030   P060303001   115
+ 5 S13031   P060303001   115
+ 6 S12013   P060303001   107
+ 7 S13044   P060303001    96
+ 8 S14024   P060303001    96
+ 9 S12029   P060303001    92
+10 S13004   P060303001    88
+```

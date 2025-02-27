@@ -538,3 +538,41 @@ db_master %>%
 
 #-------------------------------------------------------------------------------
 
+
+options(dplyr.strict_sql = FALSE)
+options(dplyr.strict_sql = TRUE)
+n
+# ~store, ~month, ~sales, ~profit
+db_sales %>% mutate(m = mean(profit))
+db_sales %>% mutate(m = mean(profit, trim = 0.2))
+#> mean(profit, trim = 0.2) でエラー: 使われていない引数 (trim = 0.2)
+
+db_sales %>% collect() %>% mutate(m = mean(profit, trim = 0.2))
+
+db_result = db_sales %>% mutate(m = xxx(profit))
+db_result %>% show_query()
+
+translate_sql(xxx(x, y), con = con)
+translate_sql(mean(x, trim = 0.2), con = con)
+#> mean(profit, trim = 0.2) でエラー: 使われていない引数 (trim = 0.2)
+
+c(1, 2, 3, 4, 10) %>% mean(na.rm = T, trim = 0.2)
+
+「dbplyr は、dplyr が変換方法を認識できない式については、そのまま SQL に残します。」
+
+SQLに変換するのはdbplyrの役割ですよね？
+「dbplyr が変換する方法が分からない式」は「dplyr が認識できない式」と同等ですか？
+
+db_result = db_sales %>% mutate(combined = paste(store, store))
+db_result %>% show_query()
+
+「dplyr が認識できない式」
+→ そもそも dplyr が処理できず、R のエラーになるもの。
+「dbplyr が SQL に変換できない式」
+→ dplyr では解釈できるが、dbplyr が SQL に変換する方法を知らないもの（R 固有の関数など）。
+
+db_sales %>% mutate(avg_sales = mean(sales)) %>% show_query()
+
+「dplyr が SQL への変換方法を知らない関数」という表現は、
+「SQLに変換するのはdbplyrの役割である」ことと矛盾しない？
+
