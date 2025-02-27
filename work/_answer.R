@@ -224,7 +224,7 @@ db_result %>% collect()
 #...............................................................................
 # SQLクエリ
 
-db_result %>% show_query(cte = T)
+db_result %>% show_query(cte = TRUE)
 
 # sample.1 ------------
 
@@ -257,7 +257,9 @@ WITH product_num AS (
 ),
 product_max AS (
   SELECT 
-    *, 
+    store_cd,
+    product_cd,
+    n, 
     MAX(n) OVER (PARTITION BY store_cd) AS max_n
   FROM product_num
 )
@@ -283,7 +285,7 @@ q %>% my_select(con)
 
 # sample.2 ------------
 
-db_result %>% my_show_query()
+db_result %>% show_query(cte = TRUE)
 
 # WITH q01 AS (
 #   SELECT store_cd, product_cd, COUNT(*) AS n
@@ -314,7 +316,9 @@ WITH product_num AS (
 ),
 product_rank AS (
   SELECT 
-    *,
+    store_cd,
+    product_cd,
+    n, 
     RANK() OVER (
       PARTITION BY store_cd
       ORDER BY n DESC
@@ -330,7 +334,8 @@ FROM
   product_rank
 WHERE
   rank = 1
-ORDER BY n DESC, store_cd
+ORDER BY 
+  n DESC, store_cd
 LIMIT 10
 "
 )
@@ -469,7 +474,8 @@ q %>% my_select(con)
 # R-038 ------------
 # 顧客データ（customer）とレシート明細データ（receipt）から、顧客ごとの売上金額合計を求め、10件表示せよ。
 # ただし、売上実績がない顧客については売上金額を0として表示させること。
-# また、顧客は性別コード（gender_cd）が女性（1）であるものを対象とし、非会員（顧客IDが"Z"から始まるもの）は除外すること。
+# また、顧客は性別コード（gender_cd）が女性（1）であるものを対象とし、非会員（顧客IDが"Z"から始まるもの）
+# は除外すること。
 
 # 女性会員を対象に、顧客ごとの売上合計を求める問題です。
 
@@ -477,6 +483,8 @@ q %>% my_select(con)
 
 # tag: 
 # 集約関数, 欠損値処理, グループ化, データ結合, パターンマッチング, フィルタリング
+
+# `amount` が nullable (NULL を許容する) の場合の解答例を以下に示します。
 
 df_customer %>% 
   filter(
@@ -567,6 +575,7 @@ ORDER BY customer_id
 LIMIT 10
 "
 )
+
 q %>% my_select(con)
 d1 = q %>% my_select(con)
 
