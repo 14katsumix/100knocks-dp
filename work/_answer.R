@@ -445,7 +445,7 @@ WHERE
     SELECT AVG(sum_amount) FROM customer_sales
   )
 ORDER BY 
-  sum_amount DESC
+  sum_amount DESC, customer_id
 LIMIT 10
 "
 )

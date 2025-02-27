@@ -1,192 +1,78 @@
-以下のように日本語の表現をブラッシュアップしました。改善点として、文の流れを自然にし、冗長な部分を簡潔にしています。  
+以下に、二番目のSQLクエリに解説を加えた内容を示します。
 
 ---
-
-## 設問概要
-
-{{< k100/question >}}
-
----
-
-最頻値が複数存在する場合、それらをすべて抽出する解答例を示します。
-
-## Rコード (データフレーム操作)
-
-### 解答例(1){#r-df1}
-
-```r
-df_result = df_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  filter(n == max(n), .by = store_cd) %>% 
-  arrange(desc(n), store_cd) %>% 
-  head(10)
-```
-
-```text
-# A tibble: 10 × 3
-   store_cd product_cd     n
-   <chr>    <chr>      <int>
- 1 S14027   P060303001   152
- 2 S14012   P060303001   142
- 3 S14028   P060303001   140
- 4 S12030   P060303001   115
- 5 S13031   P060303001   115
- 6 S12013   P060303001   107
- 7 S13044   P060303001    96
- 8 S14024   P060303001    96
- 9 S12029   P060303001    92
-10 S13004   P060303001    88
-```
-
-- `df_receipt` に対し `count()` を使用し、店舗 (`store_cd`) と商品 (`product_cd`) の組み合わせごとに販売数 (`n`) を集計します。  
-- `filter(n == max(n), .by = store_cd)` により、各店舗で最も売れた商品を抽出します。  
-  販売数が最大のものが複数ある場合、それらをすべて含みます。
-
-### 解答例(2){#r-df2}
-
-`filter()` の代わりに `slice_max()` を使用した解答例です。
-
-```r
-df_result = df_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
-  arrange(desc(n), store_cd) %>% 
-  head(10)
-```
-
-```text
-# A tibble: 10 × 3
-   store_cd product_cd     n
-   <chr>    <chr>      <int>
- 1 S14027   P060303001   152
- 2 S14012   P060303001   142
- 3 S14028   P060303001   140
- 4 S12030   P060303001   115
- 5 S13031   P060303001   115
- 6 S12013   P060303001   107
- 7 S13044   P060303001    96
- 8 S14024   P060303001    96
- 9 S12029   P060303001    92
-10 S13004   P060303001    88
-```
-
-`slice_max(n, n = 1, with_ties = TRUE, by = store_cd)` を用いることで、  
-各店舗 (`store_cd`) ごとに `n` が最大の `product_cd` を抽出します。  
-`with_ties = TRUE` を指定することで、最大値が複数ある場合はすべて含まれます。
-
-## Rコード (データベース操作)
-
-### 解答例(1){#r-db1}
-
-データフレーム操作の [解答例(1)]({{< ref "#r-df1" >}}) はデータベース操作でも適用できるため、  
-`df_receipt` をテーブル参照 `db_receipt` に置き換えて同様の処理を実行します。
-
-```r
-db_result = db_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  filter(n == max(n), .by = store_cd) %>% 
-  arrange(desc(n), store_cd) %>% 
-  head(10)
-
-db_result %>% collect()
-```
-
-```text
-# A tibble: 10 × 3
-   store_cd product_cd     n
-   <chr>    <chr>      <dbl>
- 1 S14027   P060303001   152
- 2 S14012   P060303001   142
- 3 S14028   P060303001   140
- 4 S12030   P060303001   115
- 5 S13031   P060303001   115
- 6 S12013   P060303001   107
- 7 S13044   P060303001    96
- 8 S14024   P060303001    96
- 9 S12029   P060303001    92
-10 S13004   P060303001    88
-```
-
-### 解答例(2){#r-db2}
-
-データフレーム操作の [解答例(2)]({{< ref "#r-df2" >}}) をデータベース操作に適用します。
-
-```r
-db_result = db_receipt %>% 
-  count(store_cd, product_cd) %>% 
-  slice_max(n, n = 1, with_ties = TRUE, by = store_cd) %>% 
-  arrange(desc(n), store_cd) %>% 
-  head(10)
-
-db_result %>% collect()
-```
 
 ## SQLクエリ
 
-### 解答例(1)
-
-データベース操作の [解答例(1)]({{< ref "#r-db1" >}}) に基づき、自動生成された SQLクエリを `show_query()` で確認できます。
-
-```r
-db_result %>% show_query(cte = T)
-```
-
 ```sql
-WITH product_num AS (
-  SELECT store_cd, product_cd, COUNT(*) AS n
-  FROM receipt
-  GROUP BY store_cd, product_cd
-),
-product_max AS (
-  SELECT *, MAX(n) OVER (PARTITION BY store_cd) AS max_n
-  FROM product_num
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM 
+    receipt
+  WHERE 
+    customer_id NOT LIKE 'Z%'
+  GROUP BY 
+    customer_id
 )
-SELECT store_cd, product_cd, n
-FROM product_max
-WHERE n = max_n
-ORDER BY n DESC, store_cd
+SELECT 
+  customer_id, 
+  sum_amount
+FROM 
+  customer_sales
+WHERE 
+  sum_amount >= (
+    SELECT AVG(sum_amount) FROM customer_sales
+  )
+ORDER BY 
+  sum_amount DESC
 LIMIT 10
 ```
 
-- **`product_num`** CTE では、`receipt` テーブルから各店舗 (`store_cd`) における各商品の販売数 (`n`) を集計します。
-- **`product_max`** CTE では、`MAX(n) OVER (PARTITION BY store_cd)` により、各店舗ごとの最大販売数 (`max_n`) を計算します。
-- 最後の `SELECT` 文で、`n = max_n` の条件により、各店舗で最も売れた商品を取得します。
+### 解説
 
-この SQL を R から実行する場合、以下のように `sql()` を使用します。
+このSQLクエリは、特定の条件に基づいて顧客の売上合計を計算し、平均以上の売上を上げた顧客を抽出するためのものです。クエリは以下のように構成されています。
 
-```r
-q = sql("
-WITH product_num AS (
-  SELECT store_cd, product_cd, COUNT(*) AS n
-  FROM receipt
-  GROUP BY store_cd, product_cd
-),
-product_max AS (
-  SELECT *, MAX(n) OVER (PARTITION BY store_cd) AS max_n
-  FROM product_num
-)
-SELECT store_cd, product_cd, n
-FROM product_max
-WHERE n = max_n
-ORDER BY n DESC, store_cd
-LIMIT 10
-")
+1. **CTE（共通テーブル式）の作成**: 
+   ```sql
+   WITH customer_sales AS (
+     SELECT 
+       customer_id, 
+       SUM(amount) AS sum_amount
+     FROM 
+       receipt
+     WHERE 
+       customer_id NOT LIKE 'Z%'
+     GROUP BY 
+       customer_id
+   )
+   ```
+   - この部分では、`receipt`テーブルから`customer_id`ごとの売上合計を計算しています。
+   - **`customer_id NOT LIKE 'Z%'`**: ここで、`customer_id`が"Z"で始まる顧客を除外します。これにより、対象外の顧客を排除してデータの質を向上させています。
+   - **`SUM(amount) AS sum_amount`**: 各顧客の売上合計を求め、新しい列`sum_amount`を作成します。
+   - **`GROUP BY customer_id`**: `customer_id`ごとに集計を行います。
 
-q %>% my_select(con)
-```
+2. **平均以上の顧客の選択**: 
+   ```sql
+   SELECT 
+     customer_id, 
+     sum_amount
+   FROM 
+     customer_sales
+   WHERE 
+     sum_amount >= (
+       SELECT AVG(sum_amount) FROM customer_sales
+     )
+   ```
+   - ここでは、先ほど作成した`customer_sales`のCTEを参照して、売上合計が全体の平均以上の顧客を抽出します。
+   - **`SELECT AVG(sum_amount) FROM customer_sales`**: このサブクエリでは、`customer_sales`から計算した`sum_amount`の平均を求めています。
 
-```text
-# A tibble: 10 × 3
-   store_cd product_cd     n
-   <chr>    <chr>      <dbl>
- 1 S14027   P060303001   152
- 2 S14012   P060303001   142
- 3 S14028   P060303001   140
- 4 S12030   P060303001   115
- 5 S13031   P060303001   115
- 6 S12013   P060303001   107
- 7 S13044   P060303001    96
- 8 S14024   P060303001    96
- 9 S12029   P060303001    92
-10 S13004   P060303001    88
-```
+3. **結果の並べ替えと制限**: 
+   ```sql
+   ORDER BY 
+     sum_amount DESC
+   LIMIT 10
+   ```
+   - **`ORDER BY sum_amount DESC`**: 売上合計の降順で結果を並べ替え、売上が高い顧客から順に表示します。
+   - **`LIMIT 10`**: 上位10件の結果を抽出します。
