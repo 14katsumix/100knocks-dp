@@ -1246,8 +1246,8 @@ FROM
 INNER JOIN 
   sales_data R
 ON (
-  L.lag_ymd <= R.sales_ymd AND 
-  L.sales_ymd > R.sales_ymd
+  L.lag_ymd <= R.sales_ymd 
+  AND L.sales_ymd > R.sales_ymd
 )
 ORDER BY 
   L.sales_ymd, R.sales_ymd
