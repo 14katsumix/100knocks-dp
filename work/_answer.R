@@ -3537,6 +3537,13 @@ ORDER BY
 )
 q %>% my_select(con)
 
+q = sql("
+
+"
+)
+q %>% my_select(con)
+
+
 # A tibble: 32,411 × 4
 #    customer_id    sales_ymd application_date elapsed_days
 #    <chr>              <int> <chr>                   <dbl>
@@ -3991,16 +3998,20 @@ d1 = q %>% my_select(con)
 
 q = sql("
 SELECT
+  sales_date,
   CAST(
-    STRPTIME(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE
-  ) AS sales_date, 
+    EXTRACT('dow' FROM sales_date + 6) AS INTEGER
+  ) AS elapsed_days,
   CAST(
-    EXTRACT('dow' FROM CAST(sales_date AS DATE) + 6) AS INTEGER
-  ) AS elapsed_days, 
-  CAST(
-    sales_date - TO_DAYS(CAST(elapsed_days AS INTEGER)) AS DATE
+    sales_date - TO_DAYS(elapsed_days) AS DATE
   ) AS monday_ymd
-FROM receipt
+FROM (
+  SELECT
+    CAST(
+      STRPTIME(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE
+    ) AS sales_date
+  FROM receipt
+)
 LIMIT 10
 "
 )
