@@ -660,7 +660,8 @@ df_result = df_date %>%
   arrange(desc(n_date), desc(sum_amount), customer_id)
 
 df_result
-# A tibble: 34 × 3
+
+# A tibble: 35 × 3
 #    customer_id    n_date sum_amount
 #    <chr>           <int>      <dbl>
 #  1 CS040214000008     23         NA
@@ -672,7 +673,22 @@ df_result
 #  7 CS016415000141     20      18372
 #  8 CS031414000051     19      19202
 #  9 CS014214000023     19         NA
-#  ...
+# 10 CS021514000045     19         NA
+# 11 CS021515000172     19         NA
+# 12 CS022515000226     19         NA
+# 13 CS039414000052     19         NA
+# 14 CS007515000107     18         NA
+# 15 CS014415000077     18         NA
+# 16 CS021515000056     18         NA
+# 17 CS021515000211     18         NA
+# 18 CS022515000028     18         NA
+# 19 CS030214000008     18         NA
+# 20 CS031414000073     18         NA
+# 21 CS032415000209     18         NA
+# 22 CS001605000009     NA      18925
+# ...
+# 34 CS030415000034     NA      15468
+# 35 CS015515000034     NA      15300
 
 # sample.2
 
@@ -709,7 +725,9 @@ db_rec = db_receipt %>%
   group_by(customer_id)
 
 db_date = db_rec %>% 
-  summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
+  summarise(
+    n_date = n_distinct(sales_ymd) %>% as.integer()
+  ) %>% 
   slice_max(n_date, n = 20, with_ties = TRUE)
 
 db_amount = db_rec %>% 
@@ -719,6 +737,37 @@ db_amount = db_rec %>%
 db_result = db_date %>% 
   full_join(db_amount, by = "customer_id") %>% 
   arrange(desc(n_date), desc(sum_amount), customer_id)
+
+db_result %>% collect()
+
+# A tibble: 35 × 3
+#    customer_id    n_date sum_amount
+#    <chr>           <int>      <dbl>
+#  1 CS040214000008     23         NA
+#  2 CS015415000185     22      20153
+#  3 CS010214000010     22      18585
+#  4 CS028415000007     21      19127
+#  5 CS010214000002     21         NA
+#  6 CS017415000097     20      23086
+#  7 CS016415000141     20      18372
+#  8 CS031414000051     19      19202
+#  9 CS014214000023     19         NA
+# 10 CS021514000045     19         NA
+# 11 CS021515000172     19         NA
+# 12 CS022515000226     19         NA
+# 13 CS039414000052     19         NA
+# 14 CS007515000107     18         NA
+# 15 CS014415000077     18         NA
+# 16 CS021515000056     18         NA
+# 17 CS021515000211     18         NA
+# 18 CS022515000028     18         NA
+# 19 CS030214000008     18         NA
+# 20 CS031414000073     18         NA
+# 21 CS032415000209     18         NA
+# 22 CS001605000009     NA      18925
+# ...
+# 34 CS030415000034     NA      15468
+# 35 CS015515000034     NA      15300
 
 # データフレーム操作の結果と比較
 janitor::compare_df_cols(df_result, db_result %>% collect())
@@ -731,32 +780,18 @@ d = db_result %>% collect()
 arsenal::comparedf(df_result, d) %>% summary()
 df_result; d
 
-db_result %>% collect()
-# A tibble: 34 × 3
-#    customer_id    n_date sum_amount
-#    <chr>           <int>      <dbl>
-#  1 CS040214000008     23         NA
-#  2 CS015415000185     22      20153
-#  3 CS010214000010     22      18585
-#  4 CS028415000007     21      19127
-#  5 CS010214000002     21         NA
-#  6 CS017415000097     20      23086
-#  7 CS016415000141     20      18372
-#  8 CS031414000051     19      19202
-#  9 CS014214000023     19         NA
-#  ...
-
 #................................................
 # sample.2
 
 db_rec = db_receipt %>% 
-  # filter(!str_detect(customer_id, "^Z")) %>% 
   filter(!(customer_id %LIKE% "Z%")) %>% 
   select(customer_id, sales_ymd, amount) %>% 
   group_by(customer_id)
 
 db_date = db_rec %>% 
-  summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
+  summarise(
+    n_date = n_distinct(sales_ymd) %>% as.integer()
+  ) %>% 
   arrange(desc(n_date), customer_id) %>% 
   head(20)
 
@@ -785,7 +820,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-# 購入日数や合計金額で、RANK() によって、同じ順位が付けられた顧客が20位に複数いると、選ばれる顧客数が20件を超えます。
+# 購入日数や合計金額で、RANK() によって、同じ順位が付けられた顧客が複数いると、選ばれる顧客数が20件を超える場合があります。
 
 q = sql("
 WITH q01 AS (
@@ -839,26 +874,37 @@ q %>% my_select(con)
 
 q = sql("
 WITH purchase_data AS (
-  SELECT customer_id, sales_ymd, amount
+  SELECT 
+    customer_id, sales_ymd, amount
   FROM receipt
   WHERE customer_id NOT LIKE 'Z%'
 ),
 customer_purchase_dates AS (
-  SELECT customer_id, CAST(COUNT(DISTINCT sales_ymd) AS INTEGER) AS n_date
+  SELECT 
+    customer_id, 
+    CAST(COUNT(DISTINCT sales_ymd) AS INTEGER) AS n_date
   FROM purchase_data
   GROUP BY customer_id
 ),
 ranked_purchase_dates AS (
-  SELECT customer_id, n_date, RANK() OVER (ORDER BY n_date DESC) AS rank_n_date
+  SELECT 
+    customer_id, 
+    n_date, 
+    RANK() OVER (ORDER BY n_date DESC) AS rank_n_date
   FROM customer_purchase_dates
 ),
 customer_total_sales AS (
-  SELECT customer_id, SUM(amount) AS sum_amount
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
   FROM purchase_data
   GROUP BY customer_id
 ),
 ranked_total_sales AS (
-  SELECT customer_id, sum_amount, RANK() OVER (ORDER BY sum_amount DESC) AS rank_sum_amount
+  SELECT 
+    customer_id, 
+    sum_amount, 
+    RANK() OVER (ORDER BY sum_amount DESC) AS rank_sum_amount
   FROM customer_total_sales
 ),
 top_customers_by_dates AS (
@@ -877,10 +923,11 @@ SELECT
   s.sum_amount
 FROM top_customers_by_dates d
 FULL JOIN top_customers_by_sales s
-  ON d.customer_id = s.customer_id
+USING (customer_id) 
 ORDER BY n_date DESC, sum_amount DESC, customer_id
 "
 )
+
 q %>% my_select(con)
 
 #................................................
@@ -921,7 +968,7 @@ db_result %>% show_query(cte = TRUE)
 # ORDER BY n_date DESC, sum_amount DESC, customer_id
 
 q = sql("
-WITH filtered_receipt AS (
+WITH purchase_data AS (
   SELECT 
     customer_id, 
     sales_ymd, 
@@ -931,12 +978,12 @@ WITH filtered_receipt AS (
   WHERE 
     customer_id NOT LIKE 'Z%'
 ), 
-top_customers_by_days AS (
+top_customers_by_dates AS (
   SELECT 
     customer_id, 
     CAST(COUNT(DISTINCT sales_ymd) AS INTEGER) AS n_date 
   FROM 
-    filtered_receipt 
+    purchase_data 
   GROUP BY 
     customer_id 
   ORDER BY 
@@ -948,7 +995,7 @@ top_customers_by_sales AS (
     customer_id, 
     SUM(amount) AS sum_amount 
   FROM 
-    filtered_receipt 
+    purchase_data 
   GROUP BY 
     customer_id 
   ORDER BY 
@@ -960,7 +1007,7 @@ SELECT
   d.n_date, 
   s.sum_amount 
 FROM 
-  top_customers_by_days d
+  top_customers_by_dates d
 FULL JOIN 
   top_customers_by_sales s 
 USING (customer_id) 
@@ -968,6 +1015,7 @@ ORDER BY
   n_date DESC, sum_amount DESC, customer_id
 "
 )
+
 q %>% my_select(con)
 
 # A tibble: 34 × 3
