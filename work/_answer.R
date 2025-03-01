@@ -634,9 +634,13 @@ identical(d1, d2)
 # level: 1
 
 # tag: 
-# 集約関数, データ型変換, パターンマッチング, グループ化, フィルタリング, データ結合, 
+# 集約関数, データ型変換, パターンマッチング, グループ化, フィルタリング, データ結合
 
 # sample.1
+
+# with_ties = TRUE
+# 最大値が重複している場合、その重複したすべての行を選びます。
+# そのため、選ばれる行数が20件を超える可能性があります。
 
 df_rec = df_receipt %>% 
   filter(!str_detect(customer_id, "^Z")) %>% 
@@ -645,11 +649,11 @@ df_rec = df_receipt %>%
 
 df_date = df_rec %>% 
   summarise(n_date = n_distinct(sales_ymd)) %>% 
-  slice_max(n_date, n = 20, with_ties = FALSE)
+  slice_max(n_date, n = 20, with_ties = TRUE)
 
 df_amount = df_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
-  slice_max(sum_amount, n = 20, with_ties = FALSE)
+  slice_max(sum_amount, n = 20, with_ties = TRUE)
 
 df_result = df_date %>% 
   full_join(df_amount, by = "customer_id") %>% 
@@ -706,11 +710,11 @@ db_rec = db_receipt %>%
 
 db_date = db_rec %>% 
   summarise(n_date = n_distinct(sales_ymd) %>% as.integer()) %>% 
-  slice_max(n_date, n = 20, with_ties = FALSE)
+  slice_max(n_date, n = 20, with_ties = TRUE)
 
 db_amount = db_rec %>% 
   summarise(sum_amount = sum(amount)) %>% 
-  slice_max(sum_amount, n = 20, with_ties = FALSE)
+  slice_max(sum_amount, n = 20, with_ties = TRUE)
 
 db_result = db_date %>% 
   full_join(db_amount, by = "customer_id") %>% 
@@ -777,6 +781,111 @@ db_result %>% collect()
 
 # arrange() + head() の方が slice_max() を使うよりシンプルで速い
 
+# sample.1
+
+db_result %>% show_query(cte = TRUE)
+
+# 購入日数や合計金額で、RANK() によって、同じ順位が付けられた顧客が20位に複数いると、選ばれる顧客数が20件を超えます。
+
+q = sql("
+WITH q01 AS (
+  SELECT customer_id, sales_ymd, amount
+  FROM receipt
+  WHERE (NOT((customer_id LIKE 'Z%')))
+),
+q02 AS (
+  SELECT customer_id, CAST(COUNT(DISTINCT row(sales_ymd)) AS INTEGER) AS n_date
+  FROM q01
+  GROUP BY customer_id
+),
+q03 AS (
+  SELECT q01.*, RANK() OVER (ORDER BY n_date DESC) AS col01
+  FROM q02 q01
+),
+q04 AS (
+  SELECT customer_id, n_date
+  FROM q03 q01
+  WHERE (col01 <= 20)
+),
+q05 AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM q01
+  GROUP BY customer_id
+),
+q06 AS (
+  SELECT q01.*, RANK() OVER (ORDER BY sum_amount DESC) AS col02
+  FROM q05 q01
+),
+q07 AS (
+  SELECT customer_id, sum_amount
+  FROM q06 q01
+  WHERE (col02 <= 20)
+),
+q08 AS (
+  SELECT
+    COALESCE(LHS.customer_id, RHS.customer_id) AS customer_id,
+    n_date,
+    sum_amount
+  FROM q04 LHS
+  FULL JOIN q07 RHS
+    ON (LHS.customer_id = RHS.customer_id)
+)
+SELECT q01.*
+FROM q08 q01
+ORDER BY n_date DESC, sum_amount DESC, customer_id
+"
+)
+q %>% my_select(con)
+
+q = sql("
+WITH purchase_data AS (
+  SELECT customer_id, sales_ymd, amount
+  FROM receipt
+  WHERE customer_id NOT LIKE 'Z%'
+),
+customer_purchase_dates AS (
+  SELECT customer_id, CAST(COUNT(DISTINCT sales_ymd) AS INTEGER) AS n_date
+  FROM purchase_data
+  GROUP BY customer_id
+),
+ranked_purchase_dates AS (
+  SELECT customer_id, n_date, RANK() OVER (ORDER BY n_date DESC) AS rank_n_date
+  FROM customer_purchase_dates
+),
+customer_total_sales AS (
+  SELECT customer_id, SUM(amount) AS sum_amount
+  FROM purchase_data
+  GROUP BY customer_id
+),
+ranked_total_sales AS (
+  SELECT customer_id, sum_amount, RANK() OVER (ORDER BY sum_amount DESC) AS rank_sum_amount
+  FROM customer_total_sales
+),
+top_customers_by_dates AS (
+  SELECT customer_id, n_date
+  FROM ranked_purchase_dates
+  WHERE rank_n_date <= 20
+),
+top_customers_by_sales AS (
+  SELECT customer_id, sum_amount
+  FROM ranked_total_sales
+  WHERE rank_sum_amount <= 20
+)
+SELECT 
+  COALESCE(d.customer_id, s.customer_id) AS customer_id,
+  d.n_date,
+  s.sum_amount
+FROM top_customers_by_dates d
+FULL JOIN top_customers_by_sales s
+  ON d.customer_id = s.customer_id
+ORDER BY n_date DESC, sum_amount DESC, customer_id
+"
+)
+q %>% my_select(con)
+
+#................................................
+# sample.2
+
 db_result %>% show_query(cte = TRUE)
 
 # WITH q01 AS (
@@ -814,7 +923,9 @@ db_result %>% show_query(cte = TRUE)
 q = sql("
 WITH filtered_receipt AS (
   SELECT 
-    customer_id, sales_ymd, amount 
+    customer_id, 
+    sales_ymd, 
+    amount 
   FROM 
     receipt 
   WHERE 
@@ -850,7 +961,8 @@ SELECT
   s.sum_amount 
 FROM 
   top_customers_by_days d
-FULL JOIN top_customers_by_sales s 
+FULL JOIN 
+  top_customers_by_sales s 
 USING (customer_id) 
 ORDER BY 
   n_date DESC, sum_amount DESC, customer_id
