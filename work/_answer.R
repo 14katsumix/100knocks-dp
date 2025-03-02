@@ -1036,7 +1036,7 @@ q %>% my_select(con)
 # R-040 ------------
 # 全ての店舗と全ての商品を組み合わせたデータを作成したい。店舗データ（store）と商品データ（product）を直積し、件数を計算せよ。
 
-# 店舗と商品の組み合わせデータ作成
+# 店舗と商品の組み合わせデータの作成
 # 店舗データと商品データの直積を作成し、件数を求める問題です。
 
 # level: 1
@@ -1044,23 +1044,16 @@ q %>% my_select(con)
 # tag: 
 # 集約関数, 全組み合わせ, データ結合
 
-# df_result = df_store$store_cd %>% 
-#   tidyr::crossing(df_product$product_cd)
-
-store_cd = df_store$store_cd
-product_cd = df_product$product_cd
-df_result = store_cd %>% 
-  tidyr::crossing(product_cd)
-
-df_result
-df_result %>% nrow()
-
-df_result = df_store %>% 
+# sample.1
+df_store %>% 
   cross_join(df_product) %>% 
-  select(store_cd, product_cd)
+  count()
 
-df_result
-df_result %>% nrow()
+# sample.2
+
+df_store %>% 
+  tidyr::crossing(df_product) %>% 
+  count()
 
 # A tibble: 531,590 × 2
 #    store_cd product_cd
@@ -1085,12 +1078,9 @@ df_result %>% nrow()
 
 db_result = db_store %>% 
   cross_join(db_product) %>% 
-  select(store_cd, product_cd)
+  count()
 
 db_result %>% collect()
-
-# db_result %>% count() %>% collect()
-db_result %>% collect() %>% nrow()
 
 #...............................................................................
 
@@ -1098,14 +1088,14 @@ db_result %>% show_query()
 
 q = sql("
 SELECT 
-  store_cd, 
-  product_cd
+  COUNT(*) AS n
 FROM 
-  store
+  store 
 CROSS JOIN 
   product
 "
 )
+
 q %>% my_select(con)
 
 # A tibble: 531,590 × 2
