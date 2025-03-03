@@ -1,13 +1,14 @@
-### SQL
 
-#### 解説
+- **`sales_by_date` CTE で売上合計を計算**  
+  - `sales_ymd` ごとに `amount` の合計を算出します。  
+  - `HAVING SUM(amount) IS NOT NULL` により、売上データが存在しない日を除外します。  
 
-このSQLクエリでは、`CROSS JOIN` を使用して `store` テーブルと `product` テーブルを結合しています。`CROSS JOIN` は、2つのテーブル間のすべての行の組み合わせを生成する演算子です。つまり、`store` テーブルの各行が `product` テーブルのすべての行と結びつき、両テーブルの全組み合わせを作成します。
+- **`sales_by_date_with_lag` CTE で前日のデータを取得**  
+  - `LAG(sales_ymd) OVER win` により、前日の `sales_ymd` を取得します。  
+  - `LAG(amount) OVER win` により、前日の売上 `pre_amount` を取得します。  
+  - `WINDOW win AS (ORDER BY sales_ymd)` により、`sales_ymd` の昇順で処理を行うよう指定します。  
 
-このクエリでは、`COUNT(*)` を使って生成された組み合わせの総数をカウントしています。結果として、店舗と商品の全組み合わせ数が返されます。
-
-- **`SELECT COUNT(*) AS n`**: `COUNT(*)` は、結果セット内の行数をカウントします。ここでは、全組み合わせの数を取得するために使用されています。`AS n` でカウントされた値に名前を付けています。
-- **`FROM store`**: `store` テーブルからデータを取得します。
-- **`CROSS JOIN product`**: `store` テーブルと `product` テーブルを `CROSS JOIN` によって結合します。この演算子は、両テーブルのすべての行の組み合わせを生成します。
-
-`CROSS JOIN` を使用することで、`store` テーブルと `product` テーブルの全組み合わせを効率的に生成でき、結果的にその総数がわかります。
+- **最終的な出力を取得**  
+  - `amount - pre_amount AS diff_amount` により、前日との差分 `diff_amount` を計算します。  
+  - `ORDER BY sales_ymd` で日付順に並べ替えます。  
+  - `LIMIT 10` により、最初の10件を取得します。  

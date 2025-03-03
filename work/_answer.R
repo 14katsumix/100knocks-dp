@@ -1145,7 +1145,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# 集約関数, シフト関数, ウィンドウ関数, 欠損値処理, グループ化
+# シフト関数, 集約関数, ウィンドウ関数, 欠損値処理, グループ化
 
 # 参考
 df_receipt %>% 
@@ -1153,7 +1153,7 @@ df_receipt %>%
   filter(amount > 0.0) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd, order_by = sales_ymd), 
-    pre_amount = lag(amount, default = NA, order_by = sales_ymd)
+    pre_amount = lag(amount, order_by = sales_ymd)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
@@ -1161,11 +1161,14 @@ df_receipt %>%
 
 # ブログでは以下を採用
 df_receipt %>% 
-  summarise(amount = sum(amount, na.rm = TRUE), .by = sales_ymd) %>% 
+  summarise(
+    amount = sum(amount, na.rm = TRUE), .by = sales_ymd
+  ) %>% 
+  filter(amount > 0.0) %>% 
   arrange(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
-    pre_amount = lag(amount, default = NA)
+    pre_amount = lag(amount)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   head(10)
@@ -1190,12 +1193,14 @@ df_receipt %>%
 # filter(!is.na(amount)) に変更。
 
 db_result = db_receipt %>% 
-  summarise(amount = sum(amount), .by = sales_ymd) %>% 
+  summarise(
+    amount = sum(amount, na.rm = TRUE), .by = sales_ymd
+  ) %>% 
   filter(!is.na(amount)) %>% 
   window_order(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
-    pre_amount = lag(amount, default = NA)
+    pre_amount = lag(amount)
   ) %>% 
   mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
@@ -1264,6 +1269,7 @@ ORDER BY
 LIMIT 10
 "
 )
+
 q %>% my_select(con)
 
 # A tibble: 1,034 × 5
