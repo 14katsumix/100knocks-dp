@@ -1168,9 +1168,9 @@ df_receipt %>%
   arrange(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
-    pre_amount = lag(amount)
+    pre_amount = lag(amount), 
+    diff_amount = amount - pre_amount
   ) %>% 
-  mutate(diff_amount = amount - pre_amount) %>% 
   head(10)
 
 # A tibble: 1,034 × 5
@@ -1183,6 +1183,7 @@ df_receipt %>%
 #  5  20170105  37830      20170104      36165        1665
 #  6  20170106  32387      20170105      37830       -5443
 #  7  20170107  23415      20170106      32387       -8972
+#  ...
 
 #...............................................................................
 # dbplyr
@@ -1200,9 +1201,9 @@ db_result = db_receipt %>%
   window_order(sales_ymd) %>% 
   mutate(
     pre_sales_ymd = lag(sales_ymd), 
-    pre_amount = lag(amount)
+    pre_amount = lag(amount), 
+    diff_amount = amount - pre_amount
   ) %>% 
-  mutate(diff_amount = amount - pre_amount) %>% 
   arrange(sales_ymd) %>% 
   head(10)
 
@@ -1211,28 +1212,6 @@ db_result %>% collect()
 #...............................................................................
 
 db_result %>% show_query(cte = TRUE)
-
-# WITH q01 AS (
-#   SELECT sales_ymd, SUM(amount) AS amount
-#   FROM receipt
-#   GROUP BY sales_ymd
-#   HAVING (NOT(((SUM(amount)) IS NULL)))
-# ),
-# q02 AS (
-#   SELECT sales_ymd, COALESCE(amount, 0.0) AS amount
-#   FROM q01
-# ),
-# q03 AS (
-#   SELECT
-#     q01.*,
-#     LAG(sales_ymd, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_sales_ymd,
-#     LAG(amount, 1, NULL) OVER (ORDER BY sales_ymd) AS pre_amount
-#   FROM q02 q01
-# )
-# SELECT q01.*, amount - pre_amount AS diff_amount
-# FROM q03 q01
-# ORDER BY sales_ymd
-# LIMIT 10
 
 q = sql("
 WITH sales_by_date AS (
