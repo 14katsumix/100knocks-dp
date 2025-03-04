@@ -1278,27 +1278,33 @@ q %>% my_select(con)
 n_lag = 3L
 
 df_sales_with_lag = df_receipt %>% 
-  summarise(amount = sum(amount, na.rm = TRUE), .by = "sales_ymd") %>% 
-  filter(!is.na(amount)) %>% 
+  summarise(
+    amount = sum(amount, na.rm = TRUE), .by = "sales_ymd"
+  ) %>% 
+  filter(amount > 0.0) %>% 
   arrange(sales_ymd) %>% 
   mutate(
     lag_ymd = lag(sales_ymd, n = n_lag, default = -1L)
-    # lag_ymd = lag(sales_ymd, n = n_lag, default = -1, order_by = sales_ymd)
   )
 
-df_sales_with_lag
+# df_sales_with_lag
+df_sales_with_lag %>% tail(3L)
 
 .by = join_by(
     between(y$sales_ymd, x$lag_ymd, x$sales_ymd, bounds = "[)")
   )
 
 df_result = df_sales_with_lag %>% 
-  inner_join(df_sales_with_lag, by = .by, suffix = c("", ".y")) %>% 
-  select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
+  inner_join(
+    df_sales_with_lag, by = .by, suffix = c("", ".y")
+  ) %>% 
+  select(
+    sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y
+  ) %>% 
   arrange(sales_ymd, lag_sales_ymd)
 
-df_result
-df_result %>% tail(7)
+df_result %>% head(10)
+df_result %>% tail(6)
 
 # A tibble: 3,096 × 4
 #    sales_ymd amount  lag_ymd lag_amount
@@ -1327,28 +1333,32 @@ df_result %>% tail(7)
 n_lag = 3L
 
 db_sales_with_lag = db_receipt %>% 
-  summarise(amount = sum(amount), .by = "sales_ymd") %>% 
+  summarise(
+    amount = sum(amount), .by = "sales_ymd"
+  ) %>% 
   filter(!is.na(amount)) %>% 
   # arrange(sales_ymd) %>% 
   window_order(sales_ymd) %>% 
   mutate(
     lag_ymd = lag(sales_ymd, n = n_lag, default = -1L)
-    # lag_ymd = lag(sales_ymd, n = n_lag, default = -1, order_by = sales_ymd)
   )
 
-db_sales_with_lag
-# db_sales_with_lag %>% show_query(cte = TRUE)
+# db_sales_with_lag
 
 .by = join_by(
     between(y$sales_ymd, x$lag_ymd, x$sales_ymd, bounds = "[)")
   )
 
 db_result = db_sales_with_lag %>% 
-  inner_join(db_sales_with_lag, by = .by, suffix = c("", ".y")) %>% 
-  select(sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y) %>% 
+  inner_join(
+    db_sales_with_lag, by = .by, suffix = c("", ".y")
+  ) %>% 
+  select(
+    sales_ymd, amount, lag_sales_ymd = sales_ymd.y, lag_amount = amount.y
+  ) %>% 
   arrange(sales_ymd, lag_sales_ymd)
 
-db_result %>% collect()
+db_result %>% collect() %>% head(10)
 db_result %>% collect() %>% tail(7)
 
 #...............................................................................
@@ -1399,7 +1409,8 @@ WITH sales_data AS (
     receipt
   GROUP BY 
     sales_ymd
-  HAVING SUM(amount) IS NOT NULL
+  HAVING 
+    SUM(amount) IS NOT NULL
 )
 SELECT 
   L.sales_ymd,
@@ -1419,7 +1430,7 @@ ORDER BY
 "
 )
 
-q %>% my_select(con)
+q %>% my_select(con) %>% head(10)
 q %>% my_select(con) %>% tail(7)
 
 # A tibble: 3,096 × 4
