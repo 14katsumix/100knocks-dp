@@ -1433,6 +1433,22 @@ ORDER BY
 q %>% my_select(con) %>% head(10)
 q %>% my_select(con) %>% tail(7)
 
+q = sql("
+  SELECT 
+    sales_ymd, 
+    SUM(amount) AS amount,
+    LAG(sales_ymd, 3, -1) OVER (ORDER BY sales_ymd) AS lag_ymd
+  FROM 
+    receipt
+  GROUP BY 
+    sales_ymd
+  HAVING 
+    SUM(amount) IS NOT NULL
+"
+)
+q %>% my_select(con)
+
+
 # A tibble: 3,096 × 4
 #    sales_ymd amount lag_sales_ymd lag_amount
 #        <int>  <dbl>         <int>      <dbl>
