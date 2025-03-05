@@ -1498,7 +1498,7 @@ df_sales = df_customer %>%
         age, 
         lower = 0, 
         # upper = round(max_age, -1) - if_else(mod(max_age, 10) == 0, 0L, 1L), 
-        upper = floor(max_age / 10) * 10 + 10, 
+        upper = floor(!!max_age / 10) * 10 + 10, 
         by = 10
       )
   ) %>% 
@@ -1539,7 +1539,6 @@ df_sales %>%
     id_expand = TRUE, 
     names_from = gender_cd, 
     values_from = sum_amount, 
-    names_sort = TRUE, 
     names_expand = TRUE, 
     values_fill = 0.0
   )
@@ -1606,9 +1605,9 @@ df_sales %>% tidyr::complete(
 
 # sample.1
 db_result = db_customer %>% 
-  # select(customer_id, gender_cd, age) %>% 
   inner_join(
-    db_receipt, by = "customer_id"
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
   ) %>% 
   mutate(
     age_range = 
@@ -1630,7 +1629,6 @@ db_result = db_customer %>%
   ) %>% 
   arrange(age_range)
 
-db_result
 db_result %>% collect()
 
 # A tibble: 9 × 4
@@ -1647,20 +1645,22 @@ db_result %>% collect()
 # 9        90      0    6260       0
 
 # sample.2
-db_result = db_customer %>%
-  inner_join(db_receipt, by = "customer_id") %>%
+db_result = db_customer %>% 
+  inner_join(
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
+  ) %>%
   mutate(
     age_range = (floor(age / 10) * 10) %>% as.integer()
   ) %>%
-  group_by(age_range) %>%
   summarise(
     male = sum(if_else(gender_cd == "0", amount, 0.0)),
     female = sum(if_else(gender_cd == "1", amount, 0.0)),
-    unknown = sum(if_else(gender_cd == "9", amount, 0.0))
+    unknown = sum(if_else(gender_cd == "9", amount, 0.0)), 
+    .by = age_range
   ) %>%
   arrange(age_range)
 
-db_result
 db_result %>% collect()
 
 #...............................................................................
@@ -1669,7 +1669,7 @@ db_result %>% show_query(cte = TRUE)
 
 q = sql("
 SELECT
-  CAST(FLOOR(c.age / 10.0) * 10 AS INTEGER) AS age_range,
+  CAST(FLOOR(c.age / 10.0) * 10.0 AS INTEGER) AS age_range,
   SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
   SUM(CASE WHEN c.gender_cd = '1' THEN r.amount ELSE 0 END) AS female,
   SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS unknown
@@ -1684,6 +1684,7 @@ ORDER BY
   age_range
 "
 )
+
 q %>% my_select(con)
 
 # A tibble: 9 × 4

@@ -9,8 +9,8 @@ pacman::p_load(
   magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, forcats, 
   DBI, dbplyr, dbx, # duckdb, # for DB
   httr, xfun, # for download
-  vroom, withr, janitor, jsonlite, skimr, 
   rsample, recipes, themis, # tidymodels
+  vroom, withr, janitor, jsonlite, skimr, epikit, 
   install = TRUE,  # 存在しないパッケージをインストールする
   update = FALSE   # 古いパッケージを更新しない
 )
