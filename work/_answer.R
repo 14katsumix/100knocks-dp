@@ -1764,7 +1764,8 @@ df_sales = df_customer %>%
 # 縦長
 df_sales %>% 
   tidyr::complete(
-    age_range, gender_cd, fill = list(sum_amount = 0.0)
+    age_range, gender_cd, 
+    fill = list(sum_amount = 0.0)
   ) %>% 
   arrange(gender_cd, age_range)
 
