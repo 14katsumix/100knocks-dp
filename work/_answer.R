@@ -1942,6 +1942,7 @@ q %>% my_select(con)
 # 日付処理, データ型変換
 
 "2025-02-21" %>% as.Date() %>% strftime("%Y%m%d")
+df_customer$birth_day %>% class()
 
 df_customer %>% 
   mutate(birth_day = strftime(birth_day, "%Y%m%d")) %>% 
@@ -1982,10 +1983,12 @@ q = sql("
 SELECT 
   customer_id, 
   STRFTIME(birth_day, '%Y%m%d') AS birth_day
-FROM customer
+FROM 
+  customer
 LIMIT 10
 "
 )
+
 q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
@@ -2008,7 +2011,8 @@ df_receipt %>%
       as.character() %>% 
       lubridate::fast_strptime("%Y%m%d") %>% 
       lubridate::as_date()
-  )
+  ) %>% 
+  head(10)
 
 # A tibble: 104,681 × 3
 #    receipt_no receipt_sub_no sales_ymd 
@@ -2058,11 +2062,17 @@ q = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
-  CAST(STRPTIME(CAST(sales_ymd AS TEXT), '%Y%m%d') AS DATE) AS sales_ymd
-FROM receipt
+  CAST(
+    STRPTIME(
+      CAST(sales_ymd AS TEXT), '%Y%m%d'
+    ) AS DATE
+  ) AS sales_ymd
+FROM 
+  receipt
 LIMIT 10
 "
 )
+
 q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
