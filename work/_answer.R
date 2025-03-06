@@ -2004,6 +2004,12 @@ q %>% my_select(con)
 # tag: 
 # 日付処理, データ型変換
 
+"20251223" %>% lubridate::fast_strptime("%Y%m%d") %>% class()
+# [1] "POSIXlt" "POSIXt" 
+"20251223" %>% lubridate::fast_strptime("%Y%m%d") %>% 
+      lubridate::as_date() %>% class()
+# [1] "Date"
+
 df_receipt %>% 
   select(receipt_no, receipt_sub_no, sales_ymd) %>% 
   mutate(
@@ -2064,7 +2070,8 @@ SELECT
   receipt_sub_no,
   CAST(
     STRPTIME(
-      CAST(sales_ymd AS TEXT), '%Y%m%d'
+      -- CAST(sales_ymd AS TEXT), '%Y%m%d'
+      CAST(sales_ymd AS VARCHAR), '%Y%m%d'
     ) AS DATE
   ) AS sales_ymd
 FROM 
