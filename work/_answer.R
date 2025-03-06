@@ -1484,7 +1484,7 @@ q %>% my_select(con)
 # level: 3
 
 # tag: 
-# カテゴリ変換, CASE式, データ型変換, 集約関数, 縦横変換, グループ化, データ結合
+# カテゴリー変換, CASE式, データ型変換, 集約関数, 縦横変換, グループ化, データ結合
 
 max_age = df_customer$age %>% max(na.rm = TRUE)
 
@@ -1672,7 +1672,7 @@ SELECT
   CAST(FLOOR(c.age / 10.0) * 10.0 AS INTEGER) AS age_range,
   SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
   SUM(CASE WHEN c.gender_cd = '1' THEN r.amount ELSE 0 END) AS female,
-  SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS unknown
+  SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS \"unknown\"
 FROM 
   customer c
 INNER JOIN 
@@ -1684,6 +1684,25 @@ ORDER BY
   age_range
 "
 )
+
+# r"( )" という raw string リテラルを使用しています。
+
+q = r"(
+SELECT
+  CAST(FLOOR(c.age / 10.0) * 10.0 AS INTEGER) AS age_range,
+  SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
+  SUM(CASE WHEN c.gender_cd = '1' THEN r.amount ELSE 0 END) AS female,
+  SUM(CASE WHEN c.gender_cd = '9' THEN r.amount ELSE 0 END) AS "unknown"
+FROM 
+  customer c
+INNER JOIN 
+  receipt r 
+USING (customer_id)
+GROUP BY 
+  age_range
+ORDER BY 
+  age_range
+)"
 
 q %>% my_select(con)
 
@@ -1712,9 +1731,9 @@ q %>% my_select(con)
 # level: 3
 
 # tag: 
-# カテゴリ変換, CASE式, データ型変換, 集約関数, 全組み合わせ, グループ化, データ結合
+# カテゴリー変換, CASE式, データ型変換, 集約関数, 全組み合わせ, グループ化, データ結合
 
-# ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する方法を紹介します。
+# ここでは、元のデータから縦持ちさせ、年代、性別コード、売上金額の3項目に変換する解答例を紹介します。
 
 max_age = df_customer$age %>% max(na.rm = TRUE)
 
@@ -1743,13 +1762,11 @@ df_sales = df_customer %>%
   )
 
 # 縦長
-df_result = df_sales %>% 
+df_sales %>% 
   tidyr::complete(
     age_range, gender_cd, fill = list(sum_amount = 0.0)
   ) %>% 
   arrange(gender_cd, age_range)
-
-df_result
 
 # A tibble: 33 × 3
 #    age_range gender_cd sum_amount
@@ -1790,9 +1807,10 @@ df_result
 
 #...............................................................................
 
-db_result = db_customer %>% 
+db_sales = db_customer %>% 
   inner_join(
-    db_receipt, by = "customer_id"
+    db_receipt %>% select(customer_id, amount), 
+    by = "customer_id"
   ) %>% 
   mutate(
     age_range = 
@@ -1802,10 +1820,6 @@ db_result = db_customer %>%
     sum_amount = sum(amount), 
     .by = c("gender_cd", "age_range")
   ) %>% 
-  tidyr::complete(
-    age_range, gender_cd, 
-    fill = list(sum_amount = 0.0)
-  ) %>% 
   mutate(
     gender_cd = case_match(
       gender_cd, 
@@ -1813,6 +1827,14 @@ db_result = db_customer %>%
       "1" ~ "01", 
       .default = "99"
     )
+  )
+
+db_sales %>% collect()
+
+db_result = db_sales %>% 
+  tidyr::complete(
+    age_range, gender_cd, 
+    fill = list(sum_amount = 0.0)
   ) %>% 
   arrange(gender_cd, age_range)
 
@@ -1836,7 +1858,8 @@ WITH joined_data AS (
   FROM 
     customer c
   INNER JOIN 
-    receipt r USING(customer_id)
+    receipt r 
+  USING(customer_id)
 ),
 all_combinations AS (
   SELECT 
@@ -1870,6 +1893,7 @@ ORDER BY
   ac.gender_cd, ac.age_range
 "
 )
+
 q %>% my_select(con)
 
 # A tibble: 27 × 3
@@ -2195,7 +2219,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# カテゴリ変換, 文字列処理, CASE式, 重複データ処理, 集約関数, グループ化, フィルタリング, データ結合
+# カテゴリー変換, 文字列処理, CASE式, 重複データ処理, 集約関数, グループ化, フィルタリング, データ結合
 
 # df_customer$postal_cd
 
@@ -2471,7 +2495,7 @@ q %>% my_select(con)
 # level: 2
 
 # tag: 
-# カテゴリ変換, 欠損値処理, データ型変換, 統計量, 集約関数, グループ化, フィルタリング, データ結合
+# カテゴリー変換, 欠損値処理, データ型変換, 統計量, 集約関数, グループ化, フィルタリング, データ結合
 
 # Rコード (データフレーム操作)
 
@@ -2694,7 +2718,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# カテゴリ変換, データ型変換
+# カテゴリー変換, データ型変換
 
 pacman::p_load(epikit)
 
@@ -2870,7 +2894,7 @@ q %>% my_select(con) %>% filter(is.na(age))
 # level: 2
 
 # tag: 
-# カテゴリ変換, 文字列処理, CASE式, データ型変換, 欠損値処理
+# カテゴリー変換, 文字列処理, CASE式, データ型変換, 欠損値処理
 
 pacman::p_load(epikit)
 
@@ -3045,7 +3069,7 @@ q %>% my_select(con)
 # level: 1
 
 # tag: 
-# カテゴリ変換, 欠損値処理, CASE式, データ型変換
+# カテゴリー変換, 欠損値処理, CASE式, データ型変換
 
 d = df_customer %>% mutate(across(gender_cd, ~ as.factor(.x)))
 d$gender_cd %>% levels()
