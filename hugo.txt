@@ -45,7 +45,7 @@ theme: hugo-theme-stack
 
 * 標準編の記事を作成
 
-hugo new content --kind standard 100knocks/standard/r-053.md
+hugo new content --kind standard 100knocks/standard/r-055.md
 
 * 出力先ディレクトリ（public/）をクリアして再ビルド
 hugo --cleanDestinationDir

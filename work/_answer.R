@@ -2585,7 +2585,7 @@ q %>% my_select(con)
 
 # 顧客ごとの売上合計を四分位で分類
 
-# 顧客ごとの売上金額合計の四分位点を求め、以下の基準でカテゴリ (1～4) を付与する問題です。
+# 顧客ごとの売上金額合計の四分位点を求め、以下の基準でカテゴリー (1～4) を付与する問題です。
 # 
 # - 最小値以上第1四分位未満 → 1  
 # - 第1四分位以上第2四分位未満 → 2  
@@ -2610,7 +2610,16 @@ q %>% my_select(con)
 #     )) %>%
 #     head(10)
 
-df_result = df_receipt %>%
+# kable()でデータフレームをMarkdown形式で表示
+# df_customer %>% head(7) %>% knitr::kable()
+
+# レシート明細 (df_receipt) データの概要
+df_receipt %>% select(sales_ymd, customer_id, amount, everything())
+df_receipt %>% select(sales_ymd, customer_id, amount, everything()) %>% head(7)
+df_receipt %>% select(customer_id, amount)
+df_receipt %>% select(customer_id, amount) %>% head(7)
+
+df_receipt %>%
   summarise(
     sum_amount = sum(amount, na.rm = TRUE), 
     .by = customer_id
@@ -2621,7 +2630,6 @@ df_result = df_receipt %>%
       cut(
         sum_amount, 
         breaks = quantile(sum_amount), 
-        # labels = 1:4 %>% as.character(), 
         labels = FALSE, 
         right = FALSE, 
         include.lowest = TRUE
@@ -2630,8 +2638,6 @@ df_result = df_receipt %>%
   ) %>% 
   arrange(customer_id) %>% 
   head(10)
-
-df_result
 
 # A tibble: 10 × 3
 #    customer_id    sum_amount pct_group
@@ -2674,12 +2680,12 @@ q %>% my_select(con)
 # answer
 db_sales_amount = db_receipt %>% 
   summarise(
-    sum_amount = sum(amount), 
+    sum_amount = sum(amount, na.rm = TRUE), 
     .by = customer_id
   ) %>% 
   filter(!is.na(sum_amount))
 
-db_sales_amount
+db_sales_amount %>% head(5)
 
 db_sales_pct = db_sales_amount %>%
   summarise(
@@ -2714,10 +2720,8 @@ db_sales_amount %>%
       cut(
         sum_amount, 
         breaks = c(-Inf, p25, p50, p75, Inf), 
-        # labels = 1:4 %>% as.character(), 
         labels = FALSE, 
-        right = FALSE, 
-        include.lowest = TRUE
+        right = FALSE
       ) %>% 
       as.character()
   ) %>% 
