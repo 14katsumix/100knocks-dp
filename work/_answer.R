@@ -2068,10 +2068,28 @@ q = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
+  STRPTIME(
+    CAST(sales_ymd AS TEXT), '%Y%m%d'
+  ) AS sales_ymd
+FROM 
+  receipt
+LIMIT 10
+"
+)
+q %>% my_select(con)
+
+#    receipt_no receipt_sub_no sales_ymd          
+#         <int>          <int> <dttm>             
+#  1        112              1 2018-11-03 00:00:00
+#  ...
+
+q = sql("
+SELECT
+  receipt_no,
+  receipt_sub_no,
   CAST(
     STRPTIME(
-      -- CAST(sales_ymd AS TEXT), '%Y%m%d'
-      CAST(sales_ymd AS VARCHAR), '%Y%m%d'
+      CAST(sales_ymd AS TEXT), '%Y%m%d'
     ) AS DATE
   ) AS sales_ymd
 FROM 
@@ -2084,7 +2102,7 @@ q %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-048 ------------
-# レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）は数値型のUNIX秒でデータを保有している。
+# レシート明細データ（df_receipt）の売上エポック秒（sales_epoch）は数値型の UNIX 秒でデータを保有している。
 # これを日付型に変換し、レシート番号(receipt_no)、レシートサブ番号（receipt_sub_no）とともに10件表示せよ。
 
 # ブログには掲載しない
@@ -2231,7 +2249,7 @@ q %>% my_select(con)
 # それ以外のものを0に二値化せよ。
 # さらにレシート明細データ（receipt）と結合し、全期間において売上実績のある顧客数を、作成した二値ごとにカウントせよ。
 
-# 郵便番号の二値化しと顧客数の集計
+# 郵便番号の二値化と顧客数の集計
 # 郵便番号から東京か否かを 1/0 で二値化し、売上実績のある顧客数を二値ごとにカウントする問題です。
 
 # level: 2
@@ -2246,13 +2264,14 @@ q %>% my_select(con)
 #   mutate(postal_3 = stringr::str_sub(postal_cd, 1L, 3L)) %>% 
 #   mutate(tokyo = if_else(between(postal_3, "100", "209"), 1L, 0L))
 
+# sample.1
+
 df_cust = df_customer %>% 
   select(customer_id, postal_cd) %>% 
   mutate(
     tokyo = if_else(
       between(
-        stringr::str_sub(postal_cd, 1L, 3L), 
-        "100", "209"
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
       ), 
       1L, 0L
     )
@@ -2260,19 +2279,28 @@ df_cust = df_customer %>%
 
 df_cust
 
-df_rec = df_receipt %>% 
-  filter(amount > 0.0) %>% 
-  distinct(customer_id)
+df_rec = df_receipt %>% distinct(customer_id)
 
-# d.r = df_receipt %>% select(customer_id, amount) %>% 
-#   summarise(sum_amount = sum(amount, na.rm = TRUE), .by = "customer_id") %>% 
-#   filter(sum_amount > 0.0)
+df_rec
 
 df_cust %>% 
   inner_join(df_rec, by = "customer_id") %>% 
-  count(tokyo)
+  count(tokyo, name = "n_customer", sort = TRUE)
+
+# A tibble: 2 × 2
+#   tokyo n_customer
+#   <int>      <int>
+# 1     1       4400
+# 2     0       3906
+
+# sample.2
+
+df_cust %>% 
+  semi_join(df_rec, by = "customer_id") %>% 
+  count(tokyo, name = "n_customer", sort = TRUE)
 
 #................................................
+# 以下は参考
 
 # sample.1
 
@@ -2287,17 +2315,16 @@ df_customer %>%
     )
   ) %>% 
   inner_join(
-    df_receipt %>% 
-      filter(amount > 0.0) %>% 
-      distinct(customer_id), 
+    df_receipt %>% distinct(customer_id), 
     by = "customer_id"
   ) %>% 
-  count(tokyo, name = "n_customer")
+  count(tokyo, name = "n_customer", sort = TRUE)
 
+# A tibble: 2 × 2
 #   tokyo n_customer
 #   <int>      <int>
-# 1     0       3906
-# 2     1       4400
+# 1     1       4400
+# 2     0       3906
 
 # sample.2
 
@@ -2312,14 +2339,48 @@ df_customer %>%
     )
   ) %>% 
   semi_join(
-    df_receipt %>% 
-      filter(amount > 0.0) %>% 
-      distinct(customer_id), 
+    df_receipt %>% distinct(customer_id), 
     by = "customer_id"
   ) %>% 
-  count(tokyo, name = "n_customer")
+  count(tokyo, name = "n_customer", sort = TRUE)
 
 #...............................................................................
+
+# sample.1
+
+db_cust = db_customer %>% 
+  select(customer_id, postal_cd) %>% 
+  mutate(
+    tokyo = if_else(
+      between(
+        stringr::str_sub(postal_cd, 1L, 3L), "100", "209"
+      ), 
+      1L, 0L
+    )
+  )
+
+db_cust
+
+db_rec = db_receipt %>% distinct(customer_id)
+
+db_rec
+
+db_result = db_cust %>% 
+  inner_join(db_rec, by = "customer_id") %>% 
+  count(tokyo, name = "n_customer", sort = TRUE)
+
+db_result %>% collect()
+
+# sample.2
+
+db_result = db_cust %>% 
+  semi_join(db_rec, by = "customer_id") %>% 
+  count(tokyo, name = "n_customer", sort = TRUE)
+
+db_result %>% collect()
+
+#................................................
+# 以下は参考
 
 # sample.1
 
@@ -2334,12 +2395,14 @@ db_result = db_customer %>%
     )
   ) %>% 
   inner_join(
-    db_receipt %>% 
-      filter(amount > 0.0) %>% 
-      distinct(customer_id), 
+    db_receipt %>% distinct(customer_id), 
     by = "customer_id"
   ) %>% 
-  count(tokyo, name = "n_customer")
+  count(
+    tokyo, 
+    name = "n_customer", 
+    sort = TRUE
+  )
 
 db_result %>% collect()
 
@@ -2361,12 +2424,14 @@ db_result = db_customer %>%
     )
   ) %>% 
   semi_join(
-    db_receipt %>% 
-      filter(amount > 0.0) %>% 
-      distinct(customer_id), 
+    db_receipt %>% distinct(customer_id), 
     by = "customer_id"
   ) %>% 
-  count(tokyo, name = "n_customer")
+  count(
+    tokyo, 
+    name = "n_customer", 
+    sort = TRUE
+  )
 
 db_result %>% collect()
 
@@ -2388,7 +2453,8 @@ WITH customer_region AS (
     customer
 ),
 active_customers AS (
-  SELECT c.*
+  SELECT 
+    c.*
   FROM 
     customer_region c
   INNER JOIN 
@@ -2402,6 +2468,8 @@ FROM
   active_customers
 GROUP BY 
   tokyo
+ORDER BY 
+  n_customer DESC
 "
 )
 q %>% my_select(con)
@@ -2422,11 +2490,15 @@ INNER JOIN
 USING (customer_id)
 GROUP BY 
   tokyo
+ORDER BY 
+  n_customer DESC
 "
 )
 q %>% my_select(con)
 
 # sample.2-1
+
+db_result %>% show_query(cte = TRUE)
 
 q = sql("
 WITH customer_region AS (
@@ -2440,13 +2512,16 @@ WITH customer_region AS (
     customer
 ),
 active_customers AS (
-  SELECT c.*
+  SELECT 
+    c.*
   FROM 
     customer_region c
   WHERE EXISTS (
     SELECT 1 
-    FROM (SELECT DISTINCT customer_id FROM receipt) r
-    WHERE (c.customer_id = r.customer_id)
+    FROM 
+      (SELECT DISTINCT customer_id FROM receipt) r
+    WHERE 
+      c.customer_id = r.customer_id
   )
 )
 SELECT 
@@ -2456,6 +2531,8 @@ FROM
   active_customers
 GROUP BY 
   tokyo
+ORDER BY 
+  n_customer DESC
 "
 )
 q %>% my_select(con)
@@ -2473,13 +2550,18 @@ FROM
   customer c
 WHERE EXISTS (
     SELECT 1 
-    FROM (SELECT DISTINCT customer_id FROM receipt) r
-    WHERE (c.customer_id = r.customer_id)
+    FROM 
+      (SELECT DISTINCT customer_id FROM receipt) r
+    WHERE 
+      c.customer_id = r.customer_id
   )
 GROUP BY 
   tokyo
+ORDER BY 
+  n_customer DESC
 "
 )
+
 q %>% my_select(con)
 
 # CASE 式で生成した (1,0) の列 tokyo は 集約キー (GROUP BY に含める列) なので、
