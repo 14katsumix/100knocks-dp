@@ -2810,6 +2810,46 @@ q %>% my_select(con)
 
 # 参考: a JOIN b ON 1=1
 
+q = sql("
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM 
+    receipt
+  GROUP BY 
+    customer_id
+  HAVING
+    SUM(amount) IS NOT NULL
+"
+)
+q %>% my_select(con)
+
+q = sql("
+WITH customer_sales AS (
+  SELECT 
+    customer_id, 
+    SUM(amount) AS sum_amount
+  FROM 
+    receipt
+  GROUP BY 
+    customer_id
+  HAVING
+    SUM(amount) IS NOT NULL
+)
+  SELECT
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY sum_amount) AS p25,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sum_amount) AS p50,
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY sum_amount) AS p75
+  FROM 
+    customer_sales
+"
+)
+
+q %>% my_select(con)
+#     p25   p50   p75
+#   <dbl> <dbl> <dbl>
+# 1 548.5  1478  3651
+
 #-------------------------------------------------------------------------------
 # R-056 ------------
 # 顧客データ（customer）の年齢（age）をもとに10歳刻みで年代を算出し、
@@ -2824,7 +2864,7 @@ q %>% my_select(con)
 # tag: 
 # カテゴリー変換, データ型変換
 
-pacman::p_load(epikit)
+# pacman::p_load(epikit)
 
 df_customer %>% 
   select(customer_id, birth_day, age) %>% 
