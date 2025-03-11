@@ -2,8 +2,8 @@
 # データの準備
 # 1. 各CSVファイル等をダウンロードする.
 # 2. 各CSVファイルを読み込む.
-# 3. DBコネクションを作成する.
-# 4. データフレームをDBに書き込み, テーブル参照を取得する.
+# 3. データベース・コネクションを作成する.
+# 4. データフレームを DuckDB に書き込み, テーブル参照を取得する.
 #===============================================================================
 
 # 各CSVファイル等のダウンロード ------------
@@ -35,11 +35,11 @@ for (url in urls) {
 #-------------------------------------------------------------------------------
 # 各CSVファイルの読み込み ------------
 
-my_vroom = function(fname, col_types, .subdir = "data") {
-  tictoc::tic(fname)
+my_vroom = function(file, col_types, .subdir = "data") {
+  tictoc::tic(file)
   on.exit(tictoc::toc())
   on.exit(cat("\n"), add = TRUE)
-  d = fname %>% 
+  d = file %>% 
     my_path_join(.subdir = .subdir) %>% 
     { print(.); flush.console(); . } %>% 
     vroom::vroom(col_types = col_types) %>% 
@@ -60,16 +60,16 @@ df_store = "store.csv" %>% my_vroom(col_types = "cccccccddd")
 df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 
 #-------------------------------------------------------------------------------
-# DBコネクションの作成 (ファイルベースモード) ------------
+# データベース・コネクションの作成 (ファイルベースモード) ------------
 
-# DBファイルのパス
+# DuckDB データベースファイルのパス
 dbdir = my_path_join("100knocks.duckdb", .subdir = "database")
 
 # dbdir の親ディレクトリが無ければ作成する (あれば何もしない)
 dbdir %>% fs::path_dir() %>% fs::dir_create()
 
-drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
 # dbdir = "" #< DBを インメモリモードで一時的に作成する場合
+drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
 
 con = duckdb::dbConnect(
     drv = drv
@@ -80,11 +80,11 @@ con = duckdb::dbConnect(
 con %>% DBI::dbGetInfo() %>% dplyr::glimpse() 
 cat("\n")
 
-# DBコネクションを切断する場合: 
+# データベース・コネクションを切断する場合: 
 # con %>% duckdb::dbDisconnect()
 
 #-------------------------------------------------------------------------------
-# データフレームのDBへの書き込みとテーブル参照の取得 ------------
+# データフレームの DuckDB への書き込みとテーブル参照の取得 ------------
 
 # テーブルが既に存在する場合は上書きする
 # (エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない)
@@ -95,7 +95,7 @@ db_category = con %>% my_tbl(df = df_category, overwrite = TRUE)
 db_store = con %>% my_tbl(df = df_store, overwrite = TRUE)
 db_geocode = con %>% my_tbl(df = df_geocode, overwrite = TRUE)
 
-# DB上に作成したテーブルのリスト
+# DuckDB 上に作成したテーブルのリスト
 con %>% DBI::dbListTables() %>% print()
 
 #-------------------------------------------------------------------------------

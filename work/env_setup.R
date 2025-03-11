@@ -3,12 +3,12 @@
 #===============================================================================
 
 # 各パッケージのロード ------------
-# 無い場合は自動でインストールした後にロードする.
+# 存在しない場合は自動でインストールした後にロードする.
 pacman::p_load(
   # tidyverse: 
   magrittr, fs, tibble, dplyr, tidyr, stringr, lubridate, forcats, 
-  DBI, dbplyr, dbx, # duckdb, # for DB
-  httr, xfun, # for download
+  DBI, dbplyr, duckdb, # for database
+  httr, xfun,  # for download
   rsample, recipes, themis, # tidymodels
   vroom, withr, janitor, jsonlite, skimr, epikit, 
   install = TRUE,  # 存在しないパッケージをインストールする
