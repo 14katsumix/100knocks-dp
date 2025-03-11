@@ -63,7 +63,7 @@ df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 # DBコネクションの作成 (ファイルベースモード) ------------
 
 # DBファイルのパス
-dbdir = my_path_join("100knocks.duckdb", .subdir = "DB")
+dbdir = my_path_join("100knocks.duckdb", .subdir = "database")
 
 # dbdir の親ディレクトリが無ければ作成する (あれば何もしない)
 dbdir %>% fs::path_dir() %>% fs::dir_create()

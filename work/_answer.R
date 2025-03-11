@@ -129,6 +129,10 @@ db_result %>% my_show_query()
 # tag: 
 # 統計量, 集約関数, ランキング関数, ウィンドウ関数, グループ化, フィルタリング
 
+# レシート明細 (df_receipt) データの概要
+df_receipt %>% select(store_cd, product_cd)
+df_receipt %>% select(store_cd, product_cd) %>% head(7)
+
 # 結果がたまたま store_cd で ソートされる場合もありますが、順序は保証されないため、
 # 確実にソートしたい場合は arrange()を使うべきです。
 
@@ -483,6 +487,9 @@ q %>% my_select(con)
 
 # tag: 
 # 集約関数, 欠損値処理, グループ化, データ結合, パターンマッチング, フィルタリング
+
+df_customer %>% select(customer_id, gender_cd) %>% head(7)
+df_customer %>% select(customer_id, gender_cd)
 
 # `amount` が nullable (NULL を許容する) の場合の解答例を以下に示します。
 
