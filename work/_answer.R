@@ -2986,7 +2986,7 @@ db_cust %>%
 
 #...............................................................................
 
-db_result %>% my_show_query()
+db_result %>% show_query(cte = FALSE)
 
 # pmin(1, 2, NA, na.rm = FALSE) => NA
 

@@ -1,36 +1,36 @@
 #===============================================================================
 # データの準備
-# 1. 各CSVファイル等をダウンロードする.
-# 2. 各CSVファイルを読み込む.
-# 3. データベース・コネクションを作成する.
-# 4. データフレームを DuckDB に書き込み, テーブル参照を取得する.
-#===============================================================================
+# 0. 各CSVファイル等をダウンロードする. -> この処理は取りやめ
+# 1. 各CSVファイルを読み込む.
+# 2. データベース・コネクションを作成する.
+# 3. データフレームを DuckDB に書き込み, テーブル参照を取得する.
+#===============================================================================a
 
 # 各CSVファイル等のダウンロード ------------
 
 # GitHub API URL of 100knocks data
-data_url = 
-  "https://api.github.com/repos/The-Japan-DataScientist-Society/100knocks-preprocess/contents/docker/work/data"
+# data_url = 
+#   "https://api.github.com/repos/The-Japan-DataScientist-Society/100knocks-preprocess/contents/docker/work/data"
 
-# 各ファイルのURL
-urls = data_url %>% 
-  httr::GET() %>% 
-  httr::content(as = "text") %>% 
-  jsonlite::fromJSON() %>% 
-  dplyr::pull(download_url)
+# # 各ファイルのURL
+# urls = data_url %>% 
+#   httr::GET() %>% 
+#   httr::content(as = "text") %>% 
+#   jsonlite::fromJSON() %>% 
+#   dplyr::pull(download_url)
 
-# dataディレクトリの作成
-data_dir = my_path_join()
-if (!fs::dir_exists(data_dir))
-  fs::dir_create(data_dir)
+# # dataディレクトリの作成
+# data_dir = my_path_join()
+# if (!fs::dir_exists(data_dir))
+#   fs::dir_create(data_dir)
 
-for (url in urls) {
-  # ダウンロード先のファイルパス
-  path = url %>% xfun::url_filename() %>% my_path_join()
-  # ダウンロード (上書きはしない)
-  if (!fs::file_exists(path))
-    xfun::download_file(url, output = path)
-}
+# for (url in urls) {
+#   # ダウンロード先のファイルパス
+#   path = url %>% xfun::url_filename() %>% my_path_join()
+#   # ダウンロード (上書きはしない)
+#   if (!fs::file_exists(path))
+#     xfun::download_file(url, output = path)
+# }
 
 #-------------------------------------------------------------------------------
 # 各CSVファイルの読み込み ------------
@@ -60,16 +60,22 @@ df_store = "store.csv" %>% my_vroom(col_types = "cccccccddd")
 df_geocode = "geocode.csv" %>% my_vroom(col_types = "cccccccnn")
 
 #-------------------------------------------------------------------------------
-# データベース・コネクションの作成 (ファイルベースモード) ------------
+# データベース・コネクションの作成 ------------
 
-# DuckDB データベースファイルのパス
-dbdir = my_path_join("100knocks.duckdb", .subdir = "database")
+is_fbmode = TRUE  # ファイルベースモードで作成する場合
+# is_fbmode = FALSE # インメモリモードで一時的に作成する場合
 
-# dbdir の親ディレクトリが無ければ作成する (あれば何もしない)
-dbdir %>% fs::path_dir() %>% fs::dir_create()
+if (is_fbmode) {
+  # DuckDB データベースファイルのパス
+  dbpath = my_path_join("100knocks.duckdb", .subdir = "database")
+  # dbpath の親ディレクトリが無ければ作成する (あれば何もしない)
+  dbpath %>% fs::path_dir() %>% fs::dir_create()
+} else {
+  dbpath = ""
+}
 
-# dbdir = "" #< DBを インメモリモードで一時的に作成する場合
-drv = duckdb::duckdb(dbdir = dbdir) # duckdb_driverオブジェクト
+# duckdb_driverオブジェクト
+drv = duckdb::duckdb(dbdir = dbpath)
 
 con = duckdb::dbConnect(
     drv = drv
@@ -77,7 +83,7 @@ con = duckdb::dbConnect(
   )
 
 # db.version, dbname などを表示する
-con %>% DBI::dbGetInfo() %>% dplyr::glimpse() 
+con %>% DBI::dbGetInfo() %>% dplyr::glimpse()
 cat("\n")
 
 # データベース・コネクションを切断する場合: 
