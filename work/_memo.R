@@ -45,12 +45,12 @@ tsql_receipt %>% mutate(dt = as_datetime(sales_epoch)) %>% select(sales_ymd, dt)
 
 tsql_receipt %>% mutate(dt = sql("to_timestamp(sales_epoch)")) %>% select(sales_ymd, dt)
 
-q = sql("
+query = sql("
 select sales_ymd, to_timestamp(sales_epoch)
 from receipt
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 

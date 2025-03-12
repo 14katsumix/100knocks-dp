@@ -34,7 +34,7 @@ db_receipt %>%
 
 db_result %>% my_show_query(cte = F)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT receipt.*
   FROM receipt
@@ -46,9 +46,9 @@ GROUP BY product_cd
 ORDER BY total_sales DESC
 "
 )
-q %>% my_select(con) # con はデータベース接続オブジェクト
+query %>% my_select(con) # con はデータベース接続オブジェクト
 
-q %>% my_select(con, convert_tibble = F) %>% class()
+query %>% my_select(con, convert_tibble = F) %>% class()
 #> [1] "data.frame"
 
 # A tibble: 7,061 × 2
@@ -78,14 +78,14 @@ db_receipt %>%
   arrange(sales_ymd) %>% 
   my_show_query()
 
-q = sql("
+query = sql("
 SELECT sales_ymd, store_cd, product_cd, amount
 FROM receipt
 WHERE (sales_ymd >= ?)
 ORDER BY sales_ymd
 "
 )
-q %>% my_select(con, params = list(20190123))
+query %>% my_select(con, params = list(20190123))
 
 #-------------------------------------------------------------------------------
 db_receipt %>% 
@@ -179,7 +179,7 @@ db_receipt %>%
   filter(sales_ymd >= 20180101L ) %>% 
   my_show_query()
 
-q = sql("
+query = sql("
 SELECT sales_ymd, product_cd, amount
 FROM receipt
 WHERE (sales_ymd >= 20180101)

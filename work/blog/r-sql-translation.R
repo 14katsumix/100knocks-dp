@@ -86,13 +86,13 @@ db_sales %>%
   filter(!is.na(sales)) %>% 
   show_query()
 
-q = sql("
+query = sql("
 SELECT store_sales.*
 FROM store_sales
 WHERE sales IS NOT NULL
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # 
 db_sales %>% show_query()
@@ -369,7 +369,7 @@ db_sales %>%
   # show_query()
   my_show_query(F)
 
-q = sql("
+query = sql("
 SELECT
   sales,
   CASE 
@@ -380,7 +380,7 @@ SELECT
 FROM store_sales
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 
 

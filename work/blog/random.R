@@ -63,7 +63,7 @@ db_tmp %>% collect() %>% arrange(customer_id)
 
 #...............................................................................
 
-q = sql("
+query = sql("
 SELECT 
   customer_id, 
   HASH(customer_id) / CAST(2^64 AS DOUBLE) AS rand_value
@@ -71,10 +71,10 @@ FROM
   customer
 "
 )
-q %>% my_select(con)
-q %>% my_select(con) %>% pull(rand_value) %>% range()
+query %>% my_select(con)
+query %>% my_select(con) %>% pull(rand_value) %>% range()
 
-q = sql("
+query = sql("
 SELECT 
   customer_id, 
   PERCENT_RANK() OVER (ORDER BY HASH(customer_id) / CAST(2^64 AS DOUBLE)) AS prank
@@ -90,7 +90,7 @@ HAVING
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #...............................................................................
 
@@ -187,7 +187,7 @@ con %>% dbExecute("DROP TABLE IF EXISTS temp_random")
 # ランダムシードを設定
 con %>% dbExecute("SELECT SETSEED(0.5);")
 
-q = sql("
+query = sql("
 CREATE TEMP TABLE temp_random AS 
 WITH rand_customers AS (
   SELECT 
@@ -236,7 +236,7 @@ con %>% dbExecute("DROP TABLE IF EXISTS temp_random")
 # ランダムシードを設定
 con %>% dbExecute("SELECT SETSEED(0.5);")
 
-q = sql("
+query = sql("
 CREATE TEMP TABLE temp_random AS 
 SELECT 
   customer_id, 

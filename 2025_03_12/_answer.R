@@ -248,7 +248,7 @@ db_result %>% show_query(cte = TRUE)
 # ORDER BY n DESC, store_cd
 # LIMIT 10
 
-q = sql("
+query = sql("
 WITH product_num AS (
   SELECT 
     store_cd, 
@@ -281,7 +281,7 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # col01, q01, q02 は dbplyrパッケージで自動生成されるエイリアス名.
 # col01: 中間列名
@@ -307,7 +307,7 @@ db_result %>% show_query(cte = TRUE)
 # LIMIT 10
 
 # リライト
-q = sql("
+query = sql("
 WITH product_num AS (
   SELECT 
     store_cd,
@@ -343,7 +343,7 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-035 ------------
@@ -403,7 +403,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT receipt.*
   FROM receipt
@@ -425,14 +425,14 @@ ORDER BY sum_amount DESC, customer_id
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # 改善点: 
 # WITH 句の定義を1つ (customer_sales) にまとめ、不要なCTEを削減。
 # 平均値の計算を WHERE 句内のサブクエリで処理し、AVG() のウィンドウ関数を不要に。
 # 読みやすさと実行効率を向上。
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -458,7 +458,7 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 10 × 2
 #    customer_id    sum_amount
@@ -559,7 +559,7 @@ db_result %>% collect()
 #...............................................................................
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT customer.*
   FROM customer
@@ -583,8 +583,8 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
-d1 = q %>% my_select(con)
+query %>% my_select(con)
+d1 = query %>% my_select(con)
 
 # WITH 句を削除して1つのクエリに統合
 # customer.* の使用を避け、必要な列 (customer_id) のみを選択
@@ -592,7 +592,7 @@ d1 = q %>% my_select(con)
 # SUM(amount) の集計を GROUP BY 句内で直接実施
 # COALESCE を最終的な SUM(amount) に適用
 
-q = sql("
+query = sql("
 SELECT 
   c.customer_id, 
   COALESCE(SUM(r.amount), 0.0) AS sum_amount
@@ -611,8 +611,8 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
-d2 = q %>% my_select(con)
+query %>% my_select(con)
+d2 = query %>% my_select(con)
 
 identical(d1, d2)
 
@@ -829,7 +829,7 @@ db_result %>% show_query(cte = TRUE)
 
 # 購入日数や合計金額で、RANK() によって、同じ順位が付けられた顧客が複数いると、選ばれる顧客数が20件を超える場合があります。
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT customer_id, sales_ymd, amount
   FROM receipt
@@ -877,9 +877,9 @@ FROM q08 q01
 ORDER BY n_date DESC, sum_amount DESC, customer_id
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 WITH purchase_data AS (
   SELECT 
     customer_id, sales_ymd, amount
@@ -935,7 +935,7 @@ ORDER BY n_date DESC, sum_amount DESC, customer_id
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #................................................
 # sample.2
@@ -974,7 +974,7 @@ db_result %>% show_query(cte = TRUE)
 # FROM q04 q01
 # ORDER BY n_date DESC, sum_amount DESC, customer_id
 
-q = sql("
+query = sql("
 WITH purchase_data AS (
   SELECT 
     customer_id, 
@@ -1023,7 +1023,7 @@ ORDER BY
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 34 × 3
 #    customer_id    n_date sum_amount
@@ -1093,7 +1093,7 @@ db_result %>% collect()
 
 db_result %>% show_query()
 
-q = sql("
+query = sql("
 SELECT 
   COUNT(*) AS n
 FROM 
@@ -1103,7 +1103,7 @@ CROSS JOIN
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 531,590 × 2
 #    store_cd product_cd
@@ -1125,7 +1125,7 @@ q %>% my_select(con)
 
 db_result %>% count() %>% show_query()
 
-q = sql("
+query = sql("
 SELECT 
   COUNT(*) AS count
 FROM 
@@ -1135,7 +1135,7 @@ CROSS JOIN
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #    count
 #    <dbl>
@@ -1220,7 +1220,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH sales_by_date AS (
   SELECT 
     sales_ymd, 
@@ -1256,7 +1256,7 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 1,034 × 5
 #    sales_ymd sum_amount pre_ymd  pre_amount diff_amount
@@ -1372,7 +1372,7 @@ db_result %>% collect() %>% tail(7)
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT sales_ymd, SUM(amount) AS amount
   FROM receipt
@@ -1403,10 +1403,10 @@ ORDER BY sales_ymd, lag_sales_ymd
 "
 )
 
-q %>% my_select(con)
-q %>% my_select(con) %>% tail(7)
+query %>% my_select(con)
+query %>% my_select(con) %>% tail(7)
 
-q = sql("
+query = sql("
 WITH sales_data AS (
   SELECT 
     sales_ymd, 
@@ -1437,10 +1437,10 @@ ORDER BY
 "
 )
 
-q %>% my_select(con) %>% head(10)
-q %>% my_select(con) %>% tail(7)
+query %>% my_select(con) %>% head(10)
+query %>% my_select(con) %>% tail(7)
 
-q = sql("
+query = sql("
   SELECT 
     sales_ymd, 
     SUM(amount) AS amount,
@@ -1453,7 +1453,7 @@ q = sql("
     SUM(amount) IS NOT NULL
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 
 # A tibble: 3,096 × 4
@@ -1674,7 +1674,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 SELECT
   CAST(FLOOR(c.age / 10.0) * 10.0 AS INTEGER) AS age_range,
   SUM(CASE WHEN c.gender_cd = '0' THEN r.amount ELSE 0 END) AS male,
@@ -1711,7 +1711,7 @@ ORDER BY
   age_range
 )"
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 9 × 4
 #   age_range   male  female unknown
@@ -1852,7 +1852,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH joined_data AS (
   SELECT
     c.customer_id,
@@ -1902,7 +1902,7 @@ ORDER BY
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 27 × 3
 #    age_range gender_cd sum_amount
@@ -1986,7 +1986,7 @@ db_result %>% collect()
 
 db_result %>% show_query()
 
-q = sql("
+query = sql("
 SELECT 
   customer_id, 
   STRFTIME(birth_day, '%Y%m%d') AS birth_day
@@ -1996,7 +1996,7 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-047 ------------
@@ -2071,7 +2071,7 @@ db_result %>% collect()
 
 db_result %>% show_query()
 
-q = sql("
+query = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
@@ -2083,14 +2083,14 @@ FROM
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #    receipt_no receipt_sub_no sales_ymd          
 #         <int>          <int> <dttm>             
 #  1        112              1 2018-11-03 00:00:00
 #  ...
 
-q = sql("
+query = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
@@ -2105,7 +2105,7 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-048 ------------
@@ -2167,7 +2167,7 @@ db_receipt %>%
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
@@ -2175,9 +2175,9 @@ SELECT
 FROM receipt
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
@@ -2185,7 +2185,7 @@ SELECT
 FROM receipt
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-049 ------------
@@ -2238,7 +2238,7 @@ db_receipt %>%
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 SELECT
   receipt_no,
   receipt_sub_no,
@@ -2248,7 +2248,7 @@ SELECT
 FROM receipt
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-053 ------------
@@ -2448,7 +2448,7 @@ db_result %>% show_query(cte = TRUE)
 
 # sample.1-1
 
-q = sql("
+query = sql("
 WITH customer_region AS (
   SELECT
     customer_id,
@@ -2479,11 +2479,11 @@ ORDER BY
   n_customer DESC
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.1-2
 
-q = sql("
+query = sql("
 SELECT 
   CASE 
     WHEN SUBSTR(c.postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
@@ -2501,13 +2501,13 @@ ORDER BY
   n_customer DESC
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.2-1
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH customer_region AS (
   SELECT
     customer_id,
@@ -2542,11 +2542,11 @@ ORDER BY
   n_customer DESC
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.2-2
 
-q = sql("
+query = sql("
 SELECT 
   CASE 
     WHEN SUBSTR(c.postal_cd, 1, 3) BETWEEN '100' AND '209' THEN 1 
@@ -2569,7 +2569,7 @@ ORDER BY
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # CASE 式で生成した (1,0) の列 tokyo は 集約キー (GROUP BY に含める列) なので、
 # COUNT(*) のような集約関数と同じ SELECT 句に書いても問題ありません。
@@ -2670,14 +2670,14 @@ db_receipt %>%
   ) %>% 
   show_query()
 
-q = sql("
+query = sql("
 SELECT
   *,
   PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY amount) OVER () AS p25
 FROM receipt
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # Error in `dbSendQuery()`:
 # ! rapi_prepare: Failed to extract statements:
@@ -2739,7 +2739,7 @@ db_sales_amount %>%
 # SQLクエリ
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT customer_id, SUM(amount) AS sum_amount
   FROM receipt
@@ -2772,9 +2772,9 @@ ORDER BY customer_id
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -2813,11 +2813,11 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 # 参考: a JOIN b ON 1=1
 
-q = sql("
+query = sql("
   SELECT 
     customer_id, 
     SUM(amount) AS sum_amount
@@ -2829,9 +2829,9 @@ q = sql("
     SUM(amount) IS NOT NULL
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -2852,7 +2852,7 @@ WITH customer_sales AS (
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 #     p25   p50   p75
 #   <dbl> <dbl> <dbl>
 # 1 548.5  1478  3651
@@ -2990,7 +2990,7 @@ db_result %>% show_query(cte = FALSE)
 
 # pmin(1, 2, NA, na.rm = FALSE) => NA
 
-q = sql("
+query = sql("
 SELECT
   customer_id,
   birth_day,
@@ -3004,13 +3004,13 @@ FROM
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #................................................
 
 # cust_na でテスト
 
-q = sql("
+query = sql("
 SELECT
   customer_id,
   birth_day,
@@ -3024,8 +3024,8 @@ FROM
 -- LIMIT 10
 "
 )
-q %>% my_select(con)
-q %>% my_select(con) %>% filter(is.na(age))
+query %>% my_select(con)
+query %>% my_select(con) %>% filter(is.na(age))
 
 #   customer_id    birth_day    age age_rng
 #   <chr>          <date>     <dbl>   <int>
@@ -3153,7 +3153,7 @@ db_cust %>%
 
 db_result %>% show_query(cte = FALSE)
 
-# q = sql("
+# query = sql("
 # SELECT
 #   customer_id,
 #   birth_day, 
@@ -3175,9 +3175,9 @@ db_result %>% show_query(cte = FALSE)
 # LIMIT 10
 # "
 # )
-# q %>% my_select(con)
+# query %>% my_select(con)
 
-q = sql("
+query = sql("
 SELECT
   customer_id,
   birth_day, 
@@ -3207,7 +3207,7 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-058 ------------
@@ -3327,7 +3327,7 @@ db_cust %>%
 
 db_result %>% show_query()
 
-q = sql("
+query = sql("
 SELECT
   customer_id,
   CASE WHEN (gender_cd = '0') THEN 1 WHEN NOT (gender_cd = '0') THEN 0 END AS gender_cd_0,
@@ -3337,10 +3337,10 @@ FROM customer
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.1
-q = sql("
+query = sql("
 SELECT
   customer_id,
   CASE 
@@ -3356,11 +3356,11 @@ FROM customer
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.2
 # gender_cd に欠損値が含まれない場合は次のように簡略化できる。
-q = sql("
+query = sql("
 SELECT
   customer_id,
   CASE WHEN gender_cd = '0' THEN 1 ELSE 0 END AS gender_cd_0,
@@ -3370,7 +3370,7 @@ FROM customer
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 21,971 × 4
 #    customer_id    gender_cd_0 gender_cd_1 gender_cd_9
@@ -3383,7 +3383,7 @@ q %>% my_select(con)
 #................................................
 # cust_na テーブルで欠損値を含む場合のテスト
 
-q = sql("
+query = sql("
 select
   customer_id, 
   gender_cd, 
@@ -3394,9 +3394,9 @@ from
   cust_na
 "
 )
-q %>% my_select(con) %>% filter(is.na(gender_cd))
+query %>% my_select(con) %>% filter(is.na(gender_cd))
 
-q = sql("
+query = sql("
 SELECT
   customer_id,
   gender_cd,
@@ -3407,8 +3407,8 @@ FROM
   cust_na
 "
 )
-q %>% my_select(con)
-q %>% my_select(con) %>% filter(is.na(gender_cd))
+query %>% my_select(con)
+query %>% my_select(con) %>% filter(is.na(gender_cd))
 
 #-------------------------------------------------------------------------------
 # R-060 ------------
@@ -3495,7 +3495,7 @@ db_result %>% show_query(cte = TRUE)
 
 # sample.1
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -3531,11 +3531,11 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # ブログには掲載しない
 # sample.2
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -3560,7 +3560,7 @@ ORDER BY customer_id
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 8,306 × 3
 #    customer_id    sum_amount norm_amount
@@ -3655,7 +3655,7 @@ db_result %>% show_query(cte = TRUE)
 # db_receipt %>% 
 #   mutate(x = amount %>% round(2L), .keep = "used") %>% my_show_query()
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT customer_id, category_major_cd, amount
   FROM receipt
@@ -3680,9 +3680,9 @@ ORDER BY customer_id
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
 SELECT 
   r.customer_id,
@@ -3713,7 +3713,7 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-070 ------------
@@ -3888,7 +3888,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH receipt_distinct AS (
   SELECT DISTINCT 
     customer_id, sales_ymd
@@ -3912,13 +3912,13 @@ ORDER BY
   customer_id, sales_ymd
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 
 # A tibble: 32,411 × 4
@@ -3932,7 +3932,7 @@ q %>% my_select(con)
 #  ...
 
 # sqlight
-q = sql("
+query = sql("
 select
   r.customer_id, 
   r.sales_ymd, 
@@ -3953,7 +3953,7 @@ ORDER BY
   customer_id, sales_ymd
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-071 ------------
@@ -4118,7 +4118,7 @@ db_result %>% collect()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH receipt_distinct AS (
   SELECT DISTINCT 
     customer_id, sales_ymd
@@ -4153,7 +4153,7 @@ ORDER BY
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-074 ------------
@@ -4349,7 +4349,7 @@ arsenal::comparedf(df_result, d) %>% summary()
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT
     receipt.*,
@@ -4375,9 +4375,9 @@ LIMIT 10
 "
 )
 
-d1 = q %>% my_select(con)
+d1 = query %>% my_select(con)
 
-q = sql("
+query = sql("
 SELECT
   sales_date,
   CAST(
@@ -4396,9 +4396,9 @@ FROM (
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-d2 = q %>% my_select(con)
+d2 = query %>% my_select(con)
 identical(d1, d2)
 identical(df_result, d2)
 arsenal::comparedf(df_result, d2)
@@ -4419,7 +4419,7 @@ arsenal::comparedf(df_result, d2) %>% summary()
 # 10 2019-10-10            3 2019-10-07
 
 # 参考
-q = sql("
+query = sql("
 SELECT 
   sales_date,
   DATE_TRUNC('week', sales_date) AS monday_ymd,
@@ -4432,7 +4432,7 @@ FROM (
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-075 ------------
@@ -4555,7 +4555,7 @@ db_result = db_customer %>%
 db_result %>% show_query(cte = TRUE)
 
 # set seed すること!!!
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH rand_customers AS (
   SELECT 
@@ -4584,7 +4584,7 @@ WHERE
 "
 )
 
-q %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% arrange(customer_id)
 
 # A tibble: 220 × 5
 #    customer_id    gender_cd gender birth_day    age
@@ -4605,7 +4605,7 @@ q %>% my_select(con) %>% arrange(customer_id)
 # 再現性が確保されない方法
 
 # set seed すること!!!
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH ranked_customers AS (
   SELECT 
@@ -4619,7 +4619,7 @@ WHERE prank <= 0.01
 "
 )
 
-q %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% arrange(customer_id)
 
 # A tibble: 220 × 6
 #    customer_id    gender_cd gender birth_day    age      prank
@@ -4639,7 +4639,7 @@ q %>% my_select(con) %>% arrange(customer_id)
 # 以下はブログに書かない
 
 # set seed すること!!!
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH q01 AS (
   SELECT customer.*, RANDOM() AS r
@@ -4660,9 +4660,9 @@ WHERE (row_num <= (0.01 * cnt))
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% arrange(customer_id)
 
 #-------------------------------------------------------------------------------
 # R-076 ------------
@@ -4803,7 +4803,7 @@ db_result %>% count(gender_cd) %>% show_query(cte = TRUE)
 
 # 以下、前者の方が再現性が高く、パフォーマンス的にも安定する可能性がある
 
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH rand_customers AS (
   SELECT 
@@ -4833,12 +4833,12 @@ GROUP BY
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #................................................
 # 以下の方法だと、再現性が確保されない
 
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH customer_random AS (
   SELECT
@@ -4851,11 +4851,11 @@ FROM customer_random
 WHERE prank <= 0.1
 "
 )
-q %>% my_select(con) %>% arrange(customer_id)
-q %>% my_select(con) %>% count(gender_cd)
+query %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% count(gender_cd)
 df_customer %>% count(gender_cd)
 
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH customer_random AS (
   SELECT
@@ -4870,12 +4870,12 @@ GROUP BY gender_cd
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 
 #...............................................................................
 # 以下の方法はブログには書かない
 
-q = sql("
+query = sql("
 WITH q01 AS (
   SELECT customer.*, RANDOM() AS r
   FROM customer
@@ -4897,9 +4897,9 @@ FROM q03 q01
 GROUP BY gender_cd
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH cusotmer_r AS (
   SELECT customer.*, RANDOM() AS r
@@ -4919,7 +4919,7 @@ WHERE (row_num <= (0.1 * cnt))
 GROUP BY gender_cd
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 3 × 2
 #   gender_cd     n
@@ -5039,7 +5039,7 @@ identical(df_result, db_result %>% collect())
 
 db_result %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH customer_sales AS (
   SELECT 
     customer_id, 
@@ -5076,8 +5076,8 @@ LIMIT 10
 "
 )
 
-q %>% my_select(con)
-identical(df_result, q %>% my_select(con))
+query %>% my_select(con)
+identical(df_result, query %>% my_select(con))
 
 #-------------------------------------------------------------------------------
 # R-079 ------------
@@ -5131,7 +5131,7 @@ db_result %>% collect()
 db_result %>% show_query()
 
 # sample.1
-q = sql("
+query = sql("
 SELECT 
   SUM(
     CASE WHEN product_cd IS NULL THEN 1 ELSE 0 END
@@ -5155,13 +5155,13 @@ FROM
   product
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # sample.2
 # COUNT(*) は全行数をカウントし、COUNT(column_name) は NULL 以外の値をカウントするため、
 # 差分を取ることで NULL の数を求められる。
 
-q = sql("
+query = sql("
 SELECT 
   COUNT(*) - COUNT(product_cd) AS product_cd,
   COUNT(*) - COUNT(category_major_cd) AS category_major_cd,
@@ -5173,7 +5173,7 @@ FROM
   product
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #-------------------------------------------------------------------------------
 # R-081 ------------
@@ -5305,7 +5305,7 @@ db_result %>% show_query(cte = TRUE)
 
 # ROUND_EVEN を ROUND に変更する.
 
-q = sql("
+query = sql("
 WITH product_with_avg AS (
   SELECT
     product.*,
@@ -5323,12 +5323,12 @@ SELECT
 FROM product_with_avg
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #................................................
 # sample.2
 
-q = sql("
+query = sql("
 WITH unit_avg AS (
   SELECT
     ROUND(AVG(unit_price), 0) AS avg_price,
@@ -5348,10 +5348,10 @@ CROSS JOIN
   unit_avg
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # 確認
-q %>% my_select(con) %>% skimr::skim()
+query %>% my_select(con) %>% skimr::skim()
 
 # A tibble: 10,030 × 6
 #    product_cd category_major_cd category_medium_cd category_small_cd unit_price unit_cost
@@ -5369,7 +5369,7 @@ q %>% my_select(con) %>% skimr::skim()
 #...............................................................................
 
 ## 各商品のカテゴリ小区分コード（category_small_cd）ごとに算出した平均値で補完する場合
-q = sql("
+query = sql("
 with prod as (
   select
     product_cd, 
@@ -5394,7 +5394,7 @@ from
 -- where unit_price IS NULL
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 10,030 × 6
 #    product_cd category_small_cd unit_price unit_cost mean_price mean_cost
@@ -5481,7 +5481,7 @@ db_result %>% show_query(cte = TRUE)
 
 # ROUND_EVEN を ROUND に変更する.
 
-q = sql("
+query = sql("
 WITH unit_median AS (
   SELECT
     category_small_cd,
@@ -5511,9 +5511,9 @@ USING (category_small_cd)
 "
 )
 
-q %>% my_select(con)
+query %>% my_select(con)
 # 確認
-q %>% my_select(con) %>% skimr::skim()
+query %>% my_select(con) %>% skimr::skim()
 
 #-------------------------------------------------------------------------------
 # R-084 ------------
@@ -5654,7 +5654,7 @@ db_sales_rate %>%
 
 db_sales_rate %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH sales_data AS (
   SELECT
     customer_id,
@@ -5706,14 +5706,14 @@ FROM
   aggregated_sales
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
-q %>% my_select(con) %>% skimr::skim()
+query %>% my_select(con) %>% skimr::skim()
 
 #...............................................................................
 con %>% dbExecute("DROP TABLE IF EXISTS cust_sales_rate")
 
-q = sql("
+query = sql("
 CREATE TABLE cust_sales_rate AS 
 WITH sales_data AS (
   SELECT
@@ -5769,14 +5769,14 @@ FROM
 con %>% dbExecute(q)
 con %>% dbListTables()
 
-q = sql("
+query = sql("
 SELECT * FROM cust_sales_rate
 WHERE sales_rate > 0
 ORDER BY customer_id
 LIMIT 10
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 10 × 4
 #    customer_id    sales_amount sales_amount_2019 sales_rate
@@ -5792,7 +5792,7 @@ q %>% my_select(con)
 #  9 CS001214000017         4132              2962    0.71684
 # 10 CS001214000048         2374              1889    0.79570
 
-q = sql("
+query = sql("
 SELECT 
   COUNT(*) - COUNT(sales_amount) AS sales_amount,
   COUNT(*) - COUNT(sales_amount_2019) AS sales_amount_2019,
@@ -5801,7 +5801,7 @@ FROM
   cust_sales_rate
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 1 × 3
 #   sales_amount sales_amount_2019 sales_rate
@@ -5810,7 +5810,7 @@ q %>% my_select(con)
 
 #................................................
 # インデックスを追加
-q = sql("
+query = sql("
 CREATE UNIQUE INDEX idx_customer_id ON cust_sales_rate (customer_id)
 "
 )
@@ -6064,7 +6064,7 @@ db_customer_n %>%
 
 db_customer_n %>% show_query(cte = TRUE)
 
-q = sql("
+query = sql("
 WITH sales_amount AS (
   SELECT 
     customer_id, 
@@ -6108,8 +6108,8 @@ USING (customer_id)
 "
 )
 
-q %>% my_select(con)
-q %>% my_select(con) %>% glimpse()
+query %>% my_select(con)
+query %>% my_select(con) %>% glimpse()
 
 # A tibble: 21,971 × 12
 #    integration_id customer_id  customer_name gender_cd gender birth_day    age postal_cd
@@ -6148,7 +6148,7 @@ d.customer.n %>% summarise(n_all = n(), n_i = n_distinct(integration_id)) %>%
 # 1 21971 21941    30
 
 #...............................................................................
-q = sql("
+query = sql("
 with cust_0 as (
   select 
     c.customer_id, 
@@ -6186,7 +6186,7 @@ order by
   customer_name, postal_cd, row
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 #    integration_id customer_id    customer_name postal_cd amount_all   row     n
 #    <chr>          <chr>          <chr>         <chr>          <dbl> <int> <int>
@@ -6388,7 +6388,7 @@ con %>% dbListTables()
 # SQLクエリ
 
 # MD5(customer_id)
-q = sql("
+query = sql("
 SELECT 
   customer_id, 
   PERCENT_RANK() OVER (ORDER BY MD5(customer_id)) AS prank
@@ -6404,15 +6404,15 @@ HAVING
 "
 )
 
-q %>% my_select(con) %>% arrange(customer_id)
-q %>% my_select(con) %>% glimpse()
+query %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% glimpse()
 
 #................................................
 
 db_sales_customer %>% show_query(cte = TRUE)
 
 # PERCENT_RANK()
-q = sql("
+query = sql("
 SELECT SETSEED(0.5);
 WITH q01 AS (
   SELECT customer_id
@@ -6437,8 +6437,8 @@ FROM q03
 "
 )
 
-q %>% my_select(con) %>% glimpse()
-q %>% my_select(con) %>% arrange(customer_id)
+query %>% my_select(con) %>% glimpse()
+query %>% my_select(con) %>% arrange(customer_id)
 
 # A tibble: 8,306 × 2
 #    customer_id       prank
@@ -6457,7 +6457,7 @@ q %>% my_select(con) %>% arrange(customer_id)
 
 db_customer_train %>% show_query()
 
-q = sql("
+query = sql("
 SELECT
   c.*
 FROM
@@ -6470,13 +6470,13 @@ WHERE
 "
 )
 
-q %>% my_select(con) %>% glimpse()
+query %>% my_select(con) %>% glimpse()
 
 #................................................
 
 db_customer_test %>% show_query()
 
-q = sql("
+query = sql("
 SELECT
   c.*
 FROM 
@@ -6489,7 +6489,7 @@ EXCEPT
 "
 )
 
-q %>% my_select(con) %>% glimpse()
+query %>% my_select(con) %>% glimpse()
 
 #...............................................................................
 # テーブル作成
@@ -6498,7 +6498,7 @@ q %>% my_select(con) %>% glimpse()
 
 con %>% dbExecute("DROP TABLE IF EXISTS sales_customer")
 
-q = sql("
+query = sql("
 CREATE TEMP TABLE sales_customer AS 
 SELECT 
   customer_id, 
@@ -6526,7 +6526,7 @@ con %>% dbExecute("DROP TABLE IF EXISTS sales_customer")
 
 con %>% dbExecute("SELECT SETSEED(0.5)")
 
-q = sql("
+query = sql("
 CREATE TEMP TABLE sales_customer AS 
 WITH q01 AS (
   SELECT customer_id
@@ -6569,7 +6569,7 @@ con %>% dbReadTable("sales_customer") %>% as_tibble() %>% arrange(customer_id)
 
 con %>% dbExecute("DROP TABLE IF EXISTS customer_train")
 
-q = sql("
+query = sql("
 CREATE TABLE customer_train AS
 SELECT
   c.*
@@ -6590,7 +6590,7 @@ con %>% dbReadTable("customer_train") %>% as_tibble() %>% arrange(customer_id)
 
 con %>% dbExecute("DROP TABLE IF EXISTS customer_test")
 
-q = sql("
+query = sql("
 CREATE TABLE customer_test AS
 SELECT
   c.*
@@ -6678,7 +6678,7 @@ obj.ro %>% get_rsplit(3) %>% assessment()
 
 con %>% dbExecute("DROP TABLE IF EXISTS ts_amount")
 
-q = sql("
+query = sql("
 CREATE TEMP TABLE ts_amount AS
 select
   SUBSTR(sales_ymd, 1, 6) as sales_ym, 
@@ -6705,7 +6705,7 @@ con %>% dbReadTable("ts_amount") %>% as_tibble()
 # 33 201909      1105696    33
 # 34 201910      1143062    34
 
-q = sql("
+query = sql("
 with lag_amount as (
 select
   sales_ym, 
@@ -6726,7 +6726,7 @@ where
   rn between 1 and 18
 "
 )
-q %>% my_select(con)
+query %>% my_select(con)
 
 # A tibble: 18 × 5
 #    sales_ym sum_amount   row    rn test_flg
@@ -6797,7 +6797,7 @@ con %>% dbExecute("DROP TABLE IF EXISTS down_sampling")
 
 # SET SEED TO 0.25;
 
-q = sql("
+query = sql("
 CREATE TABLE down_sampling AS
 with pre_table_1 as (
   select 
@@ -6849,10 +6849,10 @@ con %>% dbReadTable("down_sampling") %>% as_tibble()
 #  6 CS010303000005          0           0               1     6  8306     13665
 #  ...
 
-q = sql("
+query = sql("
 select is_buy_flag, count(*) as n from down_sampling group by is_buy_flag"
 )
-q %>% my_select(con)
+query %>% my_select(con)
 #   is_buy_flag     n
 #         <int> <int>
 # 1           0  8306
@@ -6862,7 +6862,7 @@ q %>% my_select(con)
 
 con %>% dbExecute("DROP TABLE IF EXISTS customer_std")
 
-q = sql("
+query = sql("
 CREATE TABLE customer_std AS
   SELECT
     customer_id,
@@ -6882,7 +6882,7 @@ con %>% dbExecute(q)
 con %>% dbReadTable("customer_std") %>% glimpse()
 
 con %>% dbExecute("DROP TABLE IF EXISTS gender_std")
-q = sql("
+query = sql("
 CREATE TABLE gender_std as
   select 
     distinct gender_cd, gender
@@ -6899,7 +6899,7 @@ con %>% dbReadTable("gender_std") %>% as_tibble()
 # 3         0 男性  
 
 # ユニークインデックスを追加する
-q = sql("
+query = sql("
 CREATE UNIQUE INDEX idx_customer_id ON customer_std (customer_id)
 "
 )
@@ -6909,7 +6909,7 @@ con %>% dbExecute(q)
 #   seq            name unique origin partial
 # 1   0 idx_customer_id      1      c       0
 
-q = sql("
+query = sql("
 CREATE UNIQUE INDEX idx_gender_cd ON gender_std (gender_cd)
 "
 )
