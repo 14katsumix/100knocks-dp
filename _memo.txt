@@ -78,7 +78,7 @@ CASE式
 文字列処理
 欠損値処理
 データ型変換
-カテゴリー変換
+カテゴリ変換
 乱数
 統計量
 (最頻値を含む)
@@ -97,7 +97,7 @@ CASE式
 データ結合
 サンプリング
 データ分割
-(数値データをカテゴリーに変換する場合など)
+(数値データをカテゴリに変換する場合など)
 正規化
 全組み合わせ
 (デカルト積)
@@ -139,6 +139,8 @@ cd /Users/kk/ds/
 git clone https://github.com/14katsumix/100knocks-dp.git
 cd 100knocks-dp
 git pull origin main
+
+setwd("/Users/kk/ds/100knocks-dp/work")
 
 * ソース公開向けGithubリポジトリ: 
 git@github.com:14katsumix/100knocks-dp.git
