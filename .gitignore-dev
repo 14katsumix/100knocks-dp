@@ -5,12 +5,11 @@
 .DS_Store
 
 *-bak.*
-
-# *.png
-# *.pdf
-# *.html
-
 *.duckdb
+
+!*.png
+!*.pdf
+!*.html
 
 # *.csv
 # !work/data/*.csv
