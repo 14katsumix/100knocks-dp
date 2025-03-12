@@ -17,7 +17,7 @@ pacman::p_load(
   update = FALSE   # 古いパッケージを更新しない
 )
 
-# .R ファイルの実行関数
+# .R ファイルの実行関数 ------------
 safe_source = function(file) {
   tictoc::tic(file)
   tryCatch(
@@ -35,6 +35,8 @@ safe_source = function(file) {
     }
   )
 }
+
+# main ------------
 
 # tictoc::tic.clear() # tic/toc スタックのクリア
 tictoc::tic("init") # タイマーの開始

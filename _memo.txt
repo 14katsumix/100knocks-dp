@@ -136,7 +136,7 @@ Date型やDatetime型が無い.
 * テスト環境: 
 
 cd /Users/kk/ds/
-git clone https://github.com/xxx/100knocks-dp.git
+git clone https://github.com/14katsumix/100knocks-dp.git
 cd 100knocks-dp
 git pull origin main
 

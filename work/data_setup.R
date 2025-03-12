@@ -1,38 +1,10 @@
 #===============================================================================
 # データの準備
-# 0. 各CSVファイル等をダウンロードする. -> この処理は取りやめ
 # 1. 各CSVファイルを読み込む.
 # 2. データベース・コネクションを作成する.
 # 3. データフレームを DuckDB に書き込み, テーブル参照を取得する.
 #===============================================================================a
 
-# 各CSVファイル等のダウンロード ------------
-
-# GitHub API URL of 100knocks data
-# data_url = 
-#   "https://api.github.com/repos/The-Japan-DataScientist-Society/100knocks-preprocess/contents/docker/work/data"
-
-# # 各ファイルのURL
-# urls = data_url %>% 
-#   httr::GET() %>% 
-#   httr::content(as = "text") %>% 
-#   jsonlite::fromJSON() %>% 
-#   dplyr::pull(download_url)
-
-# # dataディレクトリの作成
-# data_dir = my_path_join()
-# if (!fs::dir_exists(data_dir))
-#   fs::dir_create(data_dir)
-
-# for (url in urls) {
-#   # ダウンロード先のファイルパス
-#   path = url %>% xfun::url_filename() %>% my_path_join()
-#   # ダウンロード (上書きはしない)
-#   if (!fs::file_exists(path))
-#     xfun::download_file(url, output = path)
-# }
-
-#-------------------------------------------------------------------------------
 # 各CSVファイルの読み込み ------------
 
 my_vroom = function(file, col_types, .subdir = "data") {
@@ -92,8 +64,8 @@ cat("\n")
 #-------------------------------------------------------------------------------
 # データフレームの DuckDB への書き込みとテーブル参照の取得 ------------
 
-# テーブルが既に存在する場合は上書きする
-# (エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない)
+# - テーブルが既に存在する場合は上書きする
+# - エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない
 db_receipt = con %>% my_tbl(df = df_receipt, overwrite = TRUE)
 db_customer = con %>% my_tbl(df = df_customer, overwrite = TRUE)
 db_product = con %>% my_tbl(df = df_product, overwrite = TRUE)
