@@ -3,7 +3,7 @@ data_setup.R の処理により, 下記リポジトリ (ディレクトリ) 上�
 
 https://github.com/The-Japan-DataScientist-Society/100knocks-preprocess/tree/master/docker/work/data
 
-* ダウンロードされるファイル一覧: 
+* ダウンロードされるファイル一覧
 
 - customer.csv
 - receipt.csv

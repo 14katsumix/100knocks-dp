@@ -49,8 +49,8 @@ my_vroom = function(file, col_types, .subdir = "data") {
   d
 }
 
-# receipt.sales_ymd を integer として読み込む
 # (エディターのコード補完を利用できるように assign() を用いてオブジェクトを作成しない)
+# receipt.sales_ymd を integer として読み込む
 df_receipt = "receipt.csv" %>% my_vroom(col_types = "iiciiccnn")
 # customer.birth_day を Dateクラスとして読み込む
 df_customer = "customer.csv" %>% my_vroom(col_types = "ccccDiccccc")
