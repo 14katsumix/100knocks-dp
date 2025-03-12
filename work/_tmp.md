@@ -44,3 +44,31 @@ df_receipt %>% select(store_cd, product_cd)
 
 #### 解答コードと実行結果
 
+#-------------------------------------------------------------------------------
+
+CSVファイルなどの一式をセットアッププログラムの dataディレクトリに含めます。
+
+そこに _ReadMe.txt を置き、以下の内容を記載します。
+
+---
+
+「データサイエンティスト協会スキル定義委員」の「データサイエンス100本ノック（構造化データ加工編）」の
+公式リポジトリで公開されている .csvファイル群とER図です。
+
+* リポジトリ
+
+https://github.com/The-Japan-DataScientist-Society/100knocks-preprocess
+
+* ファイル一覧
+
+- customer.csv
+- receipt.csv
+- product.csv
+- store.csv
+- category.csv
+- geocode.csv
+- 100knocks_ER.pdf
+
+---
+
+この内容をブラッシュアップして。
