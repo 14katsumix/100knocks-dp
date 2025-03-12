@@ -19,6 +19,8 @@
 
 (*) 通常、dev については VSCode GUI を利用する。
 
+cd /Users/kk/Home/_work/Analysis/100knocks-dp-dev
+
 * pushスクリプト:
 ./push.sh dev
 ./push.sh pub
