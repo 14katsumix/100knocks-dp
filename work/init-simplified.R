@@ -13,7 +13,7 @@ pacman::p_load(
   rsample, recipes, themis, # tidymodels
   vroom, tictoc, jsonlite, withr, janitor, skimr, epikit, 
   install = TRUE,  # 存在しないパッケージをインストールする
-  update = FALSE   # 古いパッケージを更新しない
+  update = FALSE   # 既存のパッケージの更新は行わない
 )
 
 # CSVファイルをデータフレームとして読み込む ------------
