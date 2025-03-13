@@ -128,7 +128,7 @@ db_sales %>%
 
 # filter() は WHERE 句を生成します
 db_sales %>% 
-  filter(month == 4L, profit >= 30) %>% 
+  filter(month == 4L & profit >= 30) %>% 
   my_show_query(F)
 
 # arrange() は ORDER BY 句を生成します
@@ -332,13 +332,13 @@ db_master %>%
   ) %>% 
   head(1) %>% 
   mutate(
-    strftime = strftime(ymd, "%Y/%m/%d"), 
+    # strftime = strftime(ymd, "%Y/%m/%d"), 
     month = lubridate::month(ymd), 
     add = ymd + lubridate::days(7L), 
     .keep = "used"
   ) %>% 
-  # show_query(cte = TRUE)
-  my_show_query(F)
+  show_query(cte = TRUE)
+  # my_show_query(F)
 
 date1 <- as.Date("2023-01-15")
 date2 <- as.Date("2023-01-10")

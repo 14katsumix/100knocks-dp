@@ -8,7 +8,7 @@ library(duckdb)
 con = DBI::dbConnect(duckdb::duckdb())
 
 # サンプルのデータフレームを作成
-data = tribble(
+df_sales = tribble(
   ~store, ~sales, ~profit,
   "S001", 15000, 3000,
   "S002", 18000, 3500,
@@ -19,7 +19,7 @@ data = tribble(
 
 # テーブルとしてデータベースに登録
 DBI::dbWriteTable(
-  con, "store_sales", data, overwrite = TRUE
+  con, "store_sales", df_sales, overwrite = TRUE
 )
 
 # store_sales テーブルを dplyr で参照

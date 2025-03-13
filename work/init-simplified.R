@@ -72,7 +72,7 @@ my_select = function(
   return(d)
 }
 
-# my_sql_render の定義
+# my_sql_render() の定義
 # dbplyr::sql_render のラッパー
 # デフォルトでは, バッククォート(`)を削除する
 my_sql_render = function(
